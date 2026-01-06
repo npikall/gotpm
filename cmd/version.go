@@ -18,6 +18,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	short bool
+)
+
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
@@ -44,7 +48,12 @@ var versionCmd = &cobra.Command{
 		if err != nil {
 			utils.EchoErrorf("%s", err)
 		}
-		fmt.Fprintf(os.Stdout, "%s: %s\n", pkg.Name, pkgVersion)
+
+		if !short {
+			fmt.Fprintf(os.Stdout, "%s: %s\n", pkg.Name, pkgVersion)
+		} else {
+			fmt.Fprintf(os.Stdout, "%s\n", pkgVersion)
+		}
 	},
 }
 
@@ -56,6 +65,7 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
 	// versionCmd.PersistentFlags().String("foo", "", "A help for foo")
+	versionCmd.Flags().BoolVarP(&short, "short", "s", false, "show only the version number")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
