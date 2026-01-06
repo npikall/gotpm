@@ -6,6 +6,7 @@ package version
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -45,7 +46,7 @@ func (v *Version) Bump(increment string) error {
 	return nil
 }
 
-func (v *Version) String() string {
+func (v Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
@@ -56,6 +57,10 @@ func NewVersion() Version {
 
 // Parse a string into a Version Struct
 func ParseVersion(s string) (Version, error) {
+	match, _ := regexp.MatchString("^[0-9]*.[0-9]*.[0-9]*$", s)
+	if match == false {
+		return Version{}, ErrInvalidVersion
+	}
 	parts := strings.Split(s, ".")
 	if len(parts) != 3 {
 		return Version{}, ErrInvalidVersion
