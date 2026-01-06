@@ -1,0 +1,78 @@
+#!/bin/sh
+# gotpm installer
+# Usage: curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
+
+__install_gh_issue_sync() {
+    set -e
+
+    VERSION="{{VERSION}}"
+    REPO="npikall/gotpm"
+    BINARY="gotpm"
+    BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+
+    need_cmd() {
+        if ! command -v "$1" > /dev/null 2>&1; then
+            echo "error: need '$1' (command not found)" >&2
+            exit 1
+        fi
+    }
+
+    need_cmd curl
+    need_cmd uname
+
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    arch=$(uname -m)
+
+    case "$os" in
+        linux)  os="linux" ;;
+        darwin) os="darwin" ;;
+        mingw*|msys*|cygwin*) os="windows" ;;
+        *) echo "error: unsupported OS: $os" >&2; exit 1 ;;
+    esac
+
+    case "$arch" in
+        x86_64|amd64) arch="amd64" ;;
+        arm64|aarch64) arch="arm64" ;;
+        *) echo "error: unsupported architecture: $arch" >&2; exit 1 ;;
+    esac
+
+    suffix="${os}-${arch}"
+    if [ "$os" = "windows" ]; then
+        suffix="${suffix}.exe"
+    fi
+
+    # Find install directory
+    install_dir=""
+    for dir in "$HOME/.local/bin" "$HOME/.bin" "$HOME/bin" "/usr/local/bin"; do
+        if [ -d "$dir" ] && [ -w "$dir" ]; then
+            install_dir="$dir"
+            break
+        fi
+    done
+
+    if [ -z "$install_dir" ]; then
+        install_dir="$HOME/.local/bin"
+        mkdir -p "$install_dir"
+    fi
+
+    url="${BASE_URL}/${BINARY}-${suffix}"
+    target="${install_dir}/${BINARY}"
+
+    echo "Downloading ${BINARY} ${VERSION} for ${os}/${arch}..."
+    curl -fsSL "$url" -o "$target"
+    chmod +x "$target"
+
+    echo "Installed to ${target}"
+
+    # Check if install_dir is in PATH
+    case ":$PATH:" in
+        *":${install_dir}:"*) ;;
+        *)
+            echo ""
+            echo "Note: ${install_dir} is not in your PATH."
+            echo "Add it with: export PATH=\"${install_dir}:\$PATH\""
+            ;;
+    esac
+}
+
+__install_gh_issue_sync
