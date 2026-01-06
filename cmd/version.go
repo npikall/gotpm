@@ -1,0 +1,70 @@
+/*
+Copyright © 2026 Nikolas Pikall <nikolas.pikall@gmail.com>
+
+SPDX-License-Identifier: MIT License
+See the LICENSE file in the repository root for full license text.
+*/
+package cmd
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/utils"
+	"github.com/npikall/gotpm/internal/version"
+	"github.com/spf13/cobra"
+)
+
+// versionCmd represents the version command
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Manage the version of a Typst Package",
+	Long:  `Use this command to change the version of the Package or to display it.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cwd, err := os.Getwd()
+		check(err)
+		tomlPath := filepath.Join(cwd, "typst.toml")
+		if _, err := os.Stat(tomlPath); errors.Is(err, os.ErrNotExist) {
+			utils.ExitError("did not find 'typst.toml'")
+		} else {
+			check(err)
+		}
+
+		tomlContent, err := os.ReadFile(tomlPath)
+		check(err)
+
+		pkg, err := manifest.TypstTOMLUnmarshal(tomlContent)
+		if err != nil {
+			utils.EchoError(err.Error())
+		}
+		pkgVersion, err := version.ParseVersion(pkg.Version)
+		if err != nil {
+			utils.EchoErrorf("%s", err)
+		}
+		fmt.Fprintf(os.Stdout, "%s: %s\n", pkg.Name, pkgVersion)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// versionCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// versionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// Panic when an unexpected error occurs
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
