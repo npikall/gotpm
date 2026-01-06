@@ -6,7 +6,7 @@ import (
 	i "github.com/npikall/gotpm/internal/system"
 )
 
-func TestGetTypstPath(t *testing.T) {
+func TestGetTypstPathRoot(t *testing.T) {
 	cases := []struct {
 		goos string
 		path string
@@ -18,7 +18,7 @@ func TestGetTypstPath(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.goos, func(t *testing.T) {
-			got, _ := i.GetTypstPath(tt.goos, "~")
+			got, _ := i.GetTypstPathRoot(tt.goos, "~")
 			if got != tt.path {
 				t.Errorf("got %q want %q", got, tt.path)
 			}
@@ -26,7 +26,7 @@ func TestGetTypstPath(t *testing.T) {
 	}
 
 	t.Run("unsupported os", func(t *testing.T) {
-		_, err := i.GetTypstPath("", "~")
+		_, err := i.GetTypstPathRoot("", "~")
 		if err == nil {
 			t.Fatal("expected an error, but got none")
 		}
@@ -38,7 +38,7 @@ func TestGetTypstPath(t *testing.T) {
 	t.Run("custom windows path", func(t *testing.T) {
 		// TODO: Test absolute and relative paths
 		t.Setenv("APPDATA", "~/path/foo")
-		got, _ := i.GetTypstPath(i.WINDOWS, "~")
+		got, _ := i.GetTypstPathRoot(i.WINDOWS, "~")
 		want := "~/path/foo"
 
 		if got != want {
@@ -47,7 +47,7 @@ func TestGetTypstPath(t *testing.T) {
 	})
 	t.Run("custom linux path", func(t *testing.T) {
 		t.Setenv("XDG_DATA_HOME", "~/path/foo")
-		got, _ := i.GetTypstPath(i.LINUX, "~")
+		got, _ := i.GetTypstPathRoot(i.LINUX, "~")
 		want := "~/path/foo"
 
 		if got != want {

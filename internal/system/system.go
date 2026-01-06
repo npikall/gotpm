@@ -16,7 +16,7 @@ var ErrOperatingSystem = errors.New("unsupported operating system")
 
 // Get the Typst Package Path from a given Operating System
 // and a given Home Directory
-func GetTypstPath(os string, home string) (string, error) {
+func GetTypstPathRoot(os string, home string) (string, error) {
 	switch os {
 	case MACOS:
 		return filepath.Join(home, "Library/Application Support"), nil
