@@ -13,7 +13,7 @@ format:  ## run the go formatter
 	go fmt ./...
 
 build:  # build the binary
-	go build $(LDFLAGS) -o gotpm ./cmd/gotpm
+	go build -o gotpm
 
 install: build  ## install
 	@INSTALL_DIR=""; \
