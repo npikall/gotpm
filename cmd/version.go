@@ -12,8 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/npikall/gotpm/internal/echo"
 	"github.com/npikall/gotpm/internal/manifest"
-	"github.com/npikall/gotpm/internal/utils"
 	"github.com/npikall/gotpm/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +32,7 @@ var versionCmd = &cobra.Command{
 		check(err)
 		tomlPath := filepath.Join(cwd, "typst.toml")
 		if _, err := os.Stat(tomlPath); errors.Is(err, os.ErrNotExist) {
-			utils.ExitError("did not find 'typst.toml'")
+			echo.ExitError("did not find 'typst.toml'")
 		} else {
 			check(err)
 		}
@@ -42,11 +42,11 @@ var versionCmd = &cobra.Command{
 
 		pkg, err := manifest.TypstTOMLUnmarshal(tomlContent)
 		if err != nil {
-			utils.EchoError(err.Error())
+			echo.EchoError(err.Error())
 		}
 		pkgVersion, err := version.ParseVersion(pkg.Version)
 		if err != nil {
-			utils.EchoErrorf("%s", err)
+			echo.EchoErrorf("%s", err)
 		}
 
 		if !short {
