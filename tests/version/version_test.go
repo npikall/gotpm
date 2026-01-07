@@ -1,8 +1,10 @@
 package version
 
 import (
-	i "github.com/npikall/gotpm/internal/version"
 	"testing"
+
+	i "github.com/npikall/gotpm/internal/version"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestVersionBump(t *testing.T) {
@@ -33,10 +35,8 @@ func TestVersionBump(t *testing.T) {
 	for _, tt := range bumpTests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.got.Bump(tt.increment)
-			assertNoErr(t, err)
-			if tt.got != tt.want {
-				t.Errorf("got %v, want %v", tt.got, tt.want)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, tt.got, "got %v, want %v", tt.got, tt.want)
 		})
 	}
 
@@ -51,11 +51,8 @@ func TestParseVersion(t *testing.T) {
 	t.Run("valid version", func(t *testing.T) {
 		got, err := i.ParseVersion("0.0.0")
 		want := i.NewVersion()
-		assertNoErr(t, err)
-		if got != want {
-			t.Errorf("got %v, want %v", got, want)
-		}
-
+		assert.NoError(t, err)
+		assert.Equal(t, want, got, "got %v, want %v", got, want)
 	})
 	invalidStringTests := []struct {
 		name    string
@@ -90,12 +87,5 @@ func assertErr(t testing.TB, got error, want string) {
 	}
 	if got.Error() != want {
 		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-func assertNoErr(t testing.TB, got error) {
-	t.Helper()
-	if got != nil {
-		t.Fatal("got an error but didn't want one")
 	}
 }

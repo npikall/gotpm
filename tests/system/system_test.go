@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	i "github.com/npikall/gotpm/internal/system"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetTypstPathRoot(t *testing.T) {
@@ -18,40 +19,30 @@ func TestGetTypstPathRoot(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.goos, func(t *testing.T) {
-			got, _ := i.GetTypstPathRoot(tt.goos, "~")
-			if got != tt.path {
-				t.Errorf("got %q want %q", got, tt.path)
-			}
+			got, _ := i.GetDataDirectory(tt.goos, "~")
+			assert.Equal(t, tt.path, got, "got %s want %s", got, tt.path)
 		})
 	}
 
 	t.Run("unsupported os", func(t *testing.T) {
-		_, err := i.GetTypstPathRoot("", "~")
-		if err == nil {
-			t.Fatal("expected an error, but got none")
-		}
-		if err != i.ErrOperatingSystem {
-			t.Fatalf("got %q want %q", err, i.ErrOperatingSystem)
-		}
+		_, err := i.GetDataDirectory("", "~")
+		assert.Error(t, err, "expected an error, but got none")
+		assert.Equal(t, err, i.ErrOperatingSystem, "got %q want %q", err, i.ErrOperatingSystem)
 	})
 
 	t.Run("custom windows path", func(t *testing.T) {
 		// TODO: Test absolute and relative paths
 		t.Setenv("APPDATA", "~/path/foo")
-		got, _ := i.GetTypstPathRoot(i.WINDOWS, "~")
+		got, _ := i.GetDataDirectory(i.WINDOWS, "~")
 		want := "~/path/foo"
 
-		if got != want {
-			t.Errorf("got %q want %q", got, want)
-		}
+		assert.Equal(t, want, got, "got %s want %s", got, want)
 	})
 	t.Run("custom linux path", func(t *testing.T) {
 		t.Setenv("XDG_DATA_HOME", "~/path/foo")
-		got, _ := i.GetTypstPathRoot(i.LINUX, "~")
+		got, _ := i.GetDataDirectory(i.LINUX, "~")
 		want := "~/path/foo"
 
-		if got != want {
-			t.Errorf("got %q want %q", got, want)
-		}
+		assert.Equal(t, want, got, "got %q want %q", got, want)
 	})
 }

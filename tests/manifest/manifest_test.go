@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	i "github.com/npikall/gotpm/internal/manifest"
+	"github.com/stretchr/testify/assert"
 )
 
 var SpyError = errors.New("spy error")
@@ -23,9 +24,9 @@ entrypoint = "bar"
 	t.Run("successful", func(t *testing.T) {
 		want := i.PackageInfo{Name: "foo", Version: "0.0.0", Entrypoint: "bar"}
 		got, err := i.TypstTOMLUnmarshal(example)
-		assertNoErr(t, err)
+		assert.NoError(t, err)
 
-		assertEqual(t, got, want)
+		assert.Equal(t, want, got)
 	})
 	t.Run("not successful", func(t *testing.T) {
 		_, err := i.ConfigureableUnmarshal(example, SpyUnmarshal)
@@ -57,7 +58,7 @@ example = "str"
 		buf := new(bytes.Buffer)
 		pkg := i.PackageInfo{Name: "foo", Version: "changed", Entrypoint: "bar"}
 		err := i.WriteTOML(buf, pkg, example)
-		assertNoErr(t, err)
+		assert.NoError(t, err)
 
 		if buf.String() != string(want) {
 			t.Errorf("got %q want %q", buf.String(), string(want))
@@ -92,21 +93,9 @@ func TestValidation(t *testing.T) {
 	}
 }
 
-func assertNoErr(t *testing.T, e error) {
-	t.Helper()
-	if e != nil {
-		t.Errorf("should not error")
-	}
-}
 func assertErr(t *testing.T, got, want error) {
 	t.Helper()
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
-	}
-}
-
-func assertEqual(t *testing.T, got, want any) {
-	if got != want {
-		t.Errorf("got %q want %q", got, want)
 	}
 }

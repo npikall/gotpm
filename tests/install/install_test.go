@@ -3,10 +3,10 @@ package install_test
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	i "github.com/npikall/gotpm/internal/install"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCopyFile(t *testing.T) {
@@ -24,7 +24,5 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	got, _ := os.ReadFile(dst)
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %s want %s", string(got), string(want))
-	}
+	assert.Equal(t, want, got, "got %s want %s", string(got), string(want))
 }
