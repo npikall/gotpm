@@ -7,13 +7,11 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/npikall/gotpm/internal/echo"
-	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/system"
 	"github.com/npikall/gotpm/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -30,20 +28,7 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cwd, err := os.Getwd()
 		check(err)
-		tomlPath := filepath.Join(cwd, "typst.toml")
-		if _, err := os.Stat(tomlPath); errors.Is(err, os.ErrNotExist) {
-			echo.ExitError("did not find 'typst.toml'")
-		} else {
-			check(err)
-		}
-
-		tomlContent, err := os.ReadFile(tomlPath)
-		check(err)
-
-		pkg, err := manifest.TypstTOMLUnmarshal(tomlContent)
-		if err != nil {
-			echo.EchoError(err.Error())
-		}
+		pkg, err := system.OpenTypstTOML(cwd)
 		pkgVersion, err := version.ParseVersion(pkg.Version)
 		if err != nil {
 			echo.EchoErrorf("%s", err)
