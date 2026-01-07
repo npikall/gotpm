@@ -9,6 +9,7 @@ package cmd
 import (
 	"os"
 
+	cc "github.com/ivanpirog/coloredcobra"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,14 @@ that installs Typst Packages onto your machine.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	cc.Init(&cc.Config{
+		RootCmd:  rootCmd,
+		Headings: cc.Green + cc.Bold,
+		Commands: cc.Cyan + cc.Bold,
+		Example:  cc.Italic,
+		ExecName: cc.Bold,
+		Flags:    cc.Bold,
+	})
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
