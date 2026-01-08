@@ -7,13 +7,14 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/npikall/gotpm/internal/echo"
 	"github.com/npikall/gotpm/internal/system"
+	"github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
 
@@ -37,15 +38,29 @@ var installCmd = &cobra.Command{
 		if err != nil {
 			echo.ExitErrorf("%s", err)
 		}
+
+		typstIgnorePath := filepath.Join(cwd, ".typstignore")
+		typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
+		if err != nil {
+			echo.ExitErrorf("%s", err)
+		}
 		echo.EchoInfof("Installing to '%s'", dst)
 
-		// TODO: get all files in cwd except those in ignore file
 		filepath.WalkDir(cwd, func(path string, d fs.DirEntry, err error) error {
-			fmt.Println(path)
-			return err
+			if d.IsDir() {
+				return err
+			}
+			switch {
+			case strings.Contains(path, ".git"):
+				return err
+			case !typstIgnore.MatchesPath(path):
+				echo.EchoInfof("found: %s", path)
+				// TODO: add copy here
+				return err
+			default:
+				return err
+			}
 		})
-
-		// TODO: copy all files to dst
 	},
 }
 
