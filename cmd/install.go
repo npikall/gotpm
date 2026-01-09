@@ -10,9 +10,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
-	"github.com/npikall/gotpm/internal/echo"
 	"github.com/npikall/gotpm/internal/system"
 	"github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
@@ -23,28 +23,21 @@ var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install a Typst Package locally.",
 	Run: func(cmd *cobra.Command, args []string) {
-		goos, homeDir, err := system.GetSystemInfo()
-		check(err)
-
-		cwd, err := os.Getwd()
-		check(err)
-		pkg, err := system.OpenTypstTOML(cwd)
-		if err != nil {
-			echo.ExitErrorf("%s", err)
-		}
+		goos := runtime.GOOS
+		homeDir := Must(os.UserHomeDir())
+		cwd := Must(os.Getwd())
 
 		// TODO: make namespace changeable
-		dst, err := system.GetStoragePath(goos, homeDir, "preview", pkg.Name, pkg.Version)
-		if err != nil {
-			echo.ExitErrorf("%s", err)
-		}
+		pkg := Must(system.OpenTypstTOML(cwd))
+		dst := Must(system.GetStoragePath(goos, homeDir, "preview", pkg.Name, pkg.Version))
 
 		typstIgnorePath := filepath.Join(cwd, ".typstignore")
 		typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
 		if err != nil {
-			echo.ExitErrorf("%s", err)
+			typstIgnore = &ignore.GitIgnore{}
 		}
-		echo.EchoInfof("Installing to '%s'", dst)
+
+		LogInfof("Installing to '%s'", dst)
 
 		filepath.WalkDir(cwd, func(path string, d fs.DirEntry, err error) error {
 			if d.IsDir() {
@@ -54,7 +47,7 @@ var installCmd = &cobra.Command{
 			case strings.Contains(path, ".git"):
 				return err
 			case !typstIgnore.MatchesPath(path):
-				echo.EchoInfof("found: %s", path)
+				LogInfof("found: %s", path)
 				// TODO: add copy here
 				return err
 			default:
@@ -66,14 +59,4 @@ var installCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(installCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
