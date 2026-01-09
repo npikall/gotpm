@@ -9,9 +9,9 @@ import (
 
 // Common Colors
 var (
-	Cyan   = lipgloss.Color("14")
-	Yellow = lipgloss.Color("11")
-	Red    = lipgloss.Color("9")
+	Cyan   = lipgloss.Color("81")
+	Yellow = lipgloss.Color("3")
+	Red    = lipgloss.Color("124")
 )
 
 // Common Styles
