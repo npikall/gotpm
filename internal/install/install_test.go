@@ -26,3 +26,14 @@ func TestCopyFile(t *testing.T) {
 	got, _ := os.ReadFile(dst)
 	assert.Equal(t, want, got, "got %s want %s", string(got), string(want))
 }
+
+func TestResolveTargetPath(t *testing.T) {
+	cwd := "src/dir/"
+	src := "src/dir/main.go"
+	dst := "dst/dir/"
+	want := "dst/dir/main.go"
+
+	got, err := i.ResolveTargetPath(cwd, src, dst)
+	assert.NoError(t, err, "expected no error, but got one")
+	assert.Equal(t, want, got, "got %s want %s", got, want)
+}

@@ -8,11 +8,13 @@ package cmd
 
 import (
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
+	"sync"
 
+	"github.com/npikall/gotpm/internal/install"
 	"github.com/npikall/gotpm/internal/system"
 	"github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
@@ -22,41 +24,60 @@ import (
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install a Typst Package locally.",
-	Run: func(cmd *cobra.Command, args []string) {
-		goos := runtime.GOOS
-		homeDir := Must(os.UserHomeDir())
-		cwd := Must(os.Getwd())
-
-		// TODO: make namespace changeable
-		pkg := Must(system.OpenTypstTOML(cwd))
-		dst := Must(system.GetStoragePath(goos, homeDir, "preview", pkg.Name, pkg.Version))
-
-		typstIgnorePath := filepath.Join(cwd, ".typstignore")
-		typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
-		if err != nil {
-			typstIgnore = &ignore.GitIgnore{}
-		}
-
-		LogInfof("Installing to '%s'", dst)
-
-		filepath.WalkDir(cwd, func(path string, d fs.DirEntry, err error) error {
-			if d.IsDir() {
-				return err
-			}
-			switch {
-			case strings.Contains(path, ".git"):
-				return err
-			case !typstIgnore.MatchesPath(path):
-				LogInfof("found: %s", path)
-				// TODO: add copy here
-				return err
-			default:
-				return err
-			}
-		})
-	},
+	Run:   installRunner,
 }
 
 func init() {
 	rootCmd.AddCommand(installCmd)
+	installCmd.Flags().StringP("namespace", "n", "local", "The namespace in which the package should be available.")
+}
+
+func installRunner(cmd *cobra.Command, args []string) {
+	goos := runtime.GOOS
+	homeDir := Must(os.UserHomeDir())
+	cwd := Must(os.Getwd())
+
+	// TODO: make namespace changeable
+	pkg := Must(system.OpenTypstTOML(cwd))
+	namespace := Must(cmd.Flags().GetString("namespace"))
+	dst := Must(system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version))
+
+	typstIgnorePath := filepath.Join(cwd, ".typstignore")
+	typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
+	if err != nil {
+		typstIgnore = &ignore.GitIgnore{}
+		LogWarnf("No '.typstignore' file. Copy all in '%s'", cwd)
+	}
+
+	LogInfof("Installing to '%s'", dst)
+
+	var wg sync.WaitGroup
+
+	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		// Ignore Directories and the .git folder
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		if typstIgnore.MatchesPath(path) {
+			return nil
+		}
+
+		targetPath := Must(install.ResolveTargetPath(cwd, path, dst))
+		worker := install.CopyWorker{Src: path, Dst: targetPath}
+		wg.Go(worker.Copy)
+		return nil
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	wg.Wait()
+	LogInfof("Package '%s' successfully installed", pkg.Name)
 }
