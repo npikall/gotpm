@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -70,12 +69,24 @@ func installRunner(cmd *cobra.Command, args []string) {
 		}
 
 		targetPath := Must(install.ResolveTargetPath(cwd, path, dst))
-		worker := install.CopyWorker{Src: path, Dst: targetPath}
-		wg.Go(worker.Copy)
+
+		wg.Go(func() {
+			err := os.MkdirAll(filepath.Dir(targetPath), 0750)
+			if err != nil {
+				LogErrf("%s", err)
+				return
+			}
+			err = install.CopyFile(path, targetPath)
+			if err != nil {
+				LogErrf("%s", err)
+				return
+			}
+		})
 		return nil
 	})
+
 	if err != nil {
-		log.Fatal(err)
+		LogFatalf("%s", err)
 	}
 	wg.Wait()
 	LogInfof("Package '%s' successfully installed", pkg.Name)
