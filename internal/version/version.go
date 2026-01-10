@@ -25,10 +25,11 @@ const (
 	PATCH string = "patch"
 )
 
-var ErrInvalidIncrement = errors.New("invalid version incrementation")
+var ErrInvalidIncrement = errors.New("invalid version incrementation, must be one of [major|minor|patch]")
 var ErrInvalidVersion = errors.New("not a valid semantic version")
 
 // Bump the Version by the given increment (major, minor, patch)
+// Returns an ErrInvalidIncrement if the wrong increment is used.
 func (v *Version) Bump(increment string) error {
 	switch increment {
 	case MAJOR:
@@ -57,8 +58,8 @@ func NewVersion() Version {
 
 // Parse a string into a Version Struct
 func ParseVersion(s string) (Version, error) {
-	match, _ := regexp.MatchString("^[0-9]*.[0-9]*.[0-9]*$", s)
-	if match == false {
+	isSemVer := IsSemVer(s)
+	if !isSemVer {
 		return Version{}, ErrInvalidVersion
 	}
 	parts := strings.Split(s, ".")
@@ -81,4 +82,12 @@ func ParseVersion(s string) (Version, error) {
 		}
 	}
 	return version, nil
+}
+
+// Check if a given string is a valid semantic version (e.g. 0.1.0)
+//   - No Letters, just positive Numbers
+//   - 3 Components (Numbers) separated with '.'
+func IsSemVer(s string) bool {
+	rgxPattern := regexp.MustCompile("^[0-9]*.[0-9]*.[0-9]*$")
+	return rgxPattern.MatchString(s)
 }
