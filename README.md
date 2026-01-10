@@ -42,13 +42,13 @@ Use "gotpm [command] --help" for more information about a command.
 
 ## Quick Install
 
-```console
+```bash
 curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
 ```
 
 ## Install with Go
 
-```console
+```bash
 go install github.com/npikall/gotpm@latest
 ```
 
@@ -58,7 +58,7 @@ Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/rele
 
 ## Build from Source
 
-```console
+```bash
 git clone https://github.com/npikall/gotpm.git
 cd gotpm
 make install # or read the Makefile to do build and install manually
