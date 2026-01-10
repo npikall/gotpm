@@ -1,6 +1,6 @@
 # GoTPM
 
-[![Go Test](https://github.com/npikall/gotpm/actions/workflows/ci.yml/badge.svg)](https://github.com/npikall/gotpm/actions/workflows/test.yml)
+[![Go Test](https://github.com/npikall/gotpm/actions/workflows/test.yml/badge.svg)](https://github.com/npikall/gotpm/actions/workflows/test.yml)
 
 A minimal Typst Package Manager written in Go.
 
