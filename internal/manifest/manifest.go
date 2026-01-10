@@ -72,8 +72,7 @@ func ConfigurableWriteTOML(w io.Writer, p PackageInfo, data []byte, unmarshal Un
 
 	encoder := toml.NewEncoder(w)
 	encoder.Indent = ""
-	err = encoder.Encode(m)
-	return err
+	return encoder.Encode(m)
 }
 
 // Write the Packageinfo (name, version and entrypoint) to io.Writer
