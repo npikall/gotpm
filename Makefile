@@ -12,10 +12,10 @@ test:  ## run the test suite
 format:  ## run the go formatter
 	go fmt ./...
 
-build:  # build the binary
+build:  ## build the binary (optimized)
 	go build -o gotpm
 
-install: build  ## install
+install: build  ## install to either $HOME/.local/bin or $HOME/.bin or $HOME/bin
 	@INSTALL_DIR=""; \
 	if command -v gotpm >/dev/null 2>&1; then \
 		INSTALL_DIR=$$(dirname $$(which gotpm)); \
