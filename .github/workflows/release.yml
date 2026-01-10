@@ -83,7 +83,7 @@ jobs:
           chmod +x artifacts/gotpm-linux-* artifacts/gotpm-darwin-*
           gh release create ${{ github.ref_name }} artifacts/* \
             --repo ${{ github.repository }} \
-            --title "${{ github.ref_name }}" \
+            --title "GoTPM - ${{ github.ref_name }}" \
             --notes-file release-notes.md \
             --fail-on-no-commits \
             --draft
