@@ -37,7 +37,6 @@ func installRunner(cmd *cobra.Command, args []string) {
 	homeDir := Must(os.UserHomeDir())
 	cwd := Must(os.Getwd())
 
-	// TODO: make namespace changeable
 	pkg := Must(system.OpenTypstTOML(cwd))
 	namespace := Must(cmd.Flags().GetString("namespace"))
 	dst := Must(system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version))

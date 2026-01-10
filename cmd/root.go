@@ -30,7 +30,7 @@ func Execute() {
 		Commands: cc.Cyan + cc.Bold,
 		Example:  cc.Italic,
 		ExecName: cc.Bold,
-		Flags:    cc.Bold,
+		Flags:    cc.Cyan + cc.Bold,
 	})
 	err := rootCmd.Execute()
 	if err != nil {
