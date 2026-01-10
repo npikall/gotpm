@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	i "github.com/npikall/gotpm/internal/manifest"
 )
@@ -44,15 +43,6 @@ func getLinuxPath(home string) string {
 		return filepath.Join(home, ".local/share")
 	}
 	return env
-}
-
-// Get the Operating System and the $HOME Dir
-//
-// returns GOOS, Home, error
-func GetSystemInfo() (string, string, error) {
-	goos := runtime.GOOS
-	home, err := os.UserHomeDir()
-	return goos, home, err
 }
 
 // Get the final path to a package in the data directory given a namespace and a name.
