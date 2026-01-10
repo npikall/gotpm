@@ -7,6 +7,7 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,47 +31,55 @@ const bumpDefault string = "none"
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	versionCmd.Flags().BoolP("short", "s", false, "show only the version number")
-	versionCmd.Flags().StringP("bump", "b", bumpDefault, "Bump the version. Can be on of [major, minor, patch]")
+	versionCmd.Flags().StringP("bump", "b", bumpDefault, "Bump the version. Can be on of [major, minor, patch] or a valid SemVer String (e.g.: 0.1.2)")
 }
 
 func versionRunner(cmd *cobra.Command, args []string) {
 	cwd := Must(os.Getwd())
 	pkg := Must(system.OpenTypstTOML(cwd))
 	oldPkgVersion := pkg.Version
-	pkgVersion := Must(version.ParseVersion(oldPkgVersion))
+	newPkgVersion := Must(version.ParseVersion(oldPkgVersion))
 
+	// Handle Runtime Flags
 	short := Must(cmd.Flags().GetBool("short"))
 	bump := Must(cmd.Flags().GetString("bump"))
+
 	isBumping := bump != bumpDefault
+	isFixedVersion := version.IsSemVer(bump)
 
-	if !short && !isBumping {
-		fmt.Printf("%s %s\n", pkg.Name, InfoStyle.Render(pkgVersion.String()))
+	switch {
+	case !short && !isBumping:
+		fmt.Printf("%s %s\n", pkg.Name, InfoStyle.Render(newPkgVersion.String()))
 		os.Exit(0)
-	}
-	if short && !isBumping {
-		fmt.Printf("%s\n", InfoStyle.Render(pkgVersion.String()))
+	case short && !isBumping:
+		fmt.Printf("%s\n", InfoStyle.Render(newPkgVersion.String()))
 		os.Exit(0)
-	}
-
-	if isBumping {
-		err := pkgVersion.Bump(bump)
+	case isFixedVersion:
+		pkg.Version = bump
+	case isBumping && !isFixedVersion:
+		err := newPkgVersion.Bump(bump)
 		if err != nil {
 			LogFatalf("%s", err)
 		}
+		pkg.Version = newPkgVersion.String()
 	}
 
-	pkg.Version = pkgVersion.String()
-
+	// Read the existing TOML file
 	typstTOML := filepath.Join(cwd, "typst.toml")
 	typstTOMLContent := Must(os.ReadFile(typstTOML))
 
-	typstTOMLFile := Must(os.Open(typstTOML))
-	defer typstTOMLFile.Close()
-
-	err := manifest.WriteTOML(typstTOMLFile, pkg, typstTOMLContent)
+	// Write updated TOML to a buffer first
+	var buf bytes.Buffer
+	err := manifest.WriteTOML(&buf, pkg, typstTOMLContent)
 	if err != nil {
-		// LogFatalf("%s", err)
-		panic(err)
+		LogFatalf("failed to update TOML: %s", err)
 	}
+
+	// Write the buffer to the file
+	err = os.WriteFile(typstTOML, buf.Bytes(), 0644)
+	if err != nil {
+		LogFatalf("failed to write file: %s", err)
+	}
+
 	LogInfof("updated version %s -> %s", oldPkgVersion, pkg.Version)
 }
