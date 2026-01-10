@@ -1,4 +1,4 @@
-.PHONY: build test format install help
+.PHONY: build test format install help changelog
 
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo dev)
 LDFLAGS := -ldflags="-s -w -X main.version=$(VERSION)"
@@ -14,6 +14,9 @@ format:  ## run the go formatter
 
 build:  ## build the binary (optimized)
 	go build -o gotpm
+
+changelog:  ## update the changelog
+	uvx git-changelog -Tio CHANGELOG.md -B="auto" -c angular -n semver
 
 install: build  ## install to either $HOME/.local/bin or $HOME/.bin or $HOME/bin
 	@INSTALL_DIR=""; \

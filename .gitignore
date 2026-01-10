@@ -2,3 +2,4 @@
 dist/
 typst.toml
 gotpm
+.typstignore
