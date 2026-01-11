@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 Nikolas Pikall nikolas.pikall@gmail.com
-*/
 package version
 
 import (
