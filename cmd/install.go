@@ -29,6 +29,7 @@ var installCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().StringP("namespace", "n", "local", "The namespace in which the package should be available.")
+	installCmd.Flags().BoolP("editable", "e", false, "If the installed package should be editable.")
 }
 
 func installRunner(cmd *cobra.Command, args []string) {
@@ -38,6 +39,7 @@ func installRunner(cmd *cobra.Command, args []string) {
 
 	pkg := Must(system.OpenTypstTOML(cwd))
 	namespace := Must(cmd.Flags().GetString("namespace"))
+	isEditable := Must(cmd.Flags().GetBool("editable"))
 	dst := Must(system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version))
 
 	typstIgnorePath := filepath.Join(cwd, ".typstignore")
@@ -71,16 +73,7 @@ func installRunner(cmd *cobra.Command, args []string) {
 		targetPath := Must(install.ResolveTargetPath(cwd, path, dst))
 
 		wg.Go(func() {
-			err := os.MkdirAll(filepath.Dir(targetPath), 0750)
-			if err != nil {
-				LogErrf("%s", err)
-				return
-			}
-			err = install.CopyFile(path, targetPath)
-			if err != nil {
-				LogErrf("%s", err)
-				return
-			}
+			processFile(path, targetPath, isEditable)
 		})
 		return nil
 	})
@@ -90,4 +83,22 @@ func installRunner(cmd *cobra.Command, args []string) {
 	}
 	wg.Wait()
 	LogInfof("Package '%s' successfully installed", pkg.Name)
+}
+
+func processFile(srcPath, dstPath string, isEditable bool) {
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0750); err != nil {
+		LogErrf("%s", err)
+		return
+	}
+	var err error
+	switch isEditable {
+	case true:
+		err = os.Symlink(srcPath, dstPath)
+	case false:
+		err = install.CopyFile(srcPath, dstPath)
+	}
+	if err != nil {
+		LogErrf("%s", err)
+		return
+	}
 }
