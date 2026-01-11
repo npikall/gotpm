@@ -54,7 +54,7 @@ go install github.com/npikall/gotpm@latest
 
 ## Download Binary
 
-Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it in you `$PATH`
+Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it in your `$PATH`
 
 ## Build from Source
 
