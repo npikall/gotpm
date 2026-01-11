@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 
@@ -44,10 +43,9 @@ func uninstallRunner(cmd *cobra.Command, args []string) {
 	}
 	dst := Must(system.GetStoragePath(goos, homeDir, namespace, pkg.Name, version))
 
-	err := os.RemoveAll(dst)
-	if err != nil {
-		log.Fatalln(err)
+	if err := os.RemoveAll(dst); err != nil {
+		LogFatalf("%s", err)
 	}
-	identifier := HighStyle.Render(fmt.Sprintf("%s:%s", pkg.Name, pkg.Version))
-	LogInfof("Uninstalled %s from %s", identifier, namespace)
+	identifier := HighStyle.Render(fmt.Sprintf("@%s/%s:%s", namespace, pkg.Name, pkg.Version))
+	LogInfof("Uninstalled %s", identifier)
 }
