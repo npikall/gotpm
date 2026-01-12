@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.2.0](https://github.com/npikall/gotpm/releases/tag/v0.2.0) - 2026-01-12
+
+<small>[Compare with v0.1.0](https://github.com/npikall/gotpm/compare/v0.1.0...v0.2.0)</small>
+
+### Features
+
+- add self command ([f0a4f06](https://github.com/npikall/gotpm/commit/f0a4f069bb4360faa419156983162d628cf83d32) by Nikolas Pikall).
+- add editable flag ([8d26502](https://github.com/npikall/gotpm/commit/8d26502e63f7aeeffc9677a5fd8d1404c1db3463) by Nikolas Pikall).
+- add locate command ([3dcd794](https://github.com/npikall/gotpm/commit/3dcd794521a8b21375e4b986fe9e483f5522a60d) by Nikolas Pikall).
+
+### Bug Fixes
+
+- styling for printing to stdout ([36db6e7](https://github.com/npikall/gotpm/commit/36db6e78ab39d9eeeb74398026191d940df7f759) by Nikolas Pikall).
+
+### Reverts
+
+- remove goreleaser in favor of more manual release process ([ecdb393](https://github.com/npikall/gotpm/commit/ecdb3937dcc7a2d4980fbff958b80ecba55a705f) by Nikolas Pikall).
+
 
 ## [v0.1.0](https://github.com/npikall/gotpm/releases/tag/v0.1.0) - 2026-01-10
 
