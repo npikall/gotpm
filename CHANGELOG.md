@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.2.1](https://github.com/npikall/gotpm/releases/tag/v0.2.1) - 2026-01-14
+
+<small>[Compare with v0.2.0](https://github.com/npikall/gotpm/compare/v0.2.0...v0.2.1)</small>
+
+### Features
+
+- add ascii art to help command ([2013b6f](https://github.com/npikall/gotpm/commit/2013b6f21271b3695256463e06fcd4c4f9b208eb) by npikall).
+
+### Code Refactoring
+
+- use styling from charmbracelet/fang ([9257fa7](https://github.com/npikall/gotpm/commit/9257fa7a27610b84fb64ad94d18412019c3ea3bf) by npikall).
+
 ## [v0.2.0](https://github.com/npikall/gotpm/releases/tag/v0.2.0) - 2026-01-12
 
 <small>[Compare with v0.1.0](https://github.com/npikall/gotpm/compare/v0.1.0...v0.2.0)</small>
