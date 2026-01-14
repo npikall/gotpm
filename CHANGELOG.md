@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.3.0](https://github.com/npikall/gotpm/releases/tag/v0.3.0) - 2026-01-14
+
+<small>[Compare with v0.2.1](https://github.com/npikall/gotpm/compare/v0.2.1...v0.3.0)</small>
+
+### Features
+
+- add bump command ([1033463](https://github.com/npikall/gotpm/commit/10334637ff6dc1f8d12340ebc66e5e66af00742b) by npikall).
+- add path argument to install cmd ([325a6ba](https://github.com/npikall/gotpm/commit/325a6badd1d88191255616d522592ed2546d92e0) by npikall).
+- add more complex logic to uninstall ([e8cad74](https://github.com/npikall/gotpm/commit/e8cad747890b94a4520f18219573db30295c4954) by npikall).
+
+### Reverts
+
+- remove self command ([30162d8](https://github.com/npikall/gotpm/commit/30162d80d03271a0a313ad13458a694a471b9529) by npikall).
+
+### Code Refactoring
+
+- handle errors with cobra or charmbracelet/fang ([6ef9752](https://github.com/npikall/gotpm/commit/6ef97526012f49097f271b2271e9c9a7ede958a8) by npikall).
+- rename version module to bump ([5c3664d](https://github.com/npikall/gotpm/commit/5c3664d8fafd6d44afcc5246e208a307ae49bafa) by npikall).
+
 ## [v0.2.1](https://github.com/npikall/gotpm/releases/tag/v0.2.1) - 2026-01-14
 
 <small>[Compare with v0.2.0](https://github.com/npikall/gotpm/compare/v0.2.0...v0.2.1)</small>
