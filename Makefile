@@ -22,8 +22,11 @@ format:  ## run the go formatter
 build:  ## build the binary (optimized)
 	go build $(LDFLAGS) -o gotpm
 
-changelog:  ## update the changelog
-	git-changelog -Tio CHANGELOG.md -B="auto" -c angular -n semver
+changelog:  ## update the changelog (github.com/pawamoy/git-changelog)
+	git-changelog --git-trailers -io CHANGELOG.md --bump="$(shell git-changelog --bumped-version)" --convention angular --versioning semver -Z
+
+changelog-auto:  ## update the changelog (might write different version the 'make changelog')
+	git-changelog --git-trailers -io CHANGELOG.md --bump="auto" --convention angular --versioning semver -Z
 
 install: build  ## install to either $HOME/.local/bin or $HOME/.bin or $HOME/bin
 	@INSTALL_DIR=""; \
