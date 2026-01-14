@@ -21,9 +21,19 @@ import (
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install [path] ",
 	Short: "Install a Typst Package locally.",
-	Run:   installRunner,
+	Long: `All files that are not specifically excluded get copied to
+$DATA_DIR/typst/packages, where the $DATA_DIR is dependend on
+the machines operating system.
+`,
+	Example: `gotpm install
+gotpm install --editable
+gotpm install --namespace preview
+gotpm install path/to/package/dir
+gotpm install path/to/package/dir -n preview
+`,
+	Run: installRunner,
 }
 
 func init() {
@@ -35,7 +45,7 @@ func init() {
 func installRunner(cmd *cobra.Command, args []string) {
 	goos := runtime.GOOS
 	homeDir := Must(os.UserHomeDir())
-	cwd := Must(os.Getwd())
+	cwd := getCurrentWorkingDir(args)
 
 	pkg := Must(system.OpenTypstTOML(cwd))
 	namespace := Must(cmd.Flags().GetString("namespace"))
@@ -44,6 +54,7 @@ func installRunner(cmd *cobra.Command, args []string) {
 
 	typstIgnorePath := filepath.Join(cwd, ".typstignore")
 	typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
+	// TODO: add exclude patterns from 'typst.toml'
 	if err != nil {
 		typstIgnore = &ignore.GitIgnore{}
 		LogWarnf("No '.typstignore' file. Copy all in '%s'", cwd)
@@ -52,7 +63,6 @@ func installRunner(cmd *cobra.Command, args []string) {
 	LogInfof("Installing to '%s'", dst)
 
 	var wg sync.WaitGroup
-
 	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -101,4 +111,12 @@ func processFile(srcPath, dstPath string, isEditable bool) {
 		LogErrf("%s", err)
 		return
 	}
+}
+
+func getCurrentWorkingDir(args []string) string {
+	if len(args) > 0 {
+		cwd := Must(filepath.Abs(args[0]))
+		return cwd
+	}
+	return Must(os.Getwd())
 }
