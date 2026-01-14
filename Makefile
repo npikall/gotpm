@@ -1,14 +1,11 @@
 .PHONY: build test format install help changelog changelog-auto
 
-GIT_TAG    := $(shell git describe --tags --abbrev=0 2>/dev/null)
-GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
+GIT_TAG    := $(shell git describe --tags --dirty --abbrev=0 2>/dev/null)
 
 VERSION := $(if $(GIT_TAG),$(GIT_TAG),dev)
-COMMIT  := $(if $(GIT_COMMIT),$(GIT_COMMIT),unknown)
 
 LDFLAGS := -ldflags="-s -w \
-	-X github.com/npikall/gotpm/cmd.selfVersion=$(VERSION) \
-	-X github.com/npikall/gotpm/cmd.selfCommit=$(COMMIT)"
+	-X github.com/npikall/gotpm/cmd.GoTPMVersion=$(VERSION)"
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
