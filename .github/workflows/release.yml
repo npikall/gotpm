@@ -1,89 +1,44 @@
-name: Release
+name: goreleaser
 
 on:
   push:
+    # run only against tags
     tags:
       - "v*"
 
 permissions:
   contents: write
+  # packages: write
+  # issues: write
+  # id-token: write
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            suffix: linux-amd64
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            suffix: linux-arm64
-          - os: ubuntu-latest
-            goos: windows
-            goarch: amd64
-            suffix: windows-amd64.exe
-          - os: ubuntu-latest
-            goos: windows
-            goarch: arm64
-            suffix: windows-arm64.exe
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-            suffix: darwin-arm64
-
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Build
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-          VERSION: ${{ github.ref_name }}
-        run: make build && mv gotpm gotpm-${{ matrix.suffix }}
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gotpm-${{ matrix.suffix }}
-          path: gotpm-${{ matrix.suffix }}
-
-  release:
-    needs: build
+  goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Generate install.sh
-        run: sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > artifacts/install.sh
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
       - name: Setup Python
         uses: actions/setup-python@v4
+
       - name: Install git-changelog
         run: pip install git-changelog
+
       - name: Prepare release notes
         run: git-changelog --release-notes > release-notes.md
 
-      - name: Create release
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --release-notes release-notes.md
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          chmod +x artifacts/gotpm-linux-* artifacts/gotpm-darwin-*
-          gh release create ${{ github.ref_name }} artifacts/* \
-            --repo ${{ github.repository }} \
-            --title "GoTPM - ${{ github.ref_name }}" \
-            --notes-file release-notes.md \
-            --fail-on-no-commits \
-            --draft
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
