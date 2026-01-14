@@ -56,6 +56,16 @@ func GetStoragePath(goos, home, namespace, name, version string) (string, error)
 	return path, nil
 }
 
+// Get the path to $DATA_DIR/typst/packages
+func GetTypstPath(goos, home string) (string, error) {
+	dataDir, err := GetDataDirectory(goos, home)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(dataDir, "typst", "packages")
+	return path, nil
+}
+
 // Try to open the Typst TOML file. Returns an error if not existing.
 func OpenTypstTOML(directory string) (i.PackageInfo, error) {
 	tomlPath := filepath.Join(directory, "typst.toml")
