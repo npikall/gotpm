@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"os"
-	"path/filepath"
 	"runtime"
 
 	"github.com/npikall/gotpm/internal/system"
@@ -20,12 +19,15 @@ var locateCmd = &cobra.Command{
 	Use:     "locate",
 	Short:   "Locate the root directory, where the Typst Packages are stored.",
 	Example: `gotpm locate`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		goos := runtime.GOOS
 		homeDir := Must(os.UserHomeDir())
-		dataDir := Must(system.GetDataDirectory(goos, homeDir))
-		path := filepath.Join(dataDir, "typst", "packages")
+		path, err := system.GetTypstPath(goos, homeDir)
+		if err != nil {
+			return err
+		}
 		LogInfof("Packages located at: '%s'", path)
+		return nil
 	},
 }
 

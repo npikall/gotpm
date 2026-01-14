@@ -33,7 +33,7 @@ gotpm install --namespace preview
 gotpm install path/to/package/dir
 gotpm install path/to/package/dir -n preview
 `,
-	Run: installRunner,
+	RunE: installRunner,
 }
 
 func init() {
@@ -42,15 +42,22 @@ func init() {
 	installCmd.Flags().BoolP("editable", "e", false, "If the installed package should be editable.")
 }
 
-func installRunner(cmd *cobra.Command, args []string) {
+func installRunner(cmd *cobra.Command, args []string) error {
 	goos := runtime.GOOS
 	homeDir := Must(os.UserHomeDir())
 	cwd := getCurrentWorkingDir(args)
 
-	pkg := Must(system.OpenTypstTOML(cwd))
+	pkg, err := system.OpenTypstTOML(cwd)
+	if err != nil {
+		return err
+	}
+
 	namespace := Must(cmd.Flags().GetString("namespace"))
 	isEditable := Must(cmd.Flags().GetBool("editable"))
-	dst := Must(system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version))
+	dst, err := system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version)
+	if err != nil {
+		return err
+	}
 
 	typstIgnorePath := filepath.Join(cwd, ".typstignore")
 	typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
@@ -89,10 +96,12 @@ func installRunner(cmd *cobra.Command, args []string) {
 	})
 
 	if err != nil {
-		LogFatalf("%s", err)
+		return err
 	}
+
 	wg.Wait()
 	LogInfof("Package '%s' successfully installed", pkg.Name)
+	return nil
 }
 
 func processFile(srcPath, dstPath string, isEditable bool) {

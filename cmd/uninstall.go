@@ -27,7 +27,7 @@ gotpm uninstall foo
 gotpm uninstall foo --namespace preview
 gotpm uninstall foo --namespace preview --dry-run
 `,
-	Run: uninstallRunner,
+	RunE: uninstallRunner,
 }
 
 func init() {
@@ -38,7 +38,7 @@ func init() {
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
 }
 
-func uninstallRunner(cmd *cobra.Command, args []string) {
+func uninstallRunner(cmd *cobra.Command, args []string) error {
 	// Get System Environment
 	goos := runtime.GOOS
 	homeDir := Must(os.UserHomeDir())
@@ -74,29 +74,34 @@ func uninstallRunner(cmd *cobra.Command, args []string) {
 		version = tomlVersion
 	}
 
-	dataDir := Must(system.GetTypstPath(goos, homeDir))
+	dataDir, err := system.GetTypstPath(goos, homeDir)
 	target, err := uninstall.ResolveUninstallTarget(dataDir, all, namespace, pkgName, version)
 	if err != nil {
-		LogFatalf("%s", err)
+		return err
 	}
 	if isDryRun {
 		LogWarnf("perform dry-run")
 	}
 
-	if !Must(exists(target)) {
-		LogFatalf("path does not exist '%s'", target)
+	isExisting, err := exists(target)
+	if err != nil {
+		return err
+	}
+	if !isExisting {
+		return errors.New(fmt.Sprintf("path does not exist '%s'", target))
 	}
 
 	if isDryRun {
 		LogInfof("deleting everything in '%s'", target)
-		os.Exit(0)
+		return nil
 	}
 
 	if err := os.RemoveAll(target); err != nil {
-		LogFatalf("%s", err)
+		return err
 	}
 	identifier := HighStyle.Render(fmt.Sprintf("@%s/%s:%s", namespace, pkgName, version))
 	LogInfof("Uninstalled %s", identifier)
+	return nil
 }
 
 func exists(path string) (bool, error) {

@@ -7,9 +7,9 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -23,32 +23,35 @@ var listCmd = &cobra.Command{
 	Use:     "list",
 	Short:   "List all locally installed Packages",
 	Example: `gotpm list`,
-	Run:     listRunner,
+	RunE:    listRunner,
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
 }
 
-func listRunner(cmd *cobra.Command, args []string) {
+var ErrNoPackages = errors.New("no packages installed")
+
+func listRunner(cmd *cobra.Command, args []string) error {
 	goos := runtime.GOOS
 	homeDir := Must(os.UserHomeDir())
-	dataDir := Must(system.GetDataDirectory(goos, homeDir))
-	root := filepath.Join(dataDir, "typst", "packages")
+	root, err := system.GetTypstPath(goos, homeDir)
+	if err != nil {
+		return err
+	}
 
 	if _, err := os.Stat(root); os.IsNotExist(err) {
-		LogInfof("No packages found at %s", root)
-		return
+		return ErrNoPackages
 	}
 
 	namespaces, err := list.ScanPackages(root)
 	if err != nil {
-		LogFatalf("failed to scan packages: %s", err)
+		return err
 	}
 
 	if len(namespaces) == 0 {
 		LogInfof("No packages found")
-		return
+		return nil
 	}
 
 	// Print packages
@@ -75,5 +78,5 @@ func listRunner(cmd *cobra.Command, args []string) {
 
 	fmt.Println()
 	fmt.Println(countStyle.Render(fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))))
-
+	return nil
 }
