@@ -17,8 +17,9 @@ import (
 
 // locateCmd represents the locate command
 var locateCmd = &cobra.Command{
-	Use:   "locate",
-	Short: "Locate the root directory, where the Typst Packages are stored.",
+	Use:     "locate",
+	Short:   "Locate the root directory, where the Typst Packages are stored.",
+	Example: `gotpm locate`,
 	Run: func(cmd *cobra.Command, args []string) {
 		goos := runtime.GOOS
 		homeDir := Must(os.UserHomeDir())

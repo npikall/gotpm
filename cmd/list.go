@@ -20,9 +20,10 @@ import (
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all locally installed Packages",
-	Run:   listRunner,
+	Use:     "list",
+	Short:   "List all locally installed Packages",
+	Example: `gotpm list`,
+	Run:     listRunner,
 }
 
 func init() {

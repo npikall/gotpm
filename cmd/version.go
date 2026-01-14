@@ -20,7 +20,12 @@ import (
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
-	Use:   "version",
+	Use: "version",
+	Example: `gotpm version
+gotpm version --short
+gotpm version --bump major
+gotpm version --bump 0.1.2
+`,
 	Short: "Manage the version of a Typst Package",
 	Long:  `Use this command to change the version of the Package or to display it.`,
 	Run:   versionRunner,

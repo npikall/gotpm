@@ -22,6 +22,7 @@ var (
 var selfCmd = &cobra.Command{
 	Use:   "self",
 	Short: "Inspect the binary itself.",
+	Long:  `Print the version and build information.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		isFull := Must(cmd.Flags().GetBool("full"))
 		if isFull {
