@@ -16,6 +16,7 @@ var (
 	Gray    = lipgloss.Color("245")
 	Magenta = lipgloss.Color("72")
 	Cyan    = lipgloss.Color("117")
+	Violet  = lipgloss.Color("99")
 )
 
 // Styles for Messages to stdout/stderr
@@ -25,6 +26,7 @@ var (
 	ErrStyle     = lipgloss.NewStyle().Foreground(Red).Bold(true)
 	HighStyle    = lipgloss.NewStyle().Foreground(White).Bold(true)
 	DefaultStyle = lipgloss.NewStyle().Foreground(Gray)
+	LogoStyle    = lipgloss.NewStyle().Foreground(Violet)
 )
 
 // Styles for the List Command

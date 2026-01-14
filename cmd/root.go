@@ -14,12 +14,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var asciiArt string = LogoStyle.Render(`
+┌──────────────────────────────┐
+│ _____     ______________  ___│
+│|  __ \   |_   _| ___ \  \/  |│
+│| |  \/ ___ | | | |_/ / .  . |│
+│| | __ / _ \| | |  __/| |\/| |│
+│| |_\ \ (_) | | | |   | |  | |│
+│ \____/\___/\_/ \_|   \_|  |_/│
+└──────────────────────────────┘
+`)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "gotpm",
 	Short: "A Package Manager for Typst written in Go.",
-	Long: `A Package Manager for Typst written in Go,
-that installs Typst Packages onto your machine.`,
+	Long:  asciiArt,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
