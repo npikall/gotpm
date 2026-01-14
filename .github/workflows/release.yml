@@ -72,6 +72,8 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
       - name: Install git-changelog
         run: pip install git-changelog
       - name: Prepare release notes
