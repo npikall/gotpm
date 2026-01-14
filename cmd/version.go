@@ -7,84 +7,68 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
+	"runtime/debug"
+	"time"
 
-	"github.com/npikall/gotpm/internal/manifest"
-	"github.com/npikall/gotpm/internal/system"
-	"github.com/npikall/gotpm/internal/version"
 	"github.com/spf13/cobra"
 )
 
+var GoTPMVersion string
+
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
-	Use: "version",
-	Example: `gotpm version
-gotpm version --short
-gotpm version --bump major
-gotpm version --bump 0.1.2
-`,
-	Short: "Manage the version of a Typst Package",
-	Long:  `Use this command to change the version of the Package or to display it.`,
-	Run:   versionRunner,
-}
+	Use:   "version",
+	Short: "Display application's version information",
+	Long: `
+The version command provides information about the application's version.
 
-const bumpDefault string = "none"
+GoTPM requires version information to be embedded at compile time.
+For detailed version information, Go Blueprint needs to be built as specified in the README installation instructions.
+If Go Blueprint is built within a version control repository and other version info isn't available,
+the revision hash will be used instead.
+`,
+	Run: func(cmd *cobra.Command, args []string) {
+		version := getGoTPMVersion()
+		fmt.Printf("GoTPM CLI version: %v\n", version)
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-	versionCmd.Flags().BoolP("short", "s", false, "show only the version number")
-	versionCmd.Flags().StringP("bump", "b", bumpDefault, "Bump the version. Can be on of [major, minor, patch] or a valid SemVer String (e.g.: 0.1.2)")
 }
 
-func versionRunner(cmd *cobra.Command, args []string) {
-	cwd := Must(os.Getwd())
-	pkg := Must(system.OpenTypstTOML(cwd))
-	oldPkgVersion := pkg.Version
-	newPkgVersion := Must(version.ParseVersion(oldPkgVersion))
+func getGoTPMVersion() string {
+	noVersionAvailable := "No version info available for this build, run 'go-blueprint help version' for additional info"
 
-	// Handle Runtime Flags
-	short := Must(cmd.Flags().GetBool("short"))
-	bump := Must(cmd.Flags().GetString("bump"))
+	if GoTPMVersion != "" {
+		return GoTPMVersion
+	}
 
-	isBumping := bump != bumpDefault
-	isFixedVersion := version.IsSemVer(bump)
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return noVersionAvailable
+	}
 
-	switch {
-	case !short && !isBumping:
-		fmt.Printf("%s %s\n", pkg.Name, InfoStyle.Render(newPkgVersion.String()))
-		os.Exit(0)
-	case short && !isBumping:
-		fmt.Printf("%s\n", InfoStyle.Render(newPkgVersion.String()))
-		os.Exit(0)
-	case isFixedVersion:
-		pkg.Version = bump
-	case isBumping && !isFixedVersion:
-		err := newPkgVersion.Bump(bump)
-		if err != nil {
-			LogFatalf("%s", err)
+	// If no main version is available, Go defaults it to (devel)
+	if bi.Main.Version != "(devel)" {
+		return bi.Main.Version
+	}
+
+	var vcsRevision string
+	var vcsTime time.Time
+	for _, setting := range bi.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			vcsRevision = setting.Value
+		case "vcs.time":
+			vcsTime, _ = time.Parse(time.RFC3339, setting.Value)
 		}
-		pkg.Version = newPkgVersion.String()
 	}
 
-	// Read the existing TOML file
-	typstTOML := filepath.Join(cwd, "typst.toml")
-	typstTOMLContent := Must(os.ReadFile(typstTOML))
-
-	// Write updated TOML to a buffer first
-	var buf bytes.Buffer
-	err := manifest.WriteTOML(&buf, pkg, typstTOMLContent)
-	if err != nil {
-		LogFatalf("failed to update TOML: %s", err)
+	if vcsRevision != "" {
+		return fmt.Sprintf("%s, (%s)", vcsRevision, vcsTime)
 	}
 
-	// Write the buffer to the file
-	err = os.WriteFile(typstTOML, buf.Bytes(), 0644)
-	if err != nil {
-		LogFatalf("failed to write file: %s", err)
-	}
-
-	LogInfof("updated version %s -> %s", oldPkgVersion, pkg.Version)
+	return noVersionAvailable
 }

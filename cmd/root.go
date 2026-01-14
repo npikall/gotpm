@@ -27,9 +27,10 @@ var asciiArt string = LogoStyle.Render(`
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "gotpm",
-	Short: "A Package Manager for Typst written in Go.",
-	Long:  asciiArt,
+	Use:     "gotpm",
+	Short:   "A Package Manager for Typst written in Go.",
+	Long:    asciiArt,
+	Version: GoTPMVersion,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -41,5 +42,4 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
