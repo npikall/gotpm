@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - add ascii art to help command ([2013b6f](https://github.com/npikall/gotpm/commit/2013b6f21271b3695256463e06fcd4c4f9b208eb) by npikall).
 
+### Reverts
+
+- attempt of makeing goreleaser work ([5b54f02](https://github.com/npikall/gotpm/commit/5b54f02fdcab10092a26f549d82fef5b086c897a) by npikall).
+
 ### Code Refactoring
 
 - use styling from charmbracelet/fang ([9257fa7](https://github.com/npikall/gotpm/commit/9257fa7a27610b84fb64ad94d18412019c3ea3bf) by npikall).
@@ -35,7 +39,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Reverts
 
 - remove goreleaser in favor of more manual release process ([ecdb393](https://github.com/npikall/gotpm/commit/ecdb3937dcc7a2d4980fbff958b80ecba55a705f) by Nikolas Pikall).
-
 
 ## [v0.1.0](https://github.com/npikall/gotpm/releases/tag/v0.1.0) - 2026-01-10
 
