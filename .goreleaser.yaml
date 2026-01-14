@@ -11,7 +11,8 @@ version: 2
 before:
   hooks:
     - go mod tidy
-    - sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > artifacts/install.sh
+    - git-changelog --release-notes > release-notes.md
+    - make installer-script
 
 builds:
   - env:
@@ -23,7 +24,7 @@ builds:
 
 release:
   extra_files:
-    - glob: ./artifacts/install.sh
+    - glob: ./install.sh
   draft: true
   replace_existing_draft: true
   replace_existing_artifacts: true

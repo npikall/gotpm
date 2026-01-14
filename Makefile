@@ -1,4 +1,4 @@
-.PHONY: build test format install help changelog
+.PHONY: build test format install help changelog changelog-auto installer-script
 
 GIT_TAG    := $(shell git describe --tags --abbrev=0 2>/dev/null)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -21,6 +21,9 @@ format:  ## run the go formatter
 
 build:  ## build the binary (optimized)
 	go build $(LDFLAGS) -o gotpm
+
+installer-script:
+	sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > install.sh
 
 changelog:  ## update the changelog (github.com/pawamoy/git-changelog)
 	git-changelog --git-trailers -io CHANGELOG.md --bump="$(shell git-changelog --bumped-version)" --convention angular --versioning semver -Z
