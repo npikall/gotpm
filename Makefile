@@ -23,7 +23,7 @@ build:  ## build the binary (optimized)
 	go build $(LDFLAGS) -o gotpm
 
 changelog:  ## update the changelog
-	uvx git-changelog -Tio CHANGELOG.md -B="auto" -c angular -n semver
+	git-changelog -Tio CHANGELOG.md -B="auto" -c angular -n semver
 
 install: build  ## install to either $HOME/.local/bin or $HOME/.bin or $HOME/bin
 	@INSTALL_DIR=""; \
