@@ -3,3 +3,4 @@ dist/
 typst.toml
 gotpm
 .typstignore
+release-notes.md
