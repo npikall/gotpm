@@ -34,11 +34,14 @@ jobs:
       - name: Install git-changelog
         run: pip install git-changelog
 
+      - name: Generate Release Notes
+        run: git-changelog --release-notes > release-notes.md
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean --release-notes < git-changelog --release-notes
+          args: release --clean --release-notes release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
