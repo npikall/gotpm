@@ -1,9 +1,9 @@
-package version_test
+package bump_test
 
 import (
 	"testing"
 
-	i "github.com/npikall/gotpm/internal/version"
+	i "github.com/npikall/gotpm/internal/bump"
 	"github.com/stretchr/testify/assert"
 )
 
