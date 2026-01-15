@@ -18,25 +18,7 @@ and use it.
 
 ---
 
-```console
-Usage:
-  gotpm [command]
-
-Available Commands:
-  completion              Generate the autocompletion script for the specified shell
-  help                    Help about any command
-  install                 Install a Typst Package locally.
-  list                    List all locally installed Packages
-  uninstall               Uninstall a Typst Package from the local Storage
-  version                 Manage the version of a Typst Package
-
-
-Flags:
-  -h, --help     help for gotpm
-  -t, --toggle   Help message for toggle
-
-Use "gotpm [command] --help" for more information about a command.
-```
+![Thumbnail](assets/thumbnail.svg)
 
 # Installation
 
