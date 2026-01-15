@@ -34,19 +34,25 @@ const bumpDefault string = "none"
 func init() {
 	rootCmd.AddCommand(bumpCmd)
 	bumpCmd.Flags().Bool("dry-run", false, "Perform a dry-run")
+	bumpCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
 }
 
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
 func bumpRunner(cmd *cobra.Command, args []string) error {
+	verbose := Must(cmd.Flags().GetBool("verbose"))
+	logger := setupLogger(verbose)
+
 	cwd := Must(os.Getwd())
 	pkg, err := system.OpenTypstTOML(cwd)
 	if err != nil {
 		return err
 	}
+	logger.Debugf("running in %s", cwd)
 
 	oldPkgVersion := pkg.Version
 	newPkgVersion, err := version.ParseVersion(oldPkgVersion)
+	logger.Debugf("Version from 'typst.toml' %s", oldPkgVersion)
 	if err != nil {
 		return err
 	}
@@ -60,23 +66,24 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	dryRun := Must(cmd.Flags().GetBool("dry-run"))
 
-	isBumping := bump != bumpDefault
 	isFixedVersion := version.IsSemVer(bump)
 
 	switch {
 	case isFixedVersion:
 		pkg.Version = bump
-	case isBumping && !isFixedVersion:
+		logger.Debug("setting toml version to", "bump", bump)
+	default:
 		err := newPkgVersion.Bump(bump)
 		if err != nil {
 			return err
 		}
 		pkg.Version = newPkgVersion.String()
+		logger.Debug("setting toml version to", "bump", newPkgVersion.String())
 	}
 
 	if dryRun {
-		LogWarnf("performing dry-run")
-		LogInfof("updated version %s -> %s", oldPkgVersion, pkg.Version)
+		logger.Warn("performing dry-run")
+		logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
 		return nil
 	}
 
@@ -86,6 +93,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	logger.Debugf("editing file %s", typstTOML)
 
 	// Write updated TOML to a buffer first
 	var buf bytes.Buffer
@@ -93,13 +101,15 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	logger.Debug("write edited toml to buffer")
 
 	// Write the buffer to the file
 	err = os.WriteFile(typstTOML, buf.Bytes(), 0644)
 	if err != nil {
 		return err
 	}
+	logger.Debugf("write buffer to file %s", typstTOML)
 
-	LogInfof("updated version %s -> %s", oldPkgVersion, pkg.Version)
+	logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
 	return nil
 }

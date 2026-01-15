@@ -28,17 +28,22 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
+	listCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
 }
 
 var ErrNoPackages = errors.New("no packages installed")
 
 func listRunner(cmd *cobra.Command, args []string) error {
+	verbose := Must(cmd.Flags().GetBool("verbose"))
+	logger := setupLogger(verbose)
+
 	goos := runtime.GOOS
 	homeDir := Must(os.UserHomeDir())
 	root, err := system.GetTypstPath(goos, homeDir)
 	if err != nil {
 		return err
 	}
+	logger.Debug("looking in", "dir", root)
 
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		return ErrNoPackages

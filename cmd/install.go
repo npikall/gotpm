@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/internal/install"
 	"github.com/npikall/gotpm/internal/system"
 	"github.com/sabhiram/go-gitignore"
@@ -40,12 +41,17 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().StringP("namespace", "n", "local", "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "If the installed package should be editable.")
+	installCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
+	verbose := Must(cmd.Flags().GetBool("verbose"))
+	logger := setupLogger(verbose)
+
 	goos := runtime.GOOS
 	homeDir := Must(os.UserHomeDir())
 	cwd := getCurrentWorkingDir(args)
+	logger.Debug("running in", "cwd", cwd)
 
 	pkg, err := system.OpenTypstTOML(cwd)
 	if err != nil {
@@ -54,6 +60,8 @@ func installRunner(cmd *cobra.Command, args []string) error {
 
 	namespace := Must(cmd.Flags().GetString("namespace"))
 	isEditable := Must(cmd.Flags().GetBool("editable"))
+	logger.Debug("flag", "namespace", namespace)
+	logger.Debug("flag", "editable", isEditable)
 	dst, err := system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version)
 	if err != nil {
 		return err
@@ -64,12 +72,13 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	// TODO: add exclude patterns from 'typst.toml'
 	if err != nil {
 		typstIgnore = &ignore.GitIgnore{}
-		LogWarnf("No '.typstignore' file. Copy all in '%s'", cwd)
+		logger.Warnf("No '.typstignore' file. Copy all in '%s'", cwd)
 	}
 
-	LogInfof("Installing to '%s'", dst)
+	logger.Infof("Installing to '%s'", dst)
 
 	var wg sync.WaitGroup
+	logger.Debug("start walking", "dir", cwd)
 	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -78,19 +87,23 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		// Ignore Directories and the .git folder
 		if d.IsDir() {
 			if d.Name() == ".git" {
+				logger.Debug("skip dir .git/")
 				return fs.SkipDir
 			}
+			logger.Debug("skip dir", "dir", d.Name())
 			return nil
 		}
 
 		if typstIgnore.MatchesPath(path) {
+			logger.Debug("ignore matches", "path", path)
 			return nil
 		}
 
 		targetPath := Must(install.ResolveTargetPath(cwd, path, dst))
+		logger.Debug("resolved", "targetPath", targetPath)
 
 		wg.Go(func() {
-			processFile(path, targetPath, isEditable)
+			processFile(logger, path, targetPath, isEditable)
 		})
 		return nil
 	})
@@ -100,13 +113,13 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	wg.Wait()
-	LogInfof("Package '%s' successfully installed", pkg.Name)
+	logger.Infof("package '%s' successfully installed", pkg.Name)
 	return nil
 }
 
-func processFile(srcPath, dstPath string, isEditable bool) {
+func processFile(logger *log.Logger, srcPath, dstPath string, isEditable bool) {
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0750); err != nil {
-		LogErrf("%s", err)
+		logger.Error(err)
 		return
 	}
 	var err error
@@ -117,7 +130,7 @@ func processFile(srcPath, dstPath string, isEditable bool) {
 		err = install.CopyFile(srcPath, dstPath)
 	}
 	if err != nil {
-		LogErrf("%s", err)
+		logger.Error(err)
 		return
 	}
 }

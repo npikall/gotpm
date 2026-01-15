@@ -20,13 +20,14 @@ var locateCmd = &cobra.Command{
 	Short:   "Locate the root directory, where the Typst Packages are stored.",
 	Example: `gotpm locate`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		logger := setupLogger(false)
 		goos := runtime.GOOS
 		homeDir := Must(os.UserHomeDir())
 		path, err := system.GetTypstPath(goos, homeDir)
 		if err != nil {
 			return err
 		}
-		LogInfof("Packages located at: '%s'", path)
+		logger.Infof("packages located at: '%s'", path)
 		return nil
 	},
 }

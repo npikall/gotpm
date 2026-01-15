@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 )
 
 // Common Colors
@@ -37,6 +38,18 @@ var (
 	countStyle     = lipgloss.NewStyle().Foreground(Gray)
 )
 
+func setupLogger(verbose bool) *log.Logger {
+	logger := log.New(os.Stdout)
+	logger.SetReportCaller(false)
+	logger.SetReportTimestamp(false)
+	if verbose {
+		logger.SetLevel(log.DebugLevel)
+	} else {
+		logger.SetLevel(log.InfoLevel)
+	}
+	return logger
+}
+
 // Print a message to stdout with colored prefix 'info:'
 func LogInfof(format string, v ...any) {
 	msg := fmt.Sprintf(format, v...)
@@ -66,8 +79,7 @@ func LogFatalf(format string, v ...any) {
 // When an error occurs the program is exited.
 func Must[T any](t T, err error) T {
 	if err != nil {
-		fmt.Printf("%s: %s\n", ErrStyle.Render("error"), err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	return t
 }
