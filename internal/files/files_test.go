@@ -1,21 +1,23 @@
-package manifest_test
+package files_test
 
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
-	i "github.com/npikall/gotpm/internal/manifest"
+	i "github.com/npikall/gotpm/internal/files"
 	"github.com/stretchr/testify/assert"
 )
 
-var SpyError = errors.New("spy error")
+var ErrSpy = errors.New("spy error")
 
 func SpyUnmarshal(data []byte, v any) error {
-	return SpyError
+	return ErrSpy
 }
 
-func TestTypstTOMLUnmarshal(t *testing.T) {
+func TestUnmarshalToPackage(t *testing.T) {
 	example := []byte(`[package]
 name = "foo"
 version = "0.0.0"
@@ -23,18 +25,18 @@ entrypoint = "bar"
 `)
 	t.Run("successful", func(t *testing.T) {
 		want := i.PackageInfo{Name: "foo", Version: "0.0.0", Entrypoint: "bar"}
-		got, err := i.TypstTOMLUnmarshal(example)
+		got, err := i.UnmarshalToPackage(example)
 		assert.NoError(t, err)
 
 		assert.Equal(t, want, got)
 	})
 	t.Run("not successful", func(t *testing.T) {
-		_, err := i.ConfigureableUnmarshal(example, SpyUnmarshal)
-		assertErr(t, err, SpyError)
+		_, err := i.ConfigureableUnmarshalToPackage(example, SpyUnmarshal)
+		assertErr(t, err, ErrSpy)
 	})
 }
 
-func TestSetManifestFields(t *testing.T) {
+func TestUpdateToml(t *testing.T) {
 	example := []byte(`[package]
 name = "foo"
 version = "0.0.0"
@@ -57,7 +59,7 @@ example = "str"
 	t.Run("successful", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		pkg := i.PackageInfo{Name: "foo", Version: "changed", Entrypoint: "bar"}
-		err := i.WriteTOML(buf, pkg, example)
+		err := i.UpdateTOML(buf, pkg, example)
 		assert.NoError(t, err)
 
 		if buf.String() != string(want) {
@@ -67,8 +69,8 @@ example = "str"
 	t.Run("not successful", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		pkg := i.PackageInfo{}
-		err := i.ConfigurableWriteTOML(buf, pkg, example, SpyUnmarshal)
-		assertErr(t, err, SpyError)
+		err := i.ConfigurableUpdateToml(buf, pkg, example, SpyUnmarshal)
+		assertErr(t, err, ErrSpy)
 	})
 }
 
@@ -91,6 +93,23 @@ func TestValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCopyFile(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	dst := filepath.Join(dir, "dst.txt")
+
+	want := []byte("Hello World")
+	_ = os.WriteFile(src, want, 0644)
+
+	// Actual tested function
+	if err := i.CopyFile(src, dst); err != nil {
+		t.Fatalf("CopyFile failed: %v", err)
+	}
+
+	got, _ := os.ReadFile(dst)
+	assert.Equal(t, want, got, "got %s want %s", string(got), string(want))
 }
 
 func assertErr(t *testing.T, got, want error) {
