@@ -9,12 +9,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
-	"runtime"
 
-	"github.com/npikall/gotpm/internal/system"
-	"github.com/npikall/gotpm/internal/uninstall"
+	"github.com/npikall/gotpm/internal/files"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -39,68 +37,58 @@ func init() {
 	uninstallCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
 }
 
+var ErrInsufficientPackage = errors.New("both package and version must be specified")
+
 func uninstallRunner(cmd *cobra.Command, args []string) error {
-	verbose := Must(cmd.Flags().GetBool("verbose"))
-	logger := setupLogger(verbose)
+	logger := setupVerboseLogger(cmd)
+
 	// Get System Environment
-	goos := runtime.GOOS
-	homeDir := Must(os.UserHomeDir())
 	cwd := Must(os.Getwd())
 
-	// Get Arguments
-	var pkgName string
-	if len(args) > 0 {
+	var pkgName, pkgVersion string
+	switch {
+	case len(args) > 0:
+		version := Must(cmd.Flags().GetString("version"))
+		if version == "" {
+			return ErrInsufficientPackage
+		}
 		pkgName = args[0]
-		logger.Debug("passed", "packageName", pkgName)
-	}
-	// TODO: if pkgname arg gets passed do not look in toml
-
-	// Attempt to open 'typst.toml'
-	var tomlPkgName, tomlVersion string
-	if pkg, err := system.OpenTypstTOML(cwd); err == nil {
-		tomlPkgName = pkg.Name
-		tomlVersion = pkg.Version
-		logger.Debug("found in toml", "name", tomlPkgName)
-		logger.Debug("found in toml", "version", tomlVersion)
+		pkgVersion = version
+		logger.Debug("passed", "name", pkgName)
+		logger.Debug("passed", "version", pkgVersion)
+	default:
+		pkg, err := files.LoadPackageFromDirectory(cwd)
+		if err != nil {
+			return err
+		}
+		pkgName = pkg.Name
+		pkgVersion = pkg.Version
+		logger.Debug("found in toml", "name", pkgName)
+		logger.Debug("found in toml", "version", pkgVersion)
 	}
 
 	// Get Flag Values
 	namespace := Must(cmd.Flags().GetString("namespace"))
-	version := Must(cmd.Flags().GetString("version"))
-	all := Must(cmd.Flags().GetBool("all"))
+	deleteAll := Must(cmd.Flags().GetBool("all"))
 	isDryRun := Must(cmd.Flags().GetBool("dry-run"))
-	logger.Debug("run flags", "namespace", namespace, "version", version, "all", all, "dry-run", isDryRun)
+	logger.Debug("run flags", "namespace", namespace, "all", deleteAll, "dry-run", isDryRun)
 
-	// Overwrite pkgName if none in command and one in toml
-	if pkgName == "" && tomlPkgName != "" {
-		pkgName = tomlPkgName
-	}
-	logger.Debug("useing package", "name", pkgName)
-
-	// Overwrite version if none in command and one in toml
-	// only when package name is not in command
-	if version == "" && tomlVersion != "" && len(args) == 0 {
-		version = tomlVersion
-	}
-	logger.Debug("useing package", "version", version)
-
-	dataDir, err := system.GetTypstPath(goos, homeDir)
+	typstPackagePath, err := paths.GetTypstPackagePath()
 	if err != nil {
 		return err
 	}
-	target, err := uninstall.ResolveUninstallTarget(dataDir, all, namespace, pkgName, version)
+
+	target, err := paths.ResolveUninstallTarget(typstPackagePath, deleteAll, namespace, pkgName, pkgVersion)
 	if err != nil {
 		return err
 	}
 	logger.Debug("uninstalling from", "path", target)
+
 	if isDryRun {
 		logger.Warn("perform dry-run")
 	}
 
-	isExisting, err := exists(target)
-	if err != nil {
-		return err
-	}
+	isExisting := files.Exists(target)
 	if !isExisting {
 		logger.Errorf("path does not exist '%s'", target)
 		return nil
@@ -114,18 +102,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	if err := os.RemoveAll(target); err != nil {
 		return err
 	}
-	identifier := HighStyle.Render(fmt.Sprintf("@%s/%s:%s", namespace, pkgName, version))
+	identifier := HighStyle.Render(fmt.Sprintf("@%s/%s:%s", namespace, pkgName, pkgVersion))
 	logger.Infof("Uninstalled %s", identifier)
 	return nil
-}
-
-func exists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
-	}
-	return false, err
 }

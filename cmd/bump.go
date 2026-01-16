@@ -13,8 +13,7 @@ import (
 	"path/filepath"
 
 	version "github.com/npikall/gotpm/internal/bump"
-	"github.com/npikall/gotpm/internal/manifest"
-	"github.com/npikall/gotpm/internal/system"
+	"github.com/npikall/gotpm/internal/files"
 	"github.com/spf13/cobra"
 )
 
@@ -29,22 +28,20 @@ gotpm bump 0.1.2
 	RunE:  bumpRunner,
 }
 
-const bumpDefault string = "none"
-
 func init() {
 	rootCmd.AddCommand(bumpCmd)
 	bumpCmd.Flags().Bool("dry-run", false, "Perform a dry-run")
-	bumpCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
+	bumpCmd.Flags().BoolP("verbose", "v", false, "Print Debug Level Information")
+	bumpCmd.Flags().BoolP("show", "s", false, "Show the version of the current package")
 }
 
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
 func bumpRunner(cmd *cobra.Command, args []string) error {
-	verbose := Must(cmd.Flags().GetBool("verbose"))
-	logger := setupLogger(verbose)
+	logger := setupVerboseLogger(cmd)
 
 	cwd := Must(os.Getwd())
-	pkg, err := system.OpenTypstTOML(cwd)
+	pkg, err := files.LoadPackageFromDirectory(cwd)
 	if err != nil {
 		return err
 	}
@@ -97,7 +94,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 
 	// Write updated TOML to a buffer first
 	var buf bytes.Buffer
-	err = manifest.WriteTOML(&buf, pkg, typstTOMLContent)
+	err = files.UpdateTOML(&buf, pkg, typstTOMLContent)
 	if err != nil {
 		return err
 	}

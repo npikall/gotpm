@@ -7,10 +7,7 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"os"
-	"runtime"
-
-	"github.com/npikall/gotpm/internal/system"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -20,14 +17,12 @@ var locateCmd = &cobra.Command{
 	Short:   "Locate the root directory, where the Typst Packages are stored.",
 	Example: `gotpm locate`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := setupLogger(false)
-		goos := runtime.GOOS
-		homeDir := Must(os.UserHomeDir())
-		path, err := system.GetTypstPath(goos, homeDir)
+		logger := setupLogger()
+		target, err := paths.GetTypstPackagePath()
 		if err != nil {
 			return err
 		}
-		logger.Infof("packages located at: '%s'", path)
+		logger.Infof("packages located at: '%s'", target)
 		return nil
 	},
 }

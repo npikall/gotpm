@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	"github.com/spf13/cobra"
 )
 
 // Common Colors
@@ -38,41 +38,20 @@ var (
 	countStyle     = lipgloss.NewStyle().Foreground(Gray)
 )
 
-func setupLogger(verbose bool) *log.Logger {
+func setupLogger() *log.Logger {
 	logger := log.New(os.Stdout)
 	logger.SetReportCaller(false)
 	logger.SetReportTimestamp(false)
-	if verbose {
-		logger.SetLevel(log.DebugLevel)
-	} else {
-		logger.SetLevel(log.InfoLevel)
-	}
+	logger.SetLevel(log.InfoLevel)
 	return logger
 }
-
-// Print a message to stdout with colored prefix 'info:'
-func LogInfof(format string, v ...any) {
-	msg := fmt.Sprintf(format, v...)
-	fmt.Printf("%s: %s\n", InfoStyle.Render("info"), DefaultStyle.Render(msg))
-}
-
-// Print a warning message to stdout with colored prefix 'warning:'
-func LogWarnf(format string, v ...any) {
-	msg := fmt.Sprintf(format, v...)
-	fmt.Printf("%s: %s\n", WarnStyle.Render("warning"), DefaultStyle.Render(msg))
-}
-
-// Print an error message to stdout with colored prefix 'error:' without exiting
-func LogErrf(format string, v ...any) {
-	msg := fmt.Sprintf(format, v...)
-	fmt.Printf("%s: %s\n", ErrStyle.Render("error"), DefaultStyle.Render(msg))
-}
-
-// Print an error message to stdout with colored prefix 'error:' without exiting
-func LogFatalf(format string, v ...any) {
-	msg := fmt.Sprintf(format, v...)
-	fmt.Printf("%s: %s\n", ErrStyle.Render("error"), DefaultStyle.Render(msg))
-	os.Exit(1)
+func setupVerboseLogger(cmd *cobra.Command) *log.Logger {
+	verbose := Must(cmd.Flags().GetBool("verbose"))
+	logger := setupLogger()
+	if verbose {
+		logger.SetLevel(log.DebugLevel)
+	}
+	return logger
 }
 
 // A given Function must return no error.

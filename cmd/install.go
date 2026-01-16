@@ -10,12 +10,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"github.com/charmbracelet/log"
-	"github.com/npikall/gotpm/internal/install"
-	"github.com/npikall/gotpm/internal/system"
+	"github.com/npikall/gotpm/internal/files"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
@@ -45,15 +44,12 @@ func init() {
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
-	verbose := Must(cmd.Flags().GetBool("verbose"))
-	logger := setupLogger(verbose)
+	logger := setupVerboseLogger(cmd)
 
-	goos := runtime.GOOS
-	homeDir := Must(os.UserHomeDir())
 	cwd := getCurrentWorkingDir(args)
 	logger.Debug("running in", "cwd", cwd)
 
-	pkg, err := system.OpenTypstTOML(cwd)
+	pkg, err := files.LoadPackageFromDirectory(cwd)
 	if err != nil {
 		return err
 	}
@@ -62,10 +58,11 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	isEditable := Must(cmd.Flags().GetBool("editable"))
 	logger.Debug("flag", "namespace", namespace)
 	logger.Debug("flag", "editable", isEditable)
-	dst, err := system.GetStoragePath(goos, homeDir, namespace, pkg.Name, pkg.Version)
+	typstPackagePath, err := paths.GetTypstPackagePath()
 	if err != nil {
 		return err
 	}
+	target := filepath.Join(typstPackagePath, namespace, pkg.Name, pkg.Version)
 
 	typstIgnorePath := filepath.Join(cwd, ".typstignore")
 	typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
@@ -75,7 +72,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		logger.Warnf("No '.typstignore' file. Copy all in '%s'", cwd)
 	}
 
-	logger.Infof("Installing to '%s'", dst)
+	logger.Infof("Installing to '%s'", target)
 
 	var wg sync.WaitGroup
 	logger.Debug("start walking", "dir", cwd)
@@ -99,7 +96,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		targetPath := Must(install.ResolveTargetPath(cwd, path, dst))
+		targetPath := Must(paths.ResolveTargetPath(cwd, path, target))
 		logger.Debug("resolved", "targetPath", targetPath)
 
 		wg.Go(func() {
@@ -127,7 +124,7 @@ func processFile(logger *log.Logger, srcPath, dstPath string, isEditable bool) {
 	case true:
 		err = os.Symlink(srcPath, dstPath)
 	case false:
-		err = install.CopyFile(srcPath, dstPath)
+		err = files.CopyFile(srcPath, dstPath)
 	}
 	if err != nil {
 		logger.Error(err)

@@ -9,12 +9,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
-	"runtime"
 	"strings"
 
+	"github.com/npikall/gotpm/internal/files"
 	"github.com/npikall/gotpm/internal/list"
-	"github.com/npikall/gotpm/internal/system"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -34,18 +33,15 @@ func init() {
 var ErrNoPackages = errors.New("no packages installed")
 
 func listRunner(cmd *cobra.Command, args []string) error {
-	verbose := Must(cmd.Flags().GetBool("verbose"))
-	logger := setupLogger(verbose)
+	logger := setupVerboseLogger(cmd)
 
-	goos := runtime.GOOS
-	homeDir := Must(os.UserHomeDir())
-	root, err := system.GetTypstPath(goos, homeDir)
+	root, err := paths.GetTypstPackagePath()
 	if err != nil {
 		return err
 	}
 	logger.Debug("looking in", "dir", root)
 
-	if _, err := os.Stat(root); os.IsNotExist(err) {
+	if !files.Exists(root) {
 		return ErrNoPackages
 	}
 
@@ -55,7 +51,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(namespaces) == 0 {
-		LogInfof("No packages found")
+		logger.Infof("No packages found")
 		return nil
 	}
 
