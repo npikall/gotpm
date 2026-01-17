@@ -39,7 +39,7 @@ func init() {
 }
 
 func getGoTPMVersion() string {
-	noVersionAvailable := "No version info available for this build, run 'go-blueprint help version' for additional info"
+	noVersionAvailable := "No version info available for this build, run 'gotpm help version' for additional info"
 
 	if GoTPMVersion != "" {
 		return GoTPMVersion
