@@ -80,6 +80,28 @@ func TestParseVersion(t *testing.T) {
 	}
 }
 
+func TestIsValidSemver(t *testing.T) {
+	cases := []struct {
+		name string
+		got  string
+		want bool
+	}{
+		{"correct semver", "0.1.2", true},
+		{"short semver", "0.1", false},
+		{"short semver with letters", "a.1", false},
+		{"long semver", "0.1.2.3", false},
+		{"long semver with letters", "0.1.2.a", false},
+		{"prerelease", "0.1.2-a", false},
+		{"extra", "0.1.2+a", false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := i.IsSemVer(tt.got)
+			assert.Equal(t, tt.want, got, "given '%s'", tt.got)
+		})
+	}
+}
+
 func assertErr(t testing.TB, got error, want string) {
 	t.Helper()
 	if got == nil {
