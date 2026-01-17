@@ -47,6 +47,12 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debugf("running in %s", cwd)
 
+	isShow := Must(cmd.Flags().GetBool("show"))
+	if isShow {
+		logger.Info("current", "version", pkg.Version)
+		return nil
+	}
+
 	oldPkgVersion := pkg.Version
 	newPkgVersion, err := version.ParseVersion(oldPkgVersion)
 	logger.Debugf("Version from 'typst.toml' %s", oldPkgVersion)
