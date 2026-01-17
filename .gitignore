@@ -4,3 +4,4 @@ typst.toml
 gotpm
 .typstignore
 release-notes.md
+site/
