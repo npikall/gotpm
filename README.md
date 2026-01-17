@@ -7,7 +7,7 @@ A minimal Typst Package Manager written in Go.
 ---
 
 This tool is for developers working on Packages for [Typst]. It will make
-testing your Package, as it allows you to easily install the package locally
+testing your Package easy, as it allows you to install the package locally
 and use it.
 
 - Install Packages into `{data-dir}/typst/packages/`
@@ -18,7 +18,7 @@ and use it.
 
 ---
 
-![Thumbnail](assets/thumbnail.svg)
+<img class="shadow" src="https://github.com/npikall/gotpm/raw/main/docs/assets/thumbnail.svg">
 
 # Installation
 
