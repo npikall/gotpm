@@ -6,9 +6,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/BurntSushi/toml"
+	"github.com/npikall/gotpm/internal/bump"
 )
 
 var ErrInvalidManifest = errors.New("not a valid typst manifest")
@@ -29,8 +29,7 @@ type PackageInfo struct {
 }
 
 func (p *PackageInfo) ValidateVersion() bool {
-	match, _ := regexp.MatchString("^[0-9]*.[0-9]*.[0-9]*$", p.Version)
-	return match
+	return bump.IsSemVer(p.Version)
 }
 
 type Unmarshaler func([]byte, any) error

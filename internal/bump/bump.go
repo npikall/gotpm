@@ -60,9 +60,7 @@ func ParseVersion(s string) (Version, error) {
 		return Version{}, ErrInvalidVersion
 	}
 	parts := strings.Split(s, ".")
-	if len(parts) != 3 {
-		return Version{}, ErrInvalidVersion
-	}
+
 	var version Version
 	for idx, part := range parts {
 		num, err := strconv.ParseUint(part, 0, 64)
@@ -85,6 +83,6 @@ func ParseVersion(s string) (Version, error) {
 //   - No Letters, just positive Numbers
 //   - 3 Components (Numbers) separated with '.'
 func IsSemVer(s string) bool {
-	rgxPattern := regexp.MustCompile("^[0-9]*.[0-9]*.[0-9]*$")
+	rgxPattern := regexp.MustCompile("^(0|[1-9]d*).(0|[1-9]d*).(0|[1-9]d*)$")
 	return rgxPattern.MatchString(s)
 }
