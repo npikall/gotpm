@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.3.1](https://github.com/npikall/gotpm/releases/tag/v0.3.1) - 2026-01-17
+
+<small>[Compare with v0.3.0](https://github.com/npikall/gotpm/compare/v0.3.0...v0.3.1)</small>
+
+### Features
+
+- use more explicit regex to validate version ([e09dff6](https://github.com/npikall/gotpm/commit/e09dff64d5c58e4f21d40184107b7eaa11d534d9) by Nikolas Pikall).
+- add init command ([55b748a](https://github.com/npikall/gotpm/commit/55b748ae624747fca3f16be83cfb1e839f9d0bed) by npikall).
+
+### Bug Fixes
+
+- init creates new directory ([b911203](https://github.com/npikall/gotpm/commit/b91120305f24a13d70e10f0fc6d154a27256f6ac) by Nikolas Pikall).
+- no version available string ([8f64131](https://github.com/npikall/gotpm/commit/8f64131b1d8d27705ef9a639b0f181dd54d7b2d3) by Nikolas Pikall).
+- regex pattern with groups ([80bb263](https://github.com/npikall/gotpm/commit/80bb2630f5cfb1a763c12cb9db3c1fd47c11e685) by Nikolas Pikall).
+
+### Code Refactoring
+
+- moved functions, increased readability ([a90587c](https://github.com/npikall/gotpm/commit/a90587c37fb9d3697a67bfd979ef4ae96d4a52f0) by npikall).
+- sorted functions ([0039a47](https://github.com/npikall/gotpm/commit/0039a47c0b2145d67d66b1d2b142660149534d2c) by npikall).
+
 ## [v0.3.0](https://github.com/npikall/gotpm/releases/tag/v0.3.0) - 2026-01-14
 
 <small>[Compare with v0.2.1](https://github.com/npikall/gotpm/compare/v0.2.1...v0.3.0)</small>
