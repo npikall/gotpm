@@ -74,7 +74,7 @@ example = "str"
 	})
 }
 
-func TestValidation(t *testing.T) {
+func TestPackageInfo_ValidateVersion(t *testing.T) {
 	cases := []struct {
 		name    string
 		version i.PackageInfo
