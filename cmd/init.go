@@ -17,14 +17,8 @@ import (
 // initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	RunE: initRunner,
+	Short: "Initialize a new minimal Typst Package",
+	RunE:  initRunner,
 }
 
 func init() {
@@ -40,6 +34,11 @@ func initRunner(cmd *cobra.Command, args []string) error {
 	var pkgName string
 	if len(args) > 0 {
 		pkgName = args[0]
+		cwd = filepath.Join(cwd, pkgName)
+		err := os.Mkdir(cwd, 0755)
+		if err != nil {
+			return err
+		}
 	} else {
 		pkgName = filepath.Base(cwd)
 	}
@@ -49,11 +48,11 @@ func initRunner(cmd *cobra.Command, args []string) error {
 		path    string
 		content []byte
 	}{
-		{path: "typst.toml", content: fmt.Appendf(nil, `[package]
+		{path: filepath.Join(cwd, "typst.toml"), content: fmt.Appendf(nil, `[package]
 name = "%s"
 version = "0.1.0"
 entrypoint = "lib.typ"`, pkgName)},
-		{path: "lib.typ", content: libFile},
+		{path: filepath.Join(cwd, "lib.typ"), content: libFile},
 	}
 
 	for _, boot := range bootstrap {
