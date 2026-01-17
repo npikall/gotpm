@@ -83,6 +83,6 @@ func ParseVersion(s string) (Version, error) {
 //   - No Letters, just positive Numbers
 //   - 3 Components (Numbers) separated with '.'
 func IsSemVer(s string) bool {
-	rgxPattern := regexp.MustCompile("^(0|[1-9]d*).(0|[1-9]d*).(0|[1-9]d*)$")
+	rgxPattern := regexp.MustCompile(`^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)$`)
 	return rgxPattern.MatchString(s)
 }
