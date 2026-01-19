@@ -46,7 +46,7 @@ func setupLogger() *log.Logger {
 	return logger
 }
 func setupVerboseLogger(cmd *cobra.Command) *log.Logger {
-	verbose := Must(cmd.Flags().GetBool("verbose"))
+	verbose := Must(cmd.Flags().GetBool("debug"))
 	logger := setupLogger()
 	if verbose {
 		logger.SetLevel(log.DebugLevel)

@@ -40,7 +40,7 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().StringP("namespace", "n", "local", "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "If the installed package should be editable.")
-	installCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
+	installCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {

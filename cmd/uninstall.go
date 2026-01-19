@@ -34,7 +34,7 @@ func init() {
 	uninstallCmd.Flags().StringP("version", "v", "", "The specific version of a package that should be removed.")
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
-	uninstallCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
+	uninstallCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 }
 
 var ErrInsufficientPackage = errors.New("both package and version must be specified")

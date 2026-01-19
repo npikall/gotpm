@@ -27,7 +27,7 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
-	listCmd.Flags().BoolP("verbose", "V", false, "Print Debug Level Information")
+	listCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 }
 
 var ErrNoPackages = errors.New("no packages installed")

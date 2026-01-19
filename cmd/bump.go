@@ -31,8 +31,8 @@ gotpm bump 0.1.2
 func init() {
 	rootCmd.AddCommand(bumpCmd)
 	bumpCmd.Flags().Bool("dry-run", false, "Perform a dry-run")
-	bumpCmd.Flags().BoolP("verbose", "v", false, "Print Debug Level Information")
-	bumpCmd.Flags().BoolP("show", "s", false, "Show the version of the current package")
+	bumpCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
+	bumpCmd.Flags().BoolP("show-current", "c", false, "Show the version of the current package")
 }
 
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
