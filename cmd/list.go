@@ -39,7 +39,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debug("looking in", "dir", root)
+	logger.Debug("looking in", "directory", root)
 
 	if !files.Exists(root) {
 		return ErrNoPackages
@@ -51,7 +51,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(namespaces) == 0 {
-		logger.Infof("No packages found")
+		logger.Info("no packages found")
 		return nil
 	}
 

@@ -45,17 +45,17 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("running in %s", cwd)
+	logger.Debug("running in", "cwd", cwd)
 
 	isShow := Must(cmd.Flags().GetBool("show"))
 	if isShow {
-		logger.Info("current", "version", pkg.Version)
+		fmt.Println(pkg.Version)
 		return nil
 	}
 
 	oldPkgVersion := pkg.Version
 	newPkgVersion, err := version.ParseVersion(oldPkgVersion)
-	logger.Debugf("Version from 'typst.toml' %s", oldPkgVersion)
+	logger.Debug("from 'typst.toml'", "version", oldPkgVersion)
 	if err != nil {
 		return err
 	}
@@ -74,14 +74,14 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	switch {
 	case isFixedVersion:
 		pkg.Version = bump
-		logger.Debug("setting toml version to", "bump", bump)
+		logger.Debug("setting toml", "version", bump)
 	default:
 		err := newPkgVersion.Bump(bump)
 		if err != nil {
 			return err
 		}
 		pkg.Version = newPkgVersion.String()
-		logger.Debug("setting toml version to", "bump", newPkgVersion.String())
+		logger.Debug("setting toml", "version", newPkgVersion.String())
 	}
 
 	if dryRun {
@@ -96,7 +96,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("editing file %s", typstTOML)
+	logger.Debug("editing", "file", typstTOML)
 
 	// Write updated TOML to a buffer first
 	var buf bytes.Buffer
@@ -111,7 +111,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("write buffer to file %s", typstTOML)
+	logger.Debug("write buffer", "file", typstTOML)
 
 	logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
 	return nil

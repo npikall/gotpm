@@ -22,7 +22,7 @@ var locateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		logger.Infof("packages located at: '%s'", target)
+		logger.Info("packages at", "path", target)
 		return nil
 	},
 }

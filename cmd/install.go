@@ -69,13 +69,17 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	// TODO: add exclude patterns from 'typst.toml'
 	if err != nil {
 		typstIgnore = &ignore.GitIgnore{}
-		logger.Warnf("No '.typstignore' file. Copy all in '%s'", cwd)
+		logger.Warn("no '.typstignore' file. copy everything from", "cwd", cwd)
 	}
 
-	logger.Infof("Installing to '%s'", target)
+	logger.Info("installing to", "target", target)
+
+	if isDryRun {
+		logger.Warn("perform dry-run")
+	}
 
 	var wg sync.WaitGroup
-	logger.Debug("start walking", "dir", cwd)
+	logger.Debug("start walking", "directory", cwd)
 	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -84,10 +88,10 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		// Ignore Directories and the .git folder
 		if d.IsDir() {
 			if d.Name() == ".git" {
-				logger.Debug("skip dir .git/")
+				logger.Debug("skip directory .git/")
 				return fs.SkipDir
 			}
-			logger.Debug("skip dir", "dir", d.Name())
+			logger.Debug("skip directory", "dir", d.Name())
 			return nil
 		}
 
