@@ -41,6 +41,7 @@ func init() {
 	installCmd.Flags().StringP("namespace", "n", "local", "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "If the installed package should be editable.")
 	installCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
+	installCmd.Flags().Bool("dry-run", false, "Perform a dry-run")
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
@@ -56,6 +57,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 
 	namespace := Must(cmd.Flags().GetString("namespace"))
 	isEditable := Must(cmd.Flags().GetBool("editable"))
+	isDryRun := Must(cmd.Flags().GetBool("dry-run"))
 	logger.Debug("flag", "namespace", namespace)
 	logger.Debug("flag", "editable", isEditable)
 	typstPackagePath, err := paths.GetTypstPackagePath()
@@ -102,6 +104,11 @@ func installRunner(cmd *cobra.Command, args []string) error {
 
 		targetPath := Must(paths.ResolveTargetPath(cwd, path, target))
 		logger.Debug("resolved", "targetPath", targetPath)
+
+		if isDryRun {
+			logger.Info("copy", "src", filepath.Base(path))
+			return nil
+		}
 
 		wg.Go(func() {
 			processFile(logger, path, targetPath, isEditable)
