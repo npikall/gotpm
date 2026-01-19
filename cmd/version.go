@@ -24,8 +24,8 @@ var versionCmd = &cobra.Command{
 The version command provides information about the application's version.
 
 GoTPM requires version information to be embedded at compile time.
-For detailed version information, Go Blueprint needs to be built as specified in the README installation instructions.
-If Go Blueprint is built within a version control repository and other version info isn't available,
+For detailed version information, GoTPM needs to be built as specified in the README installation instructions.
+If GoTPM is built within a version control repository and other version info isn't available,
 the revision hash will be used instead.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
