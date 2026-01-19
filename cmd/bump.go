@@ -9,6 +9,7 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -33,6 +34,7 @@ func init() {
 	bumpCmd.Flags().Bool("dry-run", false, "Perform a dry-run")
 	bumpCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 	bumpCmd.Flags().BoolP("show-current", "c", false, "Show the version of the current package")
+	bumpCmd.Flags().BoolP("show-next", "n", false, "Show the version of the package if it where bumped")
 }
 
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
@@ -47,7 +49,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("running in", "cwd", cwd)
 
-	isShow := Must(cmd.Flags().GetBool("show"))
+	isShow := Must(cmd.Flags().GetBool("show-current"))
 	if isShow {
 		fmt.Println(pkg.Version)
 		return nil
@@ -87,6 +89,12 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	if dryRun {
 		logger.Warn("performing dry-run")
 		logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
+		return nil
+	}
+
+	showNext := Must(cmd.Flags().GetBool("show-next"))
+	if showNext {
+		fmt.Println(newPkgVersion)
 		return nil
 	}
 
