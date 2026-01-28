@@ -111,3 +111,27 @@ func assertErr(t testing.TB, got error, want string) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestCompareVersions(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		a    i.Version
+		b    i.Version
+		want int
+	}{
+		{"simple bigger patch", i.Version{0, 0, 1}, i.Version{0, 0, 0}, 1},
+		{"simple bigger minor", i.Version{0, 1, 1}, i.Version{0, 0, 0}, 1},
+		{"simple bigger major", i.Version{1, 1, 1}, i.Version{0, 0, 0}, 1},
+		{"simple smaller patch", i.Version{0, 0, 1}, i.Version{0, 0, 2}, -1},
+		{"simple smaller minor", i.Version{0, 1, 1}, i.Version{0, 2, 2}, -1},
+		{"simple smaller major", i.Version{1, 1, 1}, i.Version{2, 2, 2}, -1},
+		{"equal versions", i.Version{2, 2, 2}, i.Version{2, 2, 2}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := i.CompareVersions(tt.a, tt.b)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

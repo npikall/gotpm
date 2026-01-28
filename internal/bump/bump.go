@@ -53,6 +53,32 @@ func NewVersion() Version {
 	return Version{Major: 0, Minor: 0, Patch: 0}
 }
 
+// Compare two version structs. Useful to sort arrays of Versions
+func CompareVersions(a, b Version) int {
+	switch {
+	case a.Major != b.Major:
+		if a.Major > b.Major {
+			return 1
+		} else {
+			return -1
+		}
+	case a.Minor != b.Minor:
+		if a.Minor > b.Minor {
+			return 1
+		} else {
+			return -1
+		}
+	case a.Patch != b.Patch:
+		if a.Patch > b.Patch {
+			return 1
+		} else {
+			return -1
+		}
+	default:
+		return 0
+	}
+}
+
 // Parse a string into a Version Struct
 func ParseVersion(s string) (Version, error) {
 	isSemVer := IsSemVer(s)
