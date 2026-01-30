@@ -9,6 +9,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/url"
 	"os"
@@ -54,7 +55,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]`)
+	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]*`)
 	foundImports := pattern.FindAll(targetFile, -1)
 
 	// TODO: add spinner
@@ -78,4 +79,18 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		logger.Info("update to", "latest", latestVersion)
 	}
 	return nil
+}
+
+// Update all typst package import statements in a file, with the values provided
+// by a mapping of package names to the latest version.
+func UpdateFileContent(content *[]byte, versions map[string]string) {
+	for key, value := range versions {
+		rawPattern := fmt.Sprintf(`@preview/%s:[0-9]*.[0-9]*.[0-9]*`, key)
+		pattern := regexp.MustCompile(rawPattern)
+
+		namespacePkg := strings.Split(rawPattern, ":")[0]
+		replacement := fmt.Sprintf("%s:%s", namespacePkg, value)
+
+		*content = pattern.ReplaceAll(*content, []byte(replacement))
+	}
 }
