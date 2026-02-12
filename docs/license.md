@@ -1,5 +1,10 @@
 ---
+title: License
 icon: lucide/scale
+tags:
+  - "#license"
+hide:
+  - feedback
 ---
 
 ```
