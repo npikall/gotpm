@@ -18,7 +18,7 @@ and use it.
 
 ---
 
-<img class="shadow" src="https://github.com/npikall/gotpm/raw/main/docs/assets/thumbnail.svg">
+<img class="shadow" src="https://github.com/npikall/gotpm/raw/main/docs/assets/casette.gif">
 
 # Installation
 
