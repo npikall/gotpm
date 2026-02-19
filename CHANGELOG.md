@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.3.2](https://github.com/npikall/gotpm/releases/tag/v0.3.2) - 2026-02-19
+
+<small>[Compare with v0.3.1](https://github.com/npikall/gotpm/compare/v0.3.1...v0.3.2)</small>
+
+### Features
+
+- request latest vresions asynchronously ([febd7d8](https://github.com/npikall/gotpm/commit/febd7d809224b98db3106c5feda982544317559b) by npikall).
+- add update command ([d498b7b](https://github.com/npikall/gotpm/commit/d498b7b967fea6dfaec1e28f81102fe21a589234) by npikall).
+- add optional indentation of the typst.toml file ([55edc63](https://github.com/npikall/gotpm/commit/55edc63b12f3f1081901581702af40f71fca8e80) by npikall).
+- add func to update import statements in file ([631c0b8](https://github.com/npikall/gotpm/commit/631c0b81c19629e0df4146e87b55932e0d1a6420) by npikall).
+- add comparison of two versions ([eec2d66](https://github.com/npikall/gotpm/commit/eec2d66fd8a08b8d75d5a26023a47896746cc9f8) by npikall).
+- adding requests functionality ([06d7022](https://github.com/npikall/gotpm/commit/06d7022aa2b1a35e6f0cca5199771d0aae1538eb) by npikall).
+- add dry-run flag to install cmd ([4e48328](https://github.com/npikall/gotpm/commit/4e4832808bb5db630d20d6d1b49ffed6b9d0073e) by npikall).
+- add show-next flag to bump cmd ([d3de9b7](https://github.com/npikall/gotpm/commit/d3de9b7479fa05b95e3f5d5142ef606bd9cf01e8) by npikall).
+- usse debug keyword instead of verbose ([05a2e18](https://github.com/npikall/gotpm/commit/05a2e18b461687cf0c1ff7721d4fcd09bfb3ba4e) by npikall).
+- add show package version flag ([b6f5f45](https://github.com/npikall/gotpm/commit/b6f5f457259b19e707576e2f9a4177a0e00a5627) by Nikolas Pikall).
+
+### Bug Fixes
+
+- uninstall all versions from a single namespace ([ac70e18](https://github.com/npikall/gotpm/commit/ac70e182752f41174f2009456a36f334ec0db384) by npikall).
+- embed version ([446a4e2](https://github.com/npikall/gotpm/commit/446a4e2415a83ff789ecd2664f7a9b0c7f41c6a9) by npikall).
+- long description text ([f9c2272](https://github.com/npikall/gotpm/commit/f9c22724dc71c438ea1ccea2423ade58944d66c4) by npikall).
+
+### Code Refactoring
+
+- clearer debug messages ([4c7733d](https://github.com/npikall/gotpm/commit/4c7733df6530e02a9d12bcc64a8360e0be33e1c6) by npikall).
+
 ## [v0.3.1](https://github.com/npikall/gotpm/releases/tag/v0.3.1) - 2026-01-17
 
 <small>[Compare with v0.3.0](https://github.com/npikall/gotpm/compare/v0.3.0...v0.3.1)</small>
