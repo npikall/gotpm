@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/npikall/gotpm/internal/request"
 	"github.com/spf13/cobra"
@@ -58,27 +59,56 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]*`)
 	foundImports := pattern.FindAll(targetFile, -1)
 
-	// TODO: add spinner
-	var newVersions = make(map[string]string)
+	var wg sync.WaitGroup
+	resultCh := make(chan result, len(foundImports))
+	logCh := make(chan logEvent, len(foundImports))
 	for _, importStatement := range foundImports {
-		pkgNameVersion := strings.Split(string(importStatement), "/")[1]
-		logger.Debug("found", "package", pkgNameVersion)
-		pkgName := strings.Split(pkgNameVersion, ":")[0]
-		apiURL, err := url.JoinPath(request.TypstPackageEndpoint, pkgName)
-		if err != nil {
-			return err
+		wg.Go(func() {
+			pkgNameVersion := strings.Split(string(importStatement), "/")[1]
+			pkgInfo := strings.Split(pkgNameVersion, ":")
+			pkgName := pkgInfo[0]
+			pkgVersion := pkgInfo[1]
+			apiURL, err := url.JoinPath(request.TypstPackageEndpoint, pkgName)
+			if err != nil {
+				logCh <- logEvent{"error", err.Error(), nil}
+				return
+			}
+			response, err := request.FetchDataFromGitHub(apiURL, ctx)
+			if err != nil {
+				logCh <- logEvent{"error", err.Error(), nil}
+				return
+			}
+			latestVersion, err := request.GetLatestVersion(response)
+			if err != nil {
+				logCh <- logEvent{"error", err.Error(), nil}
+				return
+			}
+			if latestVersion == pkgVersion {
+				logCh <- logEvent{"debug", "already at latest", []any{"package", pkgName}}
+				return
+			}
+			logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion}}
+			resultCh <- result{name: pkgName, latest: latestVersion}
+		})
+	}
+	wg.Wait()
+	close(resultCh)
+	close(logCh)
+
+	for l := range logCh {
+		switch l.level {
+		case "debug":
+			logger.Debug(l.msg, l.keyvals...)
+		case "info":
+			logger.Info(l.msg, l.keyvals...)
+		case "error":
+			logger.Error(l.msg, l.keyvals...)
 		}
-		logger.Debug("fetching", "url", apiURL)
-		response, err := request.FetchDataFromGitHub(apiURL, ctx)
-		if err != nil {
-			return err
-		}
-		latestVersion, err := request.GetLatestVersion(response)
-		if err != nil {
-			return err
-		}
-		newVersions[pkgName] = latestVersion
-		logger.Info("update to", "package", pkgName, "latest", latestVersion)
+	}
+
+	var newVersions = make(map[string]string)
+	for r := range resultCh {
+		newVersions[r.name] = r.latest
 	}
 
 	UpdateFileContent(&targetFile, newVersions)
@@ -88,6 +118,16 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+type result struct {
+	name   string
+	latest string
+}
+type logEvent struct {
+	level   string
+	msg     string
+	keyvals []any
 }
 
 // Update all typst package import statements in a file, with the values provided
