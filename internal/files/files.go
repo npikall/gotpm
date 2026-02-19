@@ -54,7 +54,7 @@ func UnmarshalToPackage(data []byte) (PackageInfo, error) {
 // Write the Packageinfo (name, version and entrypoint) to io.Writer
 //
 // The Unmarshal Function can be configured (e.g. for testing Purposes)
-func ConfigurableUpdateToml(w io.Writer, p PackageInfo, data []byte, unmarshal Unmarshaler) error {
+func ConfigurableUpdateToml(w io.Writer, p PackageInfo, data []byte, unmarshal Unmarshaler, indent bool) error {
 	var m map[string]any
 	err := unmarshal(data, &m)
 	if err != nil {
@@ -69,13 +69,15 @@ func ConfigurableUpdateToml(w io.Writer, p PackageInfo, data []byte, unmarshal U
 	pkg["entrypoint"] = p.Entrypoint
 
 	encoder := toml.NewEncoder(w)
-	encoder.Indent = ""
+	if !indent {
+		encoder.Indent = ""
+	}
 	return encoder.Encode(m)
 }
 
 // Update the Packageinfo (name, version and entrypoint)
-func UpdateTOML(w io.Writer, p PackageInfo, data []byte) error {
-	return ConfigurableUpdateToml(w, p, data, toml.Unmarshal)
+func UpdateTOML(w io.Writer, p PackageInfo, data []byte, indent bool) error {
+	return ConfigurableUpdateToml(w, p, data, toml.Unmarshal, indent)
 }
 
 // Load a typst Package from a directory. Returns an error if not existing.

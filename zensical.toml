@@ -1,62 +1,66 @@
 [project]
-site_name = "GoTPM - Typst Package Manager"
 site_description = "A Cli Tool to manage Typst Packages"
 site_author = "Nikolas Pikall"
+site_name = "GoTPM"
 copyright = """
 Copyright &copy; 2025 Nikolas Pikall
 """
 repo_url = "https://github.com/npikall/gotpm"
 repo_name = "npikall/gotpm"
 
-nav = [
-	"index.md",
-	"useage.md",
-	"changelog.md",
-	"contributing.md",
-	"license.md",
-]
+nav = ["index.md", "useage.md", "changelog.md", "contributing.md", "license.md"]
 
 [project.theme]
 # variant = "classic"
 #favicon = "images/favicon.png"
 language = "en"
 features = [
-    "announce.dismiss",
-    "content.action.edit",
-    "content.action.view",
-    "content.code.annotate",
-    "content.code.copy",
-    "content.code.select",
-    "content.footnote.tooltips",
-    "content.tabs.link",
-    "content.tooltips",
-    # "header.autohide",
-    # "navigation.expand",
-    "navigation.footer",
-    "navigation.indexes",
-    "navigation.instant",
-    "navigation.instant.prefetch",
-    #"navigation.instant.progress",
-    "navigation.path",
-    #"navigation.prune",
-    "navigation.sections",
-    # "navigation.tabs",
-    #"navigation.tabs.sticky",
-    "navigation.top",
-    "navigation.tracking",
-    "search.highlight",
-    # "toc.follow",
-    #"toc.integrate",
+	"announce.dismiss",
+	"content.action.edit",
+	"content.action.view",
+	"content.code.annotate",
+	"content.code.copy",
+	"content.code.select",
+	"content.footnote.tooltips",
+	"content.tabs.link",
+	"content.tooltips",
+	# "header.autohide",
+	# "navigation.expand",
+	"navigation.footer",
+	"navigation.indexes",
+	"navigation.instant",
+	"navigation.instant.prefetch",
+	#"navigation.instant.progress",
+	"navigation.path",
+	#"navigation.prune",
+	"navigation.sections",
+	# "navigation.tabs",
+	#"navigation.tabs.sticky",
+	"navigation.top",
+	"navigation.tracking",
+	"search.highlight",
+	# "toc.follow",
+	#"toc.integrate",
 ]
 
+# Palette toggle for automatic mode
 [[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+# Palette toggle for light mode
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
 scheme = "default"
 accent = "deep orange"
 primary = "deep orange"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
+# Palette toggle for dark mode
 [[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 accent = "deep orange"
 primary = "deep orange"
@@ -95,7 +99,7 @@ emoji_index = "zensical.extensions.emoji.twemoji"
 [project.markdown_extensions.pymdownx.smartsymbols]
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
-  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
+	{ name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
 ]
 [project.markdown_extensions.pymdownx.tabbed]
 alternate_style = true

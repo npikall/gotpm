@@ -20,13 +20,18 @@ import (
 
 // bumpCmd represents the version command
 var bumpCmd = &cobra.Command{
-	Use: "bump",
+	Use: "bump [increment|version]",
 	Example: ` gotpm bump major
 gotpm bump 0.1.2
 `,
 	Short: "Manage the version of a Typst Package",
-	Long:  `Use this command to change the version of the Package or to display it.`,
-	RunE:  bumpRunner,
+	Long: `Use this command to change the version of the Package or to display it.
+Valid arguments can be:
+- major
+- minor
+- patch
+- a valid semantic version (e.g. 0.1.2)`,
+	RunE: bumpRunner,
 }
 
 func init() {
@@ -35,6 +40,7 @@ func init() {
 	bumpCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 	bumpCmd.Flags().BoolP("show-current", "c", false, "Show the version of the current package")
 	bumpCmd.Flags().BoolP("show-next", "n", false, "Show the version of the package if it where bumped")
+	bumpCmd.Flags().BoolP("indent", "i", false, "Use Indentation in the typst.toml file.")
 }
 
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
@@ -107,8 +113,9 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	logger.Debug("editing", "file", typstTOML)
 
 	// Write updated TOML to a buffer first
+	indent := Must(cmd.Flags().GetBool("indent"))
 	var buf bytes.Buffer
-	err = files.UpdateTOML(&buf, pkg, typstTOMLContent)
+	err = files.UpdateTOML(&buf, pkg, typstTOMLContent, indent)
 	if err != nil {
 		return err
 	}

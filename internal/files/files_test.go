@@ -59,7 +59,7 @@ example = "str"
 	t.Run("successful", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		pkg := i.PackageInfo{Name: "foo", Version: "changed", Entrypoint: "bar"}
-		err := i.UpdateTOML(buf, pkg, example)
+		err := i.UpdateTOML(buf, pkg, example, false)
 		assert.NoError(t, err)
 
 		if buf.String() != string(want) {
@@ -69,7 +69,7 @@ example = "str"
 	t.Run("not successful", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		pkg := i.PackageInfo{}
-		err := i.ConfigurableUpdateToml(buf, pkg, example, SpyUnmarshal)
+		err := i.ConfigurableUpdateToml(buf, pkg, example, SpyUnmarshal, false)
 		assertErr(t, err, ErrSpy)
 	})
 }

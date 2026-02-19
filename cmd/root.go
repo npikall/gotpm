@@ -21,23 +21,25 @@ var asciiArt string = LogoStyle.Render(`┌────────────�
 │| | __ / _ \| | |  __/| |\/| |│
 │| |_\ \ (_) | | | |   | |  | |│
 │ \____/\___/\_/ \_|   \_|  |_/│
-└──────────────────────────────┘
+└──────────────────────────────┘`)
+
+var description string = DescriptionStyle.Render(`
 GoTPM is a minimal Package Manager for Typst.
 Install the packages you write to your disk, to
 make them installable via a local import.`)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "gotpm",
+	Use:     "gotpm [command] [--flags]",
 	Short:   "A Package Manager for Typst written in Go.",
-	Long:    asciiArt,
+	Long:    asciiArt + description,
 	Version: GoTPMVersion,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := fang.Execute(context.Background(), rootCmd); err != nil {
+	if err := fang.Execute(context.Background(), rootCmd, fang.WithVersion(getGoTPMVersion())); err != nil {
 		os.Exit(1)
 	}
 }
