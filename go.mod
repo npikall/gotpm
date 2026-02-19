@@ -5,8 +5,9 @@ go 1.25.4
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/fang v0.4.3
-	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta.3.0.20250917201909-41ff0bf215ea
 	github.com/charmbracelet/log v0.4.2
+	github.com/charmbracelet/x/exp/charmtone v0.0.0-20250603201427-c31516f43444
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.10.2
@@ -17,11 +18,10 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymanbagabas/go-udiff v0.3.1 // indirect
 	github.com/charmbracelet/colorprofile v0.3.2 // indirect
-	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta.3.0.20250917201909-41ff0bf215ea // indirect
+	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20250915111650-81d4262876ef // indirect
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
-	github.com/charmbracelet/x/exp/charmtone v0.0.0-20250603201427-c31516f43444 // indirect
 	github.com/charmbracelet/x/exp/golden v0.0.0-20241011142426-46044092ad91 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
