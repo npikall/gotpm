@@ -59,6 +59,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	foundImports := pattern.FindAll(targetFile, -1)
 
 	// TODO: add spinner
+	var newVersions = make(map[string]string)
 	for _, importStatement := range foundImports {
 		pkgNameVersion := strings.Split(string(importStatement), "/")[1]
 		logger.Debug("found", "package", pkgNameVersion)
@@ -76,8 +77,16 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		logger.Info("update to", "latest", latestVersion)
+		newVersions[pkgName] = latestVersion
+		logger.Info("update to", "package", pkgName, "latest", latestVersion)
 	}
+
+	UpdateFileContent(&targetFile, newVersions)
+	err = os.WriteFile(targetFilePath, targetFile, 0644)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
