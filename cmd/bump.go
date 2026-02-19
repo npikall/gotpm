@@ -52,48 +52,42 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	logger := setupVerboseLogger(cmd)
 
 	cwd := Must(os.Getwd())
+	logger.Debug("running in", "cwd", cwd)
+
 	pkg, err := files.LoadPackageFromDirectory(cwd)
 	if err != nil {
 		return err
 	}
-	logger.Debug("running in", "cwd", cwd)
 
-	isShow := Must(cmd.Flags().GetBool("show-current"))
-	if isShow {
+	showCurrent := Must(cmd.Flags().GetBool("show-current"))
+	if showCurrent {
 		fmt.Println(pkg.Version)
 		return nil
 	}
 
 	oldPkgVersion := pkg.Version
-	newPkgVersion, err := version.ParseVersion(oldPkgVersion)
 	logger.Debug("from 'typst.toml'", "version", oldPkgVersion)
+
+	newPkgVersion, err := version.ParseVersion(oldPkgVersion)
 	if err != nil {
 		return err
 	}
 
-	// Handle Runtime Flags
-	var bump string
+	var bumpArg string
 	if len(args) > 0 {
-		bump = args[0]
+		bumpArg = args[0]
 	} else {
 		return ErrMissingArgument
 	}
+
 	dryRun := Must(cmd.Flags().GetBool("dry-run"))
+	isFixedVersion := version.IsSemVer(bumpArg)
 
-	isFixedVersion := version.IsSemVer(bump)
-
-	switch {
-	case isFixedVersion:
-		pkg.Version = bump
-		logger.Debug("setting toml", "version", bump)
-	default:
-		err := newPkgVersion.Bump(bump)
-		if err != nil {
-			return err
-		}
-		pkg.Version = newPkgVersion.String()
-		logger.Debug("setting toml", "version", newPkgVersion.String())
+	err = setVersionOrIncrement(isFixedVersion, pkg, bumpArg, newPkgVersion)
+	if err != nil {
+		return err
 	}
+	logger.Debug("setting toml", "version", pkg.Version)
 
 	if dryRun {
 		logger.Warn("performing dry-run")
@@ -107,7 +101,6 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Read the existing TOML file
 	typstTOML := filepath.Join(cwd, "typst.toml")
 	typstTOMLContent, err := os.ReadFile(typstTOML)
 	if err != nil {
@@ -132,5 +125,19 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	logger.Debug("write buffer", "file", typstTOML)
 
 	logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
+	return nil
+}
+
+func setVersionOrIncrement(isFixedVersion bool, pkg files.PackageInfo, bumpArg string, newPkgVersion version.Version) error {
+	switch {
+	case isFixedVersion:
+		pkg.Version = bumpArg
+	default:
+		err := newPkgVersion.Bump(bumpArg)
+		if err != nil {
+			return err
+		}
+		pkg.Version = newPkgVersion.String()
+	}
 	return nil
 }

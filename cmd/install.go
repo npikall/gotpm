@@ -59,14 +59,19 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	namespace := Must(cmd.Flags().GetString("namespace"))
-	isEditable := Must(cmd.Flags().GetBool("editable"))
-	isDryRun := Must(cmd.Flags().GetBool("dry-run"))
 	logger.Debug("flag", "namespace", namespace)
+
+	isEditable := Must(cmd.Flags().GetBool("editable"))
 	logger.Debug("flag", "editable", isEditable)
+
+	isDryRun := Must(cmd.Flags().GetBool("dry-run"))
+	logger.Debug("flag", "dry-run", isDryRun)
+
 	typstPackagePath, err := paths.GetTypstPackagePath()
 	if err != nil {
 		return err
 	}
+
 	target := filepath.Join(typstPackagePath, namespace, pkg.Name, pkg.Version)
 
 	typstIgnorePath := filepath.Join(cwd, ".typstignore")

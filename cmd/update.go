@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/internal/request"
 	"github.com/spf13/cobra"
 )
@@ -46,53 +47,50 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	var targetFilePath string
-	if len(args) > 0 {
-		targetFilePath = filepath.Join(cwd, args[0])
-	} else {
-		targetFilePath = filepath.Join(cwd, "dependencies.typ")
-	}
+	targetFilePath = getAbsolutePath(args, targetFilePath, cwd)
 	logger.Debug("update", "target", targetFilePath)
 
 	if _, err := os.Stat(targetFilePath); errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
-	targetFile, err := os.ReadFile(targetFilePath)
+	targetFileContent, err := os.ReadFile(targetFilePath)
 	if err != nil {
 		return err
 	}
 
-	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]*`)
-	foundImports := pattern.FindAll(targetFile, -1)
+	foundImports := extractImportStatements(targetFileContent)
 
 	var wg sync.WaitGroup
 	resultCh := make(chan result, len(foundImports))
 	logCh := make(chan logEvent, len(foundImports))
 	for _, importStatement := range foundImports {
 		wg.Go(func() {
-			pkgNameVersion := strings.Split(string(importStatement), "/")[1]
-			pkgInfo := strings.Split(pkgNameVersion, ":")
-			pkgName := pkgInfo[0]
-			pkgVersion := pkgInfo[1]
+			pkgName, pkgVersion := getPackageInfos(importStatement)
+
 			apiURL, err := url.JoinPath(request.TypstPackageEndpoint, pkgName)
 			if err != nil {
 				logCh <- logEvent{"error", err.Error(), nil}
 				return
 			}
+
 			response, err := request.FetchDataFromGitHub(apiURL, ctx)
 			if err != nil {
 				logCh <- logEvent{"error", err.Error(), nil}
 				return
 			}
+
 			latestVersion, err := request.GetLatestVersion(response)
 			if err != nil {
 				logCh <- logEvent{"error", err.Error(), nil}
 				return
 			}
+
 			if latestVersion == pkgVersion {
 				logCh <- logEvent{"debug", "already at latest", []any{"package", pkgName}}
 				return
 			}
+
 			logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion}}
 			resultCh <- result{name: pkgName, latest: latestVersion}
 		})
@@ -101,15 +99,8 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	close(resultCh)
 	close(logCh)
 
-	for l := range logCh {
-		switch l.level {
-		case "debug":
-			logger.Debug(l.msg, l.keyvals...)
-		case "info":
-			logger.Info(l.msg, l.keyvals...)
-		case "error":
-			logger.Error(l.msg, l.keyvals...)
-		}
+	for event := range logCh {
+		logLogEvent(event, logger)
 	}
 
 	var newVersions = make(map[string]string)
@@ -117,13 +108,47 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		newVersions[r.name] = r.latest
 	}
 
-	UpdateFileContent(&targetFile, newVersions)
-	err = os.WriteFile(targetFilePath, targetFile, 0644)
+	UpdateFileContent(&targetFileContent, newVersions)
+	err = os.WriteFile(targetFilePath, targetFileContent, 0644)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func logLogEvent(l logEvent, logger *log.Logger) {
+	switch l.level {
+	case "debug":
+		logger.Debug(l.msg, l.keyvals...)
+	case "info":
+		logger.Info(l.msg, l.keyvals...)
+	case "error":
+		logger.Error(l.msg, l.keyvals...)
+	}
+}
+
+func getPackageInfos(importStatement []byte) (string, string) {
+	pkgNameVersion := strings.Split(string(importStatement), "/")[1]
+	pkgInfo := strings.Split(pkgNameVersion, ":")
+	pkgName := pkgInfo[0]
+	pkgVersion := pkgInfo[1]
+	return pkgName, pkgVersion
+}
+
+func extractImportStatements(targetFile []byte) [][]byte {
+	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]*`)
+	foundImports := pattern.FindAll(targetFile, -1)
+	return foundImports
+}
+
+func getAbsolutePath(args []string, targetFilePath string, cwd string) string {
+	if len(args) > 0 {
+		targetFilePath = filepath.Join(cwd, args[0])
+	} else {
+		targetFilePath = filepath.Join(cwd, "dependencies.typ")
+	}
+	return targetFilePath
 }
 
 type result struct {

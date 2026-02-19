@@ -52,10 +52,11 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	cwd := Must(os.Getwd())
 
 	deleteAll := Must(cmd.Flags().GetBool("all"))
+	version := Must(cmd.Flags().GetString("version"))
+
 	var pkgName, pkgVersion string
 	switch {
 	case len(args) > 0:
-		version := Must(cmd.Flags().GetString("version"))
 		if version == "" && !deleteAll {
 			return ErrInsufficientPackage
 		}
