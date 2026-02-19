@@ -13,9 +13,11 @@ import (
 
 // locateCmd represents the locate command
 var locateCmd = &cobra.Command{
-	Use:     "locate",
-	Short:   "Locate the root directory, where the Typst Packages are stored.",
-	Example: `gotpm locate`,
+	Use:   "locate",
+	Short: "Locate the root directory, where the Typst Packages are stored.",
+	Long:  "Locate the root directory, where the Typst Packages are stored.",
+	Example: `# Locate Typst Packages
+gotpm locate`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := setupLogger()
 		target, err := paths.GetTypstPackagePath()

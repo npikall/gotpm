@@ -24,8 +24,14 @@ import (
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
-	Use:   "update [file]",
+	Use: "update [file]",
+	Example: `# update import statements
+gotpm update foo.typ
+
+# defaults to 'dependencies.typ'
+gotpm update`,
 	Short: "Update all dependencies from a file to their latest version.",
+	Long:  "Update all dependencies from a file to their latest version.",
 	RunE:  updateRunner,
 }
 

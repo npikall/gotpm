@@ -21,16 +21,19 @@ import (
 // bumpCmd represents the version command
 var bumpCmd = &cobra.Command{
 	Use: "bump [increment|version]",
-	Example: ` gotpm bump major
+	Example: `# bump with a given increment
+gotpm bump major
+
+# set to a specific version
 gotpm bump 0.1.2
 `,
 	Short: "Manage the version of a Typst Package",
 	Long: `Use this command to change the version of the Package or to display it.
 Valid arguments can be:
-- major
-- minor
-- patch
-- a valid semantic version (e.g. 0.1.2)`,
+	- major
+	- minor
+	- patch
+	- a valid semantic version (e.g. 0.1.2)`,
 	RunE: bumpRunner,
 }
 

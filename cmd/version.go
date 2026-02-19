@@ -18,16 +18,16 @@ var GoTPMVersion string
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
-	Use:   "version",
+	Use: "version",
+	Example: `# display the gotpm version
+gotpm version`,
 	Short: "Display application's version information",
-	Long: `
-The version command provides information about the application's version.
+	Long: `The version command provides information about the application's version.
 
 GoTPM requires version information to be embedded at compile time.
 For detailed version information, GoTPM needs to be built as specified in the README installation instructions.
 If GoTPM is built within a version control repository and other version info isn't available,
-the revision hash will be used instead.
-`,
+the revision hash will be used instead.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		version := getGoTPMVersion()
 		fmt.Printf("GoTPM CLI version: %v\n", VersionStyle.Render(version))

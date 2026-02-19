@@ -20,12 +20,18 @@ import (
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall [name]",
 	Short: "Uninstall a Typst Package from the local Storage",
-	Example: `gotpm uninstall # get name and version from typst.toml
+	Example: `# get package metadata from typst.toml
+gotpm uninstall
 gotpm uninstall foo
-gotpm uninstall foo --all # all versions in namespace 'local'
-gotpm uninstall foo --namespace preview
-gotpm uninstall foo --namespace preview --dry-run
-gotpm uninstall foo --namespace preview --all
+
+# uninstall specific package from 'local' or 'preview'
+gotpm uninstall foo -v 0.1.2
+gotpm uninstall foo -v 0.1.2 -n preview
+
+# all versions of foo in namespace 'local' or 'preview'
+gotpm uninstall foo --all 
+gotpm uninstall foo -n preview --all
+
 `,
 	RunE: uninstallRunner,
 }

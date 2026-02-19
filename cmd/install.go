@@ -21,15 +21,18 @@ import (
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
-	Use:   "install [path] ",
+	Use:   "install [path]",
 	Short: "Install a Typst Package locally.",
 	Long: `All files that are not specifically excluded get copied to
 $DATA_DIR/typst/packages, where the $DATA_DIR is dependend on
 the machines operating system.
 `,
-	Example: `gotpm install
+	Example: `# install Package located in the CWD
+gotpm install
 gotpm install --editable
 gotpm install --namespace preview
+
+# install a Package not in the CWD
 gotpm install path/to/package/dir
 gotpm install path/to/package/dir -n preview
 `,
