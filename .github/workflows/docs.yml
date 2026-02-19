@@ -4,6 +4,11 @@ on:
     branches:
       - master
       - main
+    paths:
+      - "docs/*"
+      - "zensical.toml"
+      - "CHANGELOG.md"
+      - "README.md"
 permissions:
   contents: read
   pages: write
