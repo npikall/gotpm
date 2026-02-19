@@ -30,7 +30,7 @@ the revision hash will be used instead.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		version := getGoTPMVersion()
-		fmt.Printf("GoTPM CLI version: %v\n", InfoStyle.Render(version))
+		fmt.Printf("GoTPM CLI version: %v\n", VersionStyle.Render(version))
 	},
 }
 

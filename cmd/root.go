@@ -21,7 +21,9 @@ var asciiArt string = LogoStyle.Render(`┌────────────�
 │| | __ / _ \| | |  __/| |\/| |│
 │| |_\ \ (_) | | | |   | |  | |│
 │ \____/\___/\_/ \_|   \_|  |_/│
-└──────────────────────────────┘
+└──────────────────────────────┘`)
+
+var description string = DescriptionStyle.Render(`
 GoTPM is a minimal Package Manager for Typst.
 Install the packages you write to your disk, to
 make them installable via a local import.`)
@@ -30,7 +32,7 @@ make them installable via a local import.`)
 var rootCmd = &cobra.Command{
 	Use:     "gotpm [command] [--flags]",
 	Short:   "A Package Manager for Typst written in Go.",
-	Long:    asciiArt,
+	Long:    asciiArt + description,
 	Version: GoTPMVersion,
 }
 

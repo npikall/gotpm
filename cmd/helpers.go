@@ -3,39 +3,33 @@ package cmd
 import (
 	"os"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/charmbracelet/log"
+	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/spf13/cobra"
 )
 
 // Common Colors
 var (
-	Blue    = lipgloss.Color("81")
-	Yellow  = lipgloss.Color("3")
-	Red     = lipgloss.Color("124")
-	White   = lipgloss.Color("231")
-	Gray    = lipgloss.Color("245")
-	Magenta = lipgloss.Color("72")
-	Cyan    = lipgloss.Color("117")
-	Violet  = lipgloss.Color("99")
+	Violet    = charmtone.Charple
+	Turquoise = lipgloss.Color("86")
+	Magenta   = charmtone.Cheeky
 )
 
 // Styles for Messages to stdout/stderr
 var (
-	InfoStyle    = lipgloss.NewStyle().Foreground(Blue).Bold(true)
-	WarnStyle    = lipgloss.NewStyle().Foreground(Yellow).Bold(true)
-	ErrStyle     = lipgloss.NewStyle().Foreground(Red).Bold(true)
-	HighStyle    = lipgloss.NewStyle().Foreground(White).Bold(true)
-	DefaultStyle = lipgloss.NewStyle().Foreground(Gray)
-	LogoStyle    = lipgloss.NewStyle().Foreground(Violet)
+	VersionStyle     = lipgloss.NewStyle().Foreground(Turquoise).Bold(true)
+	HighStyle        = lipgloss.NewStyle().Foreground(Magenta).Bold(true)
+	LogoStyle        = lipgloss.NewStyle().Foreground(Violet)
+	DescriptionStyle = lipgloss.NewStyle().Foreground(Magenta)
 )
 
 // Styles for the List Command
 var (
-	namespaceStyle = lipgloss.NewStyle().Bold(true).Foreground(Magenta).MarginTop(1)
-	packageStyle   = lipgloss.NewStyle().Bold(true).Foreground(Cyan)
-	versionStyle   = lipgloss.NewStyle().Foreground(Gray)
-	countStyle     = lipgloss.NewStyle().Foreground(Gray)
+	namespaceStyle = lipgloss.NewStyle().Foreground(Violet).MarginTop(1)
+	packageStyle   = lipgloss.NewStyle().Foreground(Magenta)
+	versionStyle   = lipgloss.NewStyle().Faint(true)
+	countStyle     = lipgloss.NewStyle().Faint(true)
 )
 
 func setupLogger() *log.Logger {
