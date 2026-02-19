@@ -22,8 +22,10 @@ var uninstallCmd = &cobra.Command{
 	Short: "Uninstall a Typst Package from the local Storage",
 	Example: `gotpm uninstall # get name and version from typst.toml
 gotpm uninstall foo
+gotpm uninstall foo --all # all versions in namespace 'local'
 gotpm uninstall foo --namespace preview
 gotpm uninstall foo --namespace preview --dry-run
+gotpm uninstall foo --namespace preview --all
 `,
 	RunE: uninstallRunner,
 }
@@ -43,11 +45,12 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	logger := setupVerboseLogger(cmd)
 	cwd := Must(os.Getwd())
 
+	deleteAll := Must(cmd.Flags().GetBool("all"))
 	var pkgName, pkgVersion string
 	switch {
 	case len(args) > 0:
 		version := Must(cmd.Flags().GetString("version"))
-		if version == "" {
+		if version == "" && !deleteAll {
 			return ErrInsufficientPackage
 		}
 		pkgName = args[0]
@@ -65,7 +68,6 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 
 	// Get Flag Values
 	namespace := Must(cmd.Flags().GetString("namespace"))
-	deleteAll := Must(cmd.Flags().GetBool("all"))
 	isDryRun := Must(cmd.Flags().GetBool("dry-run"))
 	logger.Debug("run flags", "namespace", namespace, "all", deleteAll, "dry-run", isDryRun)
 
