@@ -23,7 +23,7 @@ import (
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
-	Use:   "update",
+	Use:   "update [file]",
 	Short: "Update all dependencies from a file to their latest version.",
 	RunE:  updateRunner,
 }
