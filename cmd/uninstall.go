@@ -41,8 +41,6 @@ var ErrInsufficientPackage = errors.New("both package and version must be specif
 
 func uninstallRunner(cmd *cobra.Command, args []string) error {
 	logger := setupVerboseLogger(cmd)
-
-	// Get System Environment
 	cwd := Must(os.Getwd())
 
 	var pkgName, pkgVersion string
@@ -54,8 +52,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 		}
 		pkgName = args[0]
 		pkgVersion = version
-		logger.Debug("passed", "name", pkgName)
-		logger.Debug("passed", "version", pkgVersion)
+		logger.Debug("from cli", "name", pkgName, "version", pkgVersion)
 	default:
 		pkg, err := files.LoadPackageFromDirectory(cwd)
 		if err != nil {
@@ -63,8 +60,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 		}
 		pkgName = pkg.Name
 		pkgVersion = pkg.Version
-		logger.Debug("found in toml", "name", pkgName)
-		logger.Debug("found in toml", "version", pkgVersion)
+		logger.Debug("from toml", "name", pkgName, "version", pkgVersion)
 	}
 
 	// Get Flag Values
