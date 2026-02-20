@@ -1,6 +1,9 @@
 .PHONY: build test format install help changelog changelog-auto
 
-VERSION := $(shell git describe --tags --dirty --abbrev=0)
+LATEST_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null)
+HEAD_TAG := $(shell git describe --tags --exact-match 2>/dev/null)
+
+VERSION := $(if $(HEAD_TAG),$(HEAD_TAG),"$(LATEST_TAG)-dev")
 LDFLAGS := -ldflags="-s -w \
 	-X github.com/npikall/gotpm/cmd.GoTPMVersion=$(VERSION)"
 
