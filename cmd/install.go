@@ -87,6 +87,8 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		logger.Warn("perform dry-run")
 	}
 
+	s := setupSpinner()
+	s.Start()
 	var payload []string
 	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -110,6 +112,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if isDryRun {
+		s.Stop()
 		for _, src := range payload {
 			dstFile := Must(paths.ResolveTargetPath(cwd, src, dstDir))
 			logger.Debug("would copy", "src", src, "dst", dstFile)
@@ -133,6 +136,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	wg.Wait()
 	close(errCh)
 	close(logCh)
+	s.Stop()
 
 	for e := range errCh {
 		if e != nil {
