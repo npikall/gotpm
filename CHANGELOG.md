@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.3.3](https://github.com/npikall/gotpm/releases/tag/v0.3.3) - 2026-02-20
+
+<small>[Compare with v0.3.2](https://github.com/npikall/gotpm/compare/v0.3.2...v0.3.3)</small>
+
+### Features
+
+- add spinner to install command ([0c5c05a](https://github.com/npikall/gotpm/commit/0c5c05a96879be4ff807362e6641c95916bfe9e1) by npikall).
+- add spinner to update command ([a01632a](https://github.com/npikall/gotpm/commit/a01632a48f1338e30a4863174c320804b888dac9) by npikall).
+
+### Code Refactoring
+
+- reduce nested function calls ([89e34bf](https://github.com/npikall/gotpm/commit/89e34bff255f824125dd0c9b8a11160b65b659a3) by npikall).
+- move spinner into helpers and clean up ([41d88f1](https://github.com/npikall/gotpm/commit/41d88f10f4ebd24f42b970533a3dc54c7d44c658) by npikall).
+- clean code and extract functions ([27109f0](https://github.com/npikall/gotpm/commit/27109f0dfa26ec4f22e6ad98b9a60c8c925b8e6d) by Nikolas Pikall).
+
 ## [v0.3.2](https://github.com/npikall/gotpm/releases/tag/v0.3.2) - 2026-02-19
 
 <small>[Compare with v0.3.1](https://github.com/npikall/gotpm/compare/v0.3.1...v0.3.2)</small>
