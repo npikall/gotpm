@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/internal/files"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/sabhiram/go-gitignore"
@@ -72,7 +71,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	target := filepath.Join(typstPackagePath, namespace, pkg.Name, pkg.Version)
+	dstDir := filepath.Join(typstPackagePath, namespace, pkg.Name, pkg.Version)
 
 	typstIgnorePath := filepath.Join(cwd, ".typstignore")
 	typstIgnore, err := ignore.CompileIgnoreFile(typstIgnorePath)
@@ -82,45 +81,27 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		logger.Warn("no '.typstignore' file. copy everything from", "cwd", cwd)
 	}
 
-	logger.Info("installing to", "target", target)
+	logger.Info("installing to", "target", dstDir)
 
 	if isDryRun {
 		logger.Warn("perform dry-run")
 	}
 
-	var wg sync.WaitGroup
-	logger.Debug("start walking", "directory", cwd)
+	var payload []string
 	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-
-		// Ignore Directories and the .git folder
 		if d.IsDir() {
 			if d.Name() == ".git" {
-				logger.Debug("skip directory .git/")
 				return fs.SkipDir
 			}
-			logger.Debug("skip directory", "dir", d.Name())
 			return nil
 		}
-
 		if typstIgnore.MatchesPath(path) {
-			logger.Debug("ignore matches", "path", path)
 			return nil
 		}
-
-		targetPath := Must(paths.ResolveTargetPath(cwd, path, target))
-		logger.Debug("resolved", "targetPath", targetPath)
-
-		if isDryRun {
-			logger.Info("copy", "src", filepath.Base(path))
-			return nil
-		}
-
-		wg.Go(func() {
-			processFile(logger, path, targetPath, isEditable)
-		})
+		payload = append(payload, path)
 		return nil
 	})
 
@@ -128,15 +109,54 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if isDryRun {
+		for _, src := range payload {
+			dstFile := Must(paths.ResolveTargetPath(cwd, src, dstDir))
+			logger.Debug("would copy", "src", src, "dst", dstFile)
+		}
+		return nil
+	}
+
+	maxSends := len(payload)
+	errCh := make(chan error, maxSends)
+	logCh := make(chan transferLog, maxSends)
+
+	var wg sync.WaitGroup
+	for _, src := range payload {
+		wg.Go(func() {
+			dstFile := Must(paths.ResolveTargetPath(cwd, src, dstDir))
+			err := transferFile(src, dstFile, isEditable)
+			logCh <- transferLog{src, dstFile}
+			errCh <- err
+		})
+	}
 	wg.Wait()
+	close(errCh)
+	close(logCh)
+
+	for e := range errCh {
+		if e != nil {
+			logger.Error("an error occured during the file transfer")
+			return e
+		}
+	}
+
+	for l := range logCh {
+		logger.Debug("copy", "src", filepath.Base(l.src), "dst", l.dst)
+	}
+
 	logger.Infof("package '%s' successfully installed", pkg.Name)
 	return nil
 }
 
-func processFile(logger *log.Logger, srcPath, dstPath string, isEditable bool) {
+type transferLog struct {
+	src string
+	dst string
+}
+
+func transferFile(srcPath, dstPath string, isEditable bool) error {
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0750); err != nil {
-		logger.Error(err)
-		return
+		return err
 	}
 	var err error
 	switch isEditable {
@@ -146,9 +166,9 @@ func processFile(logger *log.Logger, srcPath, dstPath string, isEditable bool) {
 		err = files.CopyFile(srcPath, dstPath)
 	}
 	if err != nil {
-		logger.Error(err)
-		return
+		return err
 	}
+	return nil
 }
 
 func getCurrentWorkingDir(args []string) string {
