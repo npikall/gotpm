@@ -17,9 +17,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/internal/request"
 	"github.com/spf13/cobra"
@@ -48,8 +46,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	cwd := Must(os.Getwd())
 	ctx := context.Background()
 
-	var targetFilePath string
-	targetFilePath = getAbsolutePath(args, targetFilePath, cwd)
+	targetFilePath := getAbsolutePath(args, cwd)
 	logger.Debug("update", "target", targetFilePath)
 
 	if _, err := os.Stat(targetFilePath); errors.Is(err, fs.ErrNotExist) {
@@ -62,13 +59,12 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	foundImports := extractImportStatements(targetFileContent)
+	maxRequests := len(foundImports)
 
 	var wg sync.WaitGroup
-	resultCh := make(chan result, len(foundImports))
-	logCh := make(chan logEvent, len(foundImports))
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Suffix = countStyle.Render(" Loading...")
-	_ = s.Color("cyan")
+	resultCh := make(chan result, maxRequests)
+	logCh := make(chan logEvent, maxRequests)
+	s := setupSpinner()
 	s.Start()
 	for _, importStatement := range foundImports {
 		wg.Go(func() {
@@ -153,23 +149,16 @@ func extractImportStatements(targetFile []byte) [][]byte {
 	return foundImports
 }
 
-func getAbsolutePath(args []string, targetFilePath string, cwd string) string {
+func getAbsolutePath(args []string, cwd string) string {
 	if len(args) > 0 {
-		targetFilePath = filepath.Join(cwd, args[0])
-	} else {
-		targetFilePath = filepath.Join(cwd, "dependencies.typ")
+		return filepath.Join(cwd, args[0])
 	}
-	return targetFilePath
+	return filepath.Join(cwd, "dependencies.typ")
 }
 
 type result struct {
 	name   string
 	latest string
-}
-type logEvent struct {
-	level   string
-	msg     string
-	keyvals []any
 }
 
 // Update all typst package import statements in a file, with the values provided

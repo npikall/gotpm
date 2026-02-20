@@ -2,12 +2,21 @@ package cmd
 
 import (
 	"os"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/spf13/cobra"
 )
+
+// Helper to log in GoRoutines
+type logEvent struct {
+	level   string
+	msg     string
+	keyvals []any
+}
 
 // Common Colors
 var (
@@ -46,6 +55,13 @@ func setupVerboseLogger(cmd *cobra.Command) *log.Logger {
 		logger.SetLevel(log.DebugLevel)
 	}
 	return logger
+}
+
+func setupSpinner() *spinner.Spinner {
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = countStyle.Render(" Loading...")
+	_ = s.Color("cyan")
+	return s
 }
 
 // A given Function must return no error.
