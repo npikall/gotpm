@@ -17,7 +17,9 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/internal/request"
 	"github.com/spf13/cobra"
@@ -64,6 +66,10 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	var wg sync.WaitGroup
 	resultCh := make(chan result, len(foundImports))
 	logCh := make(chan logEvent, len(foundImports))
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = countStyle.Render(" Loading...")
+	_ = s.Color("cyan")
+	s.Start()
 	for _, importStatement := range foundImports {
 		wg.Go(func() {
 			pkgName, pkgVersion := getPackageInfos(importStatement)
@@ -99,13 +105,18 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	close(resultCh)
 	close(logCh)
 
+	var newVersions = make(map[string]string)
+	for r := range resultCh {
+		newVersions[r.name] = r.latest
+	}
+	s.Stop()
+
 	for event := range logCh {
 		logLogEvent(event, logger)
 	}
 
-	var newVersions = make(map[string]string)
-	for r := range resultCh {
-		newVersions[r.name] = r.latest
+	if len(newVersions) == 0 {
+		logger.Info("all dependencies are up to date")
 	}
 
 	UpdateFileContent(&targetFileContent, newVersions)
