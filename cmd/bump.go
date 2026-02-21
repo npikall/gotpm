@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 
-	version "github.com/npikall/gotpm/internal/bump"
 	"github.com/npikall/gotpm/internal/files"
 	"github.com/spf13/cobra"
 )
@@ -65,25 +64,17 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	oldPkgVersion := pkg.Version
-	logger.Debug("from 'typst.toml'", "version", oldPkgVersion)
+	previousVersion := pkg.Version
+	logger.Debug("from 'typst.toml'", "version", previousVersion)
 
-	newPkgVersion, err := version.ParseVersion(oldPkgVersion)
-	if err != nil {
-		return err
-	}
-
-	var bumpArg string
-	if len(args) > 0 {
-		bumpArg = args[0]
-	} else {
+	if len(args) == 0 {
 		return ErrMissingArgument
 	}
+	bumpArg := args[0]
 
 	dryRun := Must(cmd.Flags().GetBool("dry-run"))
-	isFixedVersion := version.IsSemVer(bumpArg)
 
-	err = setVersionOrIncrement(isFixedVersion, pkg, bumpArg, newPkgVersion)
+	err = pkg.Bump(bumpArg)
 	if err != nil {
 		return err
 	}
@@ -91,13 +82,13 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 
 	if dryRun {
 		logger.Warn("performing dry-run")
-		logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
+		logger.Infof("updated version %s -> %s", previousVersion, pkg.Version)
 		return nil
 	}
 
 	showNext := Must(cmd.Flags().GetBool("show-next"))
 	if showNext {
-		fmt.Println(newPkgVersion)
+		fmt.Println(pkg.Version)
 		return nil
 	}
 
@@ -124,20 +115,6 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("write buffer", "file", typstTOML)
 
-	logger.Infof("updated version %s -> %s", oldPkgVersion, pkg.Version)
-	return nil
-}
-
-func setVersionOrIncrement(isFixedVersion bool, pkg files.PackageInfo, bumpArg string, newPkgVersion version.Version) error {
-	switch {
-	case isFixedVersion:
-		pkg.Version = bumpArg
-	default:
-		err := newPkgVersion.Bump(bumpArg)
-		if err != nil {
-			return err
-		}
-		pkg.Version = newPkgVersion.String()
-	}
+	logger.Infof("updated version %s -> %s", previousVersion, pkg.Version)
 	return nil
 }
