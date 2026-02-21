@@ -118,3 +118,37 @@ func assertErr(t *testing.T, got, want error) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+func TestPackageInfo_Bump(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		initialVersion string
+		want           string
+		increment      string
+		wantErr        bool
+	}{
+		{"bump major", "0.1.0", "1.0.0", "major", false},
+		{"bump minor", "0.1.0", "0.2.0", "minor", false},
+		{"bump patch", "0.1.0", "0.1.1", "patch", false},
+		{"bump 0.2.3", "0.1.0", "0.2.3", "0.2.3", false},
+		{"bump error", "0.1.0", "0.1.0", "error", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := i.NewPackageInfo()
+			p.SetVersion(tt.initialVersion)
+			gotErr := p.Bump(tt.increment)
+			assert.Equal(t, tt.want, p.Version)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("Bump() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("Bump() succeeded unexpectedly")
+			}
+		})
+	}
+}
