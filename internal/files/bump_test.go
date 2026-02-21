@@ -1,9 +1,9 @@
-package bump_test
+package files_test
 
 import (
 	"testing"
 
-	i "github.com/npikall/gotpm/internal/bump"
+	i "github.com/npikall/gotpm/internal/files"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,7 +43,7 @@ func TestVersionBump(t *testing.T) {
 	t.Run("wrong increment", func(t *testing.T) {
 		startVersion := i.Version{Major: 0, Minor: 0, Patch: 0}
 		err := startVersion.Bump("123")
-		assertErr(t, err, i.ErrInvalidIncrement.Error())
+		assertErr(t, err, i.ErrInvalidIncrement)
 	})
 }
 
@@ -75,7 +75,7 @@ func TestParseVersion(t *testing.T) {
 	for _, tt := range invalidStringTests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := i.ParseVersion(tt.version)
-			assertErr(t, err, i.ErrInvalidVersion.Error())
+			assertErr(t, err, i.ErrInvalidVersion)
 		})
 	}
 }
@@ -99,16 +99,6 @@ func TestIsValidSemver(t *testing.T) {
 			got := i.IsSemVer(tt.got)
 			assert.Equal(t, tt.want, got, "given '%s'", tt.got)
 		})
-	}
-}
-
-func assertErr(t testing.TB, got error, want string) {
-	t.Helper()
-	if got == nil {
-		t.Fatal("wanted an error but did not get one")
-	}
-	if got.Error() != want {
-		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

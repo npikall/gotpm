@@ -1,4 +1,4 @@
-package bump
+package files
 
 import (
 	"errors"

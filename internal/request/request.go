@@ -9,7 +9,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/go-playground/validator/v10"
-	"github.com/npikall/gotpm/internal/bump"
+	bump "github.com/npikall/gotpm/internal/files"
 )
 
 const TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
