@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/npikall/gotpm/internal/bump"
 )
 
 var ErrInvalidManifest = errors.New("not a valid typst manifest")
@@ -28,8 +27,37 @@ type PackageInfo struct {
 	Entrypoint string `toml:"entrypoint"`
 }
 
+// Convenient Package Struct initializer for the tests
+func NewPackageInfo() *PackageInfo {
+	return &PackageInfo{}
+}
+
+func (p *PackageInfo) SetVersion(version string) {
+	p.Version = version
+}
+
 func (p *PackageInfo) ValidateVersion() bool {
-	return bump.IsSemVer(p.Version)
+	return IsSemVer(p.Version)
+}
+
+func (p *PackageInfo) Bump(increment string) error {
+	isSemanticVersion := IsSemVer(increment)
+	bumpVersion, err := ParseVersion(p.Version)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case isSemanticVersion:
+		p.Version = increment
+	default:
+		err := bumpVersion.Bump(increment)
+		if err != nil {
+			return err
+		}
+		p.Version = bumpVersion.String()
+	}
+	return nil
 }
 
 type Unmarshaler func([]byte, any) error
