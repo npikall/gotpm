@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 <!-- insertion marker -->
+## [v0.3.4](https://github.com/npikall/gotpm/releases/tag/v0.3.4) - 2026-02-21
+
+<small>[Compare with v0.3.3](https://github.com/npikall/gotpm/compare/v0.3.3...v0.3.4)</small>
+
+### Features
+
+- add bump method to PackageInfo ([f411585](https://github.com/npikall/gotpm/commit/f4115854b7baeb292788aeabe3f482baf4cb613a) by Nikolas Pikall).
+
+### Bug Fixes
+
+- bumping without actually changing the version ([36b84ee](https://github.com/npikall/gotpm/commit/36b84ee337391967e58a884d2d67e7381253cb2c) by Nikolas Pikall).
+- typo in error message ([b208963](https://github.com/npikall/gotpm/commit/b20896337664a22d34bfb125b54665f6a97b9274) by Nikolas Pikall).
+
+### Code Refactoring
+
+- move bump into files ([7889244](https://github.com/npikall/gotpm/commit/7889244717a1909d67ac96aae4fe154545f35f5c) by Nikolas Pikall).
+
 ## [v0.3.3](https://github.com/npikall/gotpm/releases/tag/v0.3.3) - 2026-02-20
 
 <small>[Compare with v0.3.2](https://github.com/npikall/gotpm/compare/v0.3.2...v0.3.3)</small>

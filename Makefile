@@ -25,6 +25,11 @@ changelog:  ## update the changelog (github.com/pawamoy/git-changelog)
 changelog-auto:  ## update the changelog (might write different version the 'make changelog')
 	git-changelog --git-trailers -io CHANGELOG.md --bump="auto" --convention angular --versioning semver -Z
 
+release: changelog ## update the Changelog and commit
+	git add CHANGELOG.md
+	git commit -m "chore(release): bump version and log the changes"
+	@echo "Run 'git tag' and the 'git push && git push --tags'"
+
 install: build  ## install to either $HOME/.local/bin or $HOME/.bin or $HOME/bin
 	@INSTALL_DIR=""; \
 	if command -v gotpm >/dev/null 2>&1; then \
