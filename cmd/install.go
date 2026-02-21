@@ -140,7 +140,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 
 	for e := range errCh {
 		if e != nil {
-			logger.Error("an error occured during the file transfer")
+			logger.Error("an error occurred during the file transfer")
 			return e
 		}
 	}
