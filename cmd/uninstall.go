@@ -95,8 +95,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 
 	isExisting := files.Exists(target)
 	if !isExisting {
-		logger.Errorf("path does not exist '%s'", target)
-		return nil
+		return fmt.Errorf("path does not exist '%s'", target)
 	}
 
 	if isDryRun {

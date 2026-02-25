@@ -7,6 +7,7 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -140,8 +141,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 
 	for e := range errCh {
 		if e != nil {
-			logger.Error("an error occurred during the file transfer")
-			return e
+			return fmt.Errorf("an error occurred during the file transfer: %s", e)
 		}
 	}
 
