@@ -30,16 +30,22 @@ make them installable via a local import.`)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "gotpm [command] [--flags]",
-	Short:   "A Package Manager for Typst written in Go.",
-	Long:    asciiArt + description,
-	Version: GoTPMVersion,
+	Use:   "gotpm [command] [--flags]",
+	Short: "A Package Manager for Typst written in Go.",
+	Long:  asciiArt + description,
 }
+
+var (
+	gitTag    string
+	gitCommit string
+	buildOS   string
+	buildARCH string
+)
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := fang.Execute(context.Background(), rootCmd, fang.WithVersion(getGoTPMVersion())); err != nil {
+	if err := fang.Execute(context.Background(), rootCmd, fang.WithVersion(gitTag), fang.WithCommit(gitCommit)); err != nil {
 		os.Exit(1)
 	}
 }
