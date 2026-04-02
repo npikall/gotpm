@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
+	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 )
 
@@ -44,11 +46,150 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(sourceDir)
+	_, err = loadManifest(sourceDir)
+	if err != nil {
+		return err
+	}
+	_, err = resolveLocalPackageDir()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-var ErrTooManyArguments = errors.New("too many arguments: expected one directory path")
+const (
+	manifestFileName     = "typst.toml"
+	typstPackagesRelPath = "typst/packages"
+)
+
+var (
+	ErrTooManyArguments     = errors.New("too many arguments: expected one directory path")
+	ErrManifestNotFound     = errors.New("'typst.toml' not found: not a typst package directory")
+	ErrInvalidManifest      = errors.New("invalid 'typst.toml'")
+	ErrDataDirNotResolvable = errors.New("could not resolve typst local package directory")
+)
+
+type Manifest struct {
+	Package PackageMeta `toml:"package"`
+}
+
+type PackageMeta struct {
+	Name       string `toml:"name"`
+	Version    string `toml:"version"`
+	Entrypoint string `toml:"entrypoint"`
+}
+
+// Read and validate the typst.toml in the given directory.
+func loadManifest(dir string) (Manifest, error) {
+	path := filepath.Join(dir, manifestFileName)
+	raw, err := readManifestFile(path)
+	if err != nil {
+		return Manifest{}, err
+	}
+	manifest, err := parseManifest(raw)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := validateManifest(manifest); err != nil {
+		return Manifest{}, err
+	}
+	return manifest, nil
+}
+
+func readManifestFile(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrManifestNotFound
+		}
+		return nil, fmt.Errorf("reading manifest: %w", err)
+	}
+	return data, nil
+}
+
+func parseManifest(data []byte) (Manifest, error) {
+	var m Manifest
+	if err := toml.Unmarshal(data, &m); err != nil {
+		return Manifest{}, fmt.Errorf("%w: %s", ErrInvalidManifest, err)
+	}
+	return m, nil
+}
+
+func validateManifest(m Manifest) error {
+	var errs []error
+	if m.Package.Name == "" {
+		errs = append(errs, errors.New("missing required field: package.name"))
+	}
+	if m.Package.Version == "" {
+		errs = append(errs, errors.New("missing required field: package.version"))
+	}
+	if m.Package.Entrypoint == "" {
+		errs = append(errs, errors.New("missing required field: package.entrypoint"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%w: %w", ErrInvalidManifest, errors.Join(errs...))
+	}
+	return nil
+}
+
+func resolveLocalPackageDir() (string, error) {
+	base, err := resolveDataDir()
+	if err != nil {
+		return "", err
+	}
+	localPkgDir := filepath.Join(base, typstPackagesRelPath)
+	if err := ensureDir(localPkgDir); err != nil {
+		return "", err
+	}
+	return localPkgDir, nil
+}
+
+func resolveDataDir() (string, error) {
+	switch runtime.GOOS {
+	case "linux":
+		return resolveLinuxDataDir()
+	case "darwin":
+		return resolveDarwinDataDir()
+	case "windows":
+		return resolveWindowsDataDir()
+	default:
+		return "", fmt.Errorf("%w: unsupported OS %q", ErrDataDirNotResolvable, runtime.GOOS)
+	}
+}
+
+func resolveLinuxDataDir() (string, error) {
+	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+		return xdg, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
+	}
+	return filepath.Join(home, ".local", "share"), nil
+}
+
+func resolveDarwinDataDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
+	}
+	return filepath.Join(home, "Library", "Application Support"), nil
+}
+
+func resolveWindowsDataDir() (string, error) {
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		return "", fmt.Errorf("%w: %%APPDATA%% is not set", ErrDataDirNotResolvable)
+	}
+	return appData, nil
+}
+
+func ensureDir(path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return fmt.Errorf("creating directory %q: %w", path, err)
+	}
+	return nil
+}
 
 func resolveSourceDir(args []string) (string, error) {
 	numberOfArgs := len(args)
