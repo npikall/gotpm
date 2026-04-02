@@ -8,8 +8,70 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestLoadManifest_validManifest_returns_correct(t *testing.T) {
+	t.Run("valid manifest returns correct", func(t *testing.T) {
+		dir := writeManifest(t, `
+[package]
+name = "my-package"
+version = "1.0.0"
+entrypoint = "lib.typ"
+`)
+		got, err := loadManifest(dir)
+		assert.NoError(t, err)
+		assert.Equal(t, "my-package", got.Package.Name)
+		assert.Equal(t, "1.0.0", got.Package.Version)
+		assert.Equal(t, "lib.typ", got.Package.Entrypoint)
+	})
+	t.Run("no manifest returns not found error", func(t *testing.T) {
+		dir := t.TempDir()
+		_, err := loadManifest(dir)
+		assert.ErrorIs(t, err, ErrManifestNotFound)
+	})
+	t.Run("malformed toml returns invalid error", func(t *testing.T) {
+		dir := writeManifest(t, `this is not valid [ toml`)
+		_, err := loadManifest(dir)
+		assert.ErrorIs(t, err, ErrInvalidManifest)
+	})
+	t.Run("missing name returns invalid error", func(t *testing.T) {
+		dir := writeManifest(t, `
+[package]
+version = "1.0.0"
+entrypoint = "lib.typ"
+`)
+		_, err := loadManifest(dir)
+		assert.ErrorIs(t, err, ErrInvalidManifest)
+	})
+	t.Run("missing version returns invalid error", func(t *testing.T) {
+		dir := writeManifest(t, `
+[package]
+name = "my-package"
+entrypoint = "lib.typ"
+`)
+		_, err := loadManifest(dir)
+		assert.ErrorIs(t, err, ErrInvalidManifest)
+	})
+	t.Run("missing entrypoint returns invalid error", func(t *testing.T) {
+		dir := writeManifest(t, `
+[package]
+name = "my-package"
+version = "1.0.0"
+`)
+		_, err := loadManifest(dir)
+		assert.ErrorIs(t, err, ErrInvalidManifest)
+	})
+	t.Run("all fields missing reports all errors", func(t *testing.T) {
+		dir := writeManifest(t, `[package]`)
+		_, err := loadManifest(dir)
+		assert.ErrorIs(t, err, ErrInvalidManifest)
+		assert.ErrorContains(t, err, "package.name")
+		assert.ErrorContains(t, err, "package.version")
+		assert.ErrorContains(t, err, "package.entrypoint")
+	})
+}
+
 func Test_validateIsDirectory(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	notExistingDir := filepath.Join(dir, "subdir")
 	file := filepath.Join(dir, "empty")
 	check(os.WriteFile(file, []byte(""), 0644))
@@ -30,6 +92,7 @@ func Test_validateIsDirectory(t *testing.T) {
 
 func Test_resolveProvidedPath(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	subdir := filepath.Join(dir, "subdir")
 	check(os.Mkdir(subdir, 0755))
 	check(os.Chdir(dir))
@@ -56,6 +119,7 @@ func Test_resolveProvidedPath(t *testing.T) {
 
 func Test_resolveSourceDir(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	check(os.Chdir(dir))
 	cwd, _ := os.Getwd()
 	subdir := filepath.Join(dir, "subdir")
@@ -90,6 +154,17 @@ func Test_resolveSourceDir(t *testing.T) {
 		_, gotErr := resolveSourceDir([]string{"file.txt"})
 		assert.ErrorContains(t, gotErr, "path is not a directory")
 	})
+}
+
+func writeManifest(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("writing test manifest: %v", err)
+	}
+	return dir
 }
 
 func check(e error) {
