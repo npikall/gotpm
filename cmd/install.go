@@ -9,11 +9,17 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
+	"github.com/charmbracelet/log"
+	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
 
@@ -39,25 +45,40 @@ gotpm install path/to/package/dir -n preview
 
 func init() {
 	rootCmd.AddCommand(installCmd)
+	installCmd.Flags().StringP("namespace", "n", defaultNamespace, "The namespace in which the package should be available.")
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
+	log.SetLevel(log.InfoLevel)
 	sourceDir, err := resolveSourceDir(args)
 	if err != nil {
 		return err
 	}
+	log.Debug("source", "path", sourceDir)
 	manifest, err := loadManifest(sourceDir)
 	if err != nil {
 		return err
 	}
+	log.Debug("package", "name", manifest.Package.Name, "version", manifest.Package.Version)
 	dataDir, err := resolveLocalPackageDir()
 	if err != nil {
 		return err
 	}
-	_, err = resolveDestination(dataDir, manifest, defaultNamespace) // TODO: make namespace variable
+	log.Debug("data directory", "path", dataDir)
+	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
 		return err
 	}
+	dest, err := resolveDestination(dataDir, manifest, namespace)
+	if err != nil {
+		return err
+	}
+	log.Debug("destination", "path", dest.Path)
+	err = copyPackageFiles(sourceDir, dest.Path)
+	if err != nil {
+		return err
+	}
+	fmt.Println("info: package installed")
 	return nil
 }
 
@@ -69,12 +90,156 @@ const (
 
 var (
 	ErrTooManyArguments        = errors.New("too many arguments: expected one directory path")
-	ErrManifestNotFound        = errors.New("'typst.toml' not found: not a typst package directory")
+	ErrManifestNotFound        = errors.New("not found 'typst.toml': not a typst package directory")
 	ErrInvalidManifest         = errors.New("invalid 'typst.toml'")
 	ErrDataDirNotResolvable    = errors.New("could not resolve typst local package directory")
 	ErrEmptyNamespace          = errors.New("namespace must not be empty")
 	ErrPackageAlreadyInstalled = errors.New("package already installed at destination")
 )
+
+var ignoredFileNames = map[string]struct{}{
+	".git":         {},
+	".gitignore":   {},
+	".typstignore": {},
+}
+
+func copyPackageFiles(src, dest string) error {
+	matcher := buildIgnoreMatcher(src)
+	jobs, err := collectJobs(src, dest, matcher)
+	if err != nil {
+		return err
+	}
+	return runTransferJobs(jobs)
+}
+
+func runTransferJobs(jobs []transferJob) error {
+	n := len(jobs)
+	errCh := make(chan error, n)
+
+	var wg sync.WaitGroup
+	for _, job := range jobs {
+		wg.Go(func() {
+			if err := copyFile(job.src, job.dst); err != nil {
+				errCh <- err
+				return
+			}
+		})
+	}
+	wg.Wait()
+	close(errCh)
+	return collectErrors(errCh)
+}
+
+func copyFile(src, dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("creating parent directories for %q: %w", dest, err)
+	}
+
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("opening source file %q: %w", src, err)
+	}
+	defer srcFile.Close()
+
+	info, err := srcFile.Stat()
+	if err != nil {
+		return fmt.Errorf("reading file info %q: %w", src, err)
+	}
+
+	destFile, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return fmt.Errorf("creating destination file %q: %w", dest, err)
+	}
+	defer destFile.Close()
+
+	if _, err := io.Copy(destFile, srcFile); err != nil {
+		return fmt.Errorf("copying %q to %q: %w", src, dest, err)
+	}
+	return nil
+}
+
+func collectErrors(errCh <-chan error) error {
+	var errs []error
+	for e := range errCh {
+		errs = append(errs, e)
+	}
+	return errors.Join(errs...)
+}
+
+func buildIgnoreMatcher(dir string) *ignore.GitIgnore {
+	gitIgnorePath := filepath.Join(dir, ".gitignore")
+	typstIgnorePath := filepath.Join(dir, ".typstignore")
+	extraLines := readIgnoreLines(typstIgnorePath)
+	if _, err := os.Stat(gitIgnorePath); err == nil {
+		matcher, err := ignore.CompileIgnoreFileAndLines(gitIgnorePath, extraLines...)
+		if err == nil {
+			return matcher
+		}
+	}
+	if len(extraLines) > 0 {
+		return ignore.CompileIgnoreLines(extraLines...)
+	}
+	return nil
+}
+
+type transferJob struct {
+	src string
+	dst string
+}
+
+func collectJobs(src, dest string, matcher *ignore.GitIgnore) ([]transferJob, error) {
+	var jobs []transferJob
+	err := filepath.WalkDir(src, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return fmt.Errorf("walking %q: %w", path, walkErr)
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("resolving relative path %q: %w", path, err)
+		}
+		if shouldIgnore(rel, matcher) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !d.IsDir() {
+			jobs = append(jobs, transferJob{
+				src: path,
+				dst: filepath.Join(dest, rel),
+			})
+		}
+		return nil
+	})
+	return jobs, err
+}
+
+func shouldIgnore(rel string, matcher *ignore.GitIgnore) bool {
+	if rel == "." {
+		return false
+	}
+	if _, ok := ignoredFileNames[filepath.Base(rel)]; ok {
+		return true
+	}
+	if matcher != nil && matcher.MatchesPath(rel) {
+		return true
+	}
+	return false
+}
+
+func readIgnoreLines(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var lines []string
+	for line := range strings.Lines(string(data)) {
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
 
 type Manifest struct {
 	Package PackageMeta `toml:"package"`
@@ -143,7 +308,6 @@ func resolveDestination(dataDir string, manifest Manifest, namespace string) (De
 func buildDestination(dataDir string, manifest Manifest, namespace string) Destination {
 	path := filepath.Join(
 		dataDir,
-		typstPackagesRelPath,
 		namespace,
 		manifest.Package.Name,
 		manifest.Package.Version,
