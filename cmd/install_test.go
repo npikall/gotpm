@@ -3,10 +3,80 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func Test_resolveLocalPackageDir(t *testing.T) {
+	t.Run("creates dir", func(t *testing.T) {
+		got, err := resolveLocalPackageDir()
+		assert.NoError(t, err)
+		info, statErr := os.Stat(got)
+		assert.NoError(t, statErr)
+		if !info.IsDir() {
+			t.Fatalf("expected a directory at %q", got)
+		}
+	})
+	t.Run("contains typst-packages", func(t *testing.T) {
+		got, err := resolveLocalPackageDir()
+		assert.NoError(t, err)
+		suffix := filepath.Join("typst", "packages")
+		assertHasSuffix(t, got, suffix)
+	})
+}
+
+func Test_resolveLinuxDataDir(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("linux only")
+	}
+	t.Run("uses xdg if set", func(t *testing.T) {
+		xdgDir := t.TempDir()
+		t.Setenv("XDG_DATA_HOME", xdgDir)
+		got, err := resolveLocalPackageDir()
+		assert.NoError(t, err)
+		assertHasPrefix(t, got, xdgDir)
+	})
+	t.Run("fallsback to home/.local", func(t *testing.T) {
+		t.Setenv("XDG_DATA_HOME", "")
+		home, _ := os.UserHomeDir()
+		got, err := resolveLocalPackageDir()
+		assert.NoError(t, err)
+		assertHasPrefix(t, got, filepath.Join(home, ".local", "share"))
+	})
+}
+
+func Test_resolveDarwinDataDir(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("darwin only")
+	}
+	t.Run("uses Library Application Support", func(t *testing.T) {
+		home, _ := os.UserHomeDir()
+		got, err := resolveLocalPackageDir()
+		assert.NoError(t, err)
+		assertHasPrefix(t, got, filepath.Join(home, "Library", "Application Support"))
+	})
+}
+
+func Test_resolveWindowsDataDir(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	t.Run("uses AppData", func(t *testing.T) {
+		appData := t.TempDir()
+		t.Setenv("APPDATA", appData)
+		got, err := resolveLocalPackageDir()
+		assert.NoError(t, err)
+		assertHasPrefix(t, got, appData)
+	})
+	t.Run("missing AppData returns error", func(t *testing.T) {
+		t.Setenv("APPDATA", "")
+		_, err := resolveLocalPackageDir()
+		assert.Error(t, err)
+	})
+}
 
 func TestLoadManifest_validManifest_returns_correct(t *testing.T) {
 	t.Run("valid manifest returns correct", func(t *testing.T) {
@@ -165,6 +235,19 @@ func writeManifest(t *testing.T, content string) string {
 		t.Fatalf("writing test manifest: %v", err)
 	}
 	return dir
+}
+func assertHasSuffix(t *testing.T, path, suffix string) {
+	t.Helper()
+	if !strings.HasSuffix(path, suffix) {
+		t.Fatalf("expected path %q to end with %q", path, suffix)
+	}
+}
+
+func assertHasPrefix(t *testing.T, path, prefix string) {
+	t.Helper()
+	if !strings.HasPrefix(path, prefix) {
+		t.Fatalf("expected path %q to start with %q", path, prefix)
+	}
 }
 
 func check(e error) {
