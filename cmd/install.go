@@ -46,11 +46,15 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	_, err = loadManifest(sourceDir)
+	manifest, err := loadManifest(sourceDir)
 	if err != nil {
 		return err
 	}
-	_, err = resolveLocalPackageDir()
+	dataDir, err := resolveLocalPackageDir()
+	if err != nil {
+		return err
+	}
+	_, err = resolveDestination(dataDir, manifest, defaultNamespace) // TODO: make namespace variable
 	if err != nil {
 		return err
 	}
@@ -60,13 +64,16 @@ func installRunner(cmd *cobra.Command, args []string) error {
 const (
 	manifestFileName     = "typst.toml"
 	typstPackagesRelPath = "typst/packages"
+	defaultNamespace     = "local"
 )
 
 var (
-	ErrTooManyArguments     = errors.New("too many arguments: expected one directory path")
-	ErrManifestNotFound     = errors.New("'typst.toml' not found: not a typst package directory")
-	ErrInvalidManifest      = errors.New("invalid 'typst.toml'")
-	ErrDataDirNotResolvable = errors.New("could not resolve typst local package directory")
+	ErrTooManyArguments        = errors.New("too many arguments: expected one directory path")
+	ErrManifestNotFound        = errors.New("'typst.toml' not found: not a typst package directory")
+	ErrInvalidManifest         = errors.New("invalid 'typst.toml'")
+	ErrDataDirNotResolvable    = errors.New("could not resolve typst local package directory")
+	ErrEmptyNamespace          = errors.New("namespace must not be empty")
+	ErrPackageAlreadyInstalled = errors.New("package already installed at destination")
 )
 
 type Manifest struct {
@@ -115,21 +122,38 @@ func parseManifest(data []byte) (Manifest, error) {
 	return m, nil
 }
 
-func validateManifest(m Manifest) error {
-	var errs []error
-	if m.Package.Name == "" {
-		errs = append(errs, errors.New("missing required field: package.name"))
+type Destination struct {
+	Namespace string
+	Name      string
+	Version   string
+	Path      string
+}
+
+func resolveDestination(dataDir string, manifest Manifest, namespace string) (Destination, error) {
+	if err := validateNamespace(namespace); err != nil {
+		return Destination{}, err
 	}
-	if m.Package.Version == "" {
-		errs = append(errs, errors.New("missing required field: package.version"))
+	dest := buildDestination(dataDir, manifest, namespace)
+	if err := validateDestinationConflict(dest.Path); err != nil {
+		return Destination{}, err
 	}
-	if m.Package.Entrypoint == "" {
-		errs = append(errs, errors.New("missing required field: package.entrypoint"))
+	return dest, nil
+}
+
+func buildDestination(dataDir string, manifest Manifest, namespace string) Destination {
+	path := filepath.Join(
+		dataDir,
+		typstPackagesRelPath,
+		namespace,
+		manifest.Package.Name,
+		manifest.Package.Version,
+	)
+	return Destination{
+		Namespace: namespace,
+		Name:      manifest.Package.Name,
+		Version:   manifest.Package.Version,
+		Path:      path,
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%w: %w", ErrInvalidManifest, errors.Join(errs...))
-	}
-	return nil
 }
 
 func resolveLocalPackageDir() (string, error) {
@@ -211,6 +235,41 @@ func resolveProvidedPath(rawPath string) (string, error) {
 		return "", err
 	}
 	return absPath, nil
+}
+
+func validateDestinationConflict(path string) error {
+	_, err := os.Stat(path)
+	if err == nil {
+		return fmt.Errorf("%w: %q", ErrPackageAlreadyInstalled, path)
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return fmt.Errorf("validate destination %q: %w", path, err)
+}
+
+func validateNamespace(namespace string) error {
+	if namespace == "" {
+		return ErrEmptyNamespace
+	}
+	return nil
+}
+
+func validateManifest(m Manifest) error {
+	var errs []error
+	if m.Package.Name == "" {
+		errs = append(errs, errors.New("missing required field: package.name"))
+	}
+	if m.Package.Version == "" {
+		errs = append(errs, errors.New("missing required field: package.version"))
+	}
+	if m.Package.Entrypoint == "" {
+		errs = append(errs, errors.New("missing required field: package.entrypoint"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%w: %w", ErrInvalidManifest, errors.Join(errs...))
+	}
+	return nil
 }
 
 func validateIsDirectory(path string) error {
