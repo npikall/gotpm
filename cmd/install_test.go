@@ -10,6 +10,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_resolveDestination(t *testing.T) {
+	dataDir := t.TempDir()
+	manifest := newManifest("my-package", "0.1.0", "lib.typ")
+	t.Run("default namespace builds correct path", func(t *testing.T) {
+		got, err := resolveDestination(dataDir, manifest, defaultNamespace)
+		assert.NoError(t, err)
+		assert.Equal(t, "my-package", got.Name)
+		assert.Equal(t, "0.1.0", got.Version)
+		assert.Equal(t, defaultNamespace, got.Namespace)
+		wantPath := filepath.Join(dataDir, "typst", "packages", "local", "my-package", "0.1.0")
+		assert.Equal(t, wantPath, got.Path)
+	})
+	t.Run("custom namespace builds correct path", func(t *testing.T) {
+		got, err := resolveDestination(dataDir, manifest, "preview")
+		assert.NoError(t, err)
+		assert.Equal(t, "preview", got.Namespace)
+		wantPath := filepath.Join(dataDir, "typst", "packages", "preview", "my-package", "0.1.0")
+		assert.Equal(t, wantPath, got.Path)
+	})
+	t.Run("empty namespace returns error", func(t *testing.T) {
+		_, err := resolveDestination(dataDir, manifest, "")
+		assert.ErrorIs(t, err, ErrEmptyNamespace)
+	})
+	t.Run("already installed returns error", func(t *testing.T) {
+		existing := filepath.Join(dataDir, "typst", "packages", "local", "my-package", "0.1.0")
+		err := os.MkdirAll(existing, 0755)
+		assert.NoError(t, err)
+
+		_, err = resolveDestination(dataDir, manifest, defaultNamespace)
+		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+	})
+}
+
 func Test_resolveLocalPackageDir(t *testing.T) {
 	t.Run("creates dir", func(t *testing.T) {
 		got, err := resolveLocalPackageDir()
@@ -247,6 +280,16 @@ func assertHasPrefix(t *testing.T, path, prefix string) {
 	t.Helper()
 	if !strings.HasPrefix(path, prefix) {
 		t.Fatalf("expected path %q to start with %q", path, prefix)
+	}
+}
+
+func newManifest(name, version, entrypoint string) Manifest {
+	return Manifest{
+		Package: PackageMeta{
+			Name:       name,
+			Version:    version,
+			Entrypoint: entrypoint,
+		},
 	}
 }
 
