@@ -45,10 +45,16 @@ var (
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := fang.Execute(context.Background(), rootCmd, fang.WithVersion(gitTag), fang.WithCommit(gitCommit)); err != nil {
+	if err := fang.Execute(
+		context.Background(),
+		rootCmd,
+		fang.WithVersion(gitTag),
+		fang.WithCommit(gitCommit),
+	); err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
+	rootCmd.PersistentFlags().CountP("verbose", "V", "enable verbose output")
 }

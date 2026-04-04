@@ -19,7 +19,7 @@ var locateCmd = &cobra.Command{
 	Example: `# Locate Typst Packages
 gotpm locate`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := setupLogger()
+		logger := setupLogger(cmd)
 		target, err := paths.GetTypstPackagePath()
 		if err != nil {
 			return err

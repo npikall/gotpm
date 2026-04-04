@@ -49,22 +49,22 @@ func init() {
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
-	log.SetLevel(log.InfoLevel)
+	logger := setupLogger(cmd)
 	sourceDir, err := resolveSourceDir(args)
 	if err != nil {
 		return err
 	}
-	log.Debug("source", "path", sourceDir)
+	logger.Debug("operating in source", "path", sourceDir)
 	manifest, err := loadManifest(sourceDir)
 	if err != nil {
 		return err
 	}
-	log.Debug("package", "name", manifest.Package.Name, "version", manifest.Package.Version)
+	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
 	dataDir, err := resolveLocalPackageDir()
 	if err != nil {
 		return err
 	}
-	log.Debug("data directory", "path", dataDir)
+	logger.Debug("resolved local package directory", "path", dataDir)
 	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("destination", "path", dest.Path)
+	logger.Info("copy to destination", "path", dest.Path)
 	err = copyPackageFiles(sourceDir, dest.Path)
 	if err != nil {
 		return err

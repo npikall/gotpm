@@ -30,7 +30,7 @@ func init() {
 var libFile = []byte("#let greet(name) = [Hello #name]")
 
 func initRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger()
+	logger := setupLogger(cmd)
 	cwd := Must(os.Getwd())
 
 	var pkgName string

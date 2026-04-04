@@ -42,7 +42,7 @@ func init() {
 }
 
 func updateRunner(cmd *cobra.Command, args []string) error {
-	logger := setupVerboseLogger(cmd)
+	logger := setupLogger(cmd)
 	cwd := Must(os.Getwd())
 	ctx := context.Background()
 

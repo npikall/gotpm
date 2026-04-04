@@ -48,7 +48,7 @@ func init() {
 var ErrInsufficientPackage = errors.New("both package and version must be specified")
 
 func uninstallRunner(cmd *cobra.Command, args []string) error {
-	logger := setupVerboseLogger(cmd)
+	logger := setupLogger(cmd)
 	cwd := Must(os.Getwd())
 
 	deleteAll := Must(cmd.Flags().GetBool("all"))

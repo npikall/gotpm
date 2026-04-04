@@ -48,7 +48,7 @@ func init() {
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
 func bumpRunner(cmd *cobra.Command, args []string) error {
-	logger := setupVerboseLogger(cmd)
+	logger := setupLogger(cmd)
 
 	cwd := Must(os.Getwd())
 	logger.Debug("running in", "cwd", cwd)

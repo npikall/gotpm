@@ -41,18 +41,21 @@ var (
 	countStyle     = lipgloss.NewStyle().Faint(true)
 )
 
-func setupLogger() *log.Logger {
+func setupLogger(cmd *cobra.Command) *log.Logger {
 	logger := log.New(os.Stdout)
-	logger.SetReportCaller(false)
-	logger.SetReportTimestamp(false)
-	logger.SetLevel(log.InfoLevel)
-	return logger
-}
-func setupVerboseLogger(cmd *cobra.Command) *log.Logger {
-	verbose := Must(cmd.Flags().GetBool("debug"))
-	logger := setupLogger()
-	if verbose {
+	logger.SetReportTimestamp(true)
+	verboseCount, err := cmd.Flags().GetCount("verbose")
+	if err != nil {
+		logger.SetLevel(log.WarnLevel)
+		return logger
+	}
+	switch {
+	case verboseCount >= 2:
 		logger.SetLevel(log.DebugLevel)
+	case verboseCount == 1:
+		logger.SetLevel(log.InfoLevel)
+	default:
+		logger.SetLevel(log.WarnLevel)
 	}
 	return logger
 }

@@ -35,7 +35,7 @@ func init() {
 var ErrNoPackages = errors.New("no packages installed")
 
 func listRunner(cmd *cobra.Command, args []string) error {
-	logger := setupVerboseLogger(cmd)
+	logger := setupLogger(cmd)
 
 	typstPackagePath, err := paths.GetTypstPackagePath()
 	if err != nil {
