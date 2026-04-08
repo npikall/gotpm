@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/briandowns/spinner"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/charmbracelet/log"
@@ -93,4 +97,139 @@ func Must[T any](t T, err error) T {
 		log.Fatal(err)
 	}
 	return t
+}
+
+const (
+	manifestFileName     = "typst.toml"
+	typstPackagesRelPath = "typst/packages"
+	defaultNamespace     = "local"
+)
+
+var (
+	ErrManifestNotFound     = errors.New("not found 'typst.toml': not a typst package directory")
+	ErrInvalidManifest      = errors.New("invalid 'typst.toml'")
+	ErrDataDirNotResolvable = errors.New("could not resolve typst local package directory")
+)
+
+type Manifest struct {
+	Package PackageMeta `toml:"package"`
+}
+
+type PackageMeta struct {
+	Name       string `toml:"name"`
+	Version    string `toml:"version"`
+	Entrypoint string `toml:"entrypoint"`
+}
+
+// Read and validates the typst.toml in the given directory.
+func loadManifest(dir string) (Manifest, error) {
+	path := filepath.Join(dir, manifestFileName)
+	raw, err := readManifestFile(path)
+	if err != nil {
+		return Manifest{}, err
+	}
+	manifest, err := parseManifest(raw)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := validateManifest(manifest); err != nil {
+		return Manifest{}, err
+	}
+	return manifest, nil
+}
+
+func readManifestFile(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrManifestNotFound
+		}
+		return nil, fmt.Errorf("reading manifest: %w", err)
+	}
+	return data, nil
+}
+
+func parseManifest(data []byte) (Manifest, error) {
+	var m Manifest
+	if err := toml.Unmarshal(data, &m); err != nil {
+		return Manifest{}, fmt.Errorf("%w: %s", ErrInvalidManifest, err)
+	}
+	return m, nil
+}
+
+func validateManifest(m Manifest) error {
+	var errs []error
+	if m.Package.Name == "" {
+		errs = append(errs, errors.New("missing required field: package.name"))
+	}
+	if m.Package.Version == "" {
+		errs = append(errs, errors.New("missing required field: package.version"))
+	}
+	if m.Package.Entrypoint == "" {
+		errs = append(errs, errors.New("missing required field: package.entrypoint"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%w: %w", ErrInvalidManifest, errors.Join(errs...))
+	}
+	return nil
+}
+
+func resolveDataDir() (string, error) {
+	switch runtime.GOOS {
+	case "linux":
+		return resolveLinuxDataDir()
+	case "darwin":
+		return resolveDarwinDataDir()
+	case "windows":
+		return resolveWindowsDataDir()
+	default:
+		return "", fmt.Errorf("%w: unsupported OS %q", ErrDataDirNotResolvable, runtime.GOOS)
+	}
+}
+
+func resolveLinuxDataDir() (string, error) {
+	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+		return xdg, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
+	}
+	return filepath.Join(home, ".local", "share"), nil
+}
+
+func resolveDarwinDataDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
+	}
+	return filepath.Join(home, "Library", "Application Support"), nil
+}
+
+func resolveWindowsDataDir() (string, error) {
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		return "", fmt.Errorf("%w: %%APPDATA%% is not set", ErrDataDirNotResolvable)
+	}
+	return appData, nil
+}
+
+func ensureDir(path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return fmt.Errorf("creating directory %q: %w", path, err)
+	}
+	return nil
+}
+
+// Return the path to the local Typst packages
+// directory without creating it. Respects the $TYPST_PACKAGE_PATH override.
+func resolveLocalPackageDirPath() (string, error) {
+	if override := os.Getenv("TYPST_PACKAGE_PATH"); override != "" {
+		return override, nil
+	}
+	base, err := resolveDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, typstPackagesRelPath), nil
 }

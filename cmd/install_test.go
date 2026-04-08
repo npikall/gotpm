@@ -325,3 +325,54 @@ func check(e error) {
 		panic(e)
 	}
 }
+
+func Test_symlinkPackage(t *testing.T) {
+	src := t.TempDir()
+	src, _ = filepath.EvalSymlinks(src) // normalise macOS /var -> /private/var
+	writeFile(t, src, "lib.typ", "#let x = 1")
+
+	t.Run("symlink is created at dest", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "local", "my-pkg", "0.1.0")
+		err := symlinkPackage(src, dest)
+		assert.NoError(t, err)
+		info, err := os.Lstat(dest)
+		assert.NoError(t, err)
+		assert.True(t, info.Mode()&os.ModeSymlink != 0, "dest should be a symlink")
+	})
+	t.Run("symlink points to absolute sourceDir", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "local", "my-pkg", "0.1.0")
+		err := symlinkPackage(src, dest)
+		assert.NoError(t, err)
+		target, err := os.Readlink(dest)
+		assert.NoError(t, err)
+		assert.True(t, filepath.IsAbs(target), "symlink target must be absolute")
+		assert.Equal(t, src, target)
+	})
+	t.Run("source contents are accessible through the symlink", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "local", "my-pkg", "0.1.0")
+		err := symlinkPackage(src, dest)
+		assert.NoError(t, err)
+		assert.FileExists(t, filepath.Join(dest, "lib.typ"))
+		content, err := os.ReadFile(filepath.Join(dest, "lib.typ"))
+		assert.NoError(t, err)
+		assert.Equal(t, "#let x = 1", string(content))
+	})
+	t.Run("parent directory is created if missing", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "preview", "other-pkg", "1.2.3")
+		err := symlinkPackage(src, dest)
+		assert.NoError(t, err)
+		assert.DirExists(t, filepath.Dir(dest))
+	})
+}
+
+func Test_validateDestinationConflict_rejectsEditableReinstall(t *testing.T) {
+	src := t.TempDir()
+	src, _ = filepath.EvalSymlinks(src)
+	writeFile(t, src, "lib.typ", "")
+	dest := filepath.Join(t.TempDir(), "local", "my-pkg", "0.1.0")
+
+	check(symlinkPackage(src, dest))
+
+	err := validateDestinationConflict(dest)
+	assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+}

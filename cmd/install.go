@@ -13,12 +13,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/BurntSushi/toml"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
@@ -46,6 +43,7 @@ gotpm install path/to/package/dir -n preview
 func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().StringP("namespace", "n", defaultNamespace, "The namespace in which the package should be available.")
+	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
@@ -69,27 +67,31 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("copy to destination", "path", dest.Path)
-	err = copyPackageFiles(sourceDir, dest.Path)
+
+	editable, err := cmd.Flags().GetBool("editable")
 	if err != nil {
 		return err
 	}
-	importStmt := formatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version)
-	printInfo("installed %s", importStmt)
+
+	if editable {
+		logger.Info("symlinking to destination", "path", dest.Path)
+		if err := symlinkPackage(sourceDir, dest.Path); err != nil {
+			return err
+		}
+		printInfo("installed %s (editable)", formatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
+		return nil
+	}
+
+	logger.Info("copy to destination", "path", dest.Path)
+	if err := copyPackageFiles(sourceDir, dest.Path); err != nil {
+		return err
+	}
+	printInfo("installed %s", formatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
 	return nil
 }
 
-const (
-	manifestFileName     = "typst.toml"
-	typstPackagesRelPath = "typst/packages"
-	defaultNamespace     = "local"
-)
-
 var (
 	ErrTooManyArguments        = errors.New("too many arguments: expected one directory path")
-	ErrManifestNotFound        = errors.New("not found 'typst.toml': not a typst package directory")
-	ErrInvalidManifest         = errors.New("invalid 'typst.toml'")
-	ErrDataDirNotResolvable    = errors.New("could not resolve typst local package directory")
 	ErrEmptyNamespace          = errors.New("namespace must not be empty")
 	ErrPackageAlreadyInstalled = errors.New("package already installed at destination")
 )
@@ -98,6 +100,22 @@ var ignoredFileNames = map[string]struct{}{
 	".git":         {},
 	".gitignore":   {},
 	".typstignore": {},
+}
+
+// symlinkPackage creates a symlink at dest pointing to the absolute path of src.
+// The parent directory of dest is created if it does not exist.
+func symlinkPackage(src, dest string) error {
+	if err := ensureDir(filepath.Dir(dest)); err != nil {
+		return fmt.Errorf("creating parent directory for symlink %q: %w", dest, err)
+	}
+	absSrc, err := filepath.Abs(src)
+	if err != nil {
+		return fmt.Errorf("resolving absolute path for symlink target %q: %w", src, err)
+	}
+	if err := os.Symlink(absSrc, dest); err != nil {
+		return fmt.Errorf("creating symlink %q -> %q: %w", dest, absSrc, err)
+	}
+	return nil
 }
 
 func copyPackageFiles(src, dest string) error {
@@ -112,7 +130,6 @@ func copyPackageFiles(src, dest string) error {
 func runTransferJobsWithSpinner(jobs []transferJob) error {
 	spinner := setupSpinner()
 	spinner.Start()
-	time.Sleep(200 * time.Millisecond)
 	defer spinner.Stop()
 	return runTransferJobs(jobs)
 }
@@ -246,52 +263,6 @@ func readIgnoreLines(path string) []string {
 	return lines
 }
 
-type Manifest struct {
-	Package PackageMeta `toml:"package"`
-}
-
-type PackageMeta struct {
-	Name       string `toml:"name"`
-	Version    string `toml:"version"`
-	Entrypoint string `toml:"entrypoint"`
-}
-
-// Read and validate the typst.toml in the given directory.
-func loadManifest(dir string) (Manifest, error) {
-	path := filepath.Join(dir, manifestFileName)
-	raw, err := readManifestFile(path)
-	if err != nil {
-		return Manifest{}, err
-	}
-	manifest, err := parseManifest(raw)
-	if err != nil {
-		return Manifest{}, err
-	}
-	if err := validateManifest(manifest); err != nil {
-		return Manifest{}, err
-	}
-	return manifest, nil
-}
-
-func readManifestFile(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, ErrManifestNotFound
-		}
-		return nil, fmt.Errorf("reading manifest: %w", err)
-	}
-	return data, nil
-}
-
-func parseManifest(data []byte) (Manifest, error) {
-	var m Manifest
-	if err := toml.Unmarshal(data, &m); err != nil {
-		return Manifest{}, fmt.Errorf("%w: %s", ErrInvalidManifest, err)
-	}
-	return m, nil
-}
-
 type Destination struct {
 	Namespace string
 	Name      string
@@ -343,67 +314,16 @@ func buildDestination(dataDir string, manifest Manifest, namespace string) Desti
 //
 // ${data-dir}/typst/packages/
 func resolveLocalPackageDir() (string, error) {
-	base, err := resolveDataDir()
+	localPkgDir, err := resolveLocalPackageDirPath()
 	if err != nil {
 		return "", err
 	}
-	localPkgDir := filepath.Join(base, typstPackagesRelPath)
 	if err := ensureDir(localPkgDir); err != nil {
 		return "", err
 	}
 	return localPkgDir, nil
 }
 
-func resolveDataDir() (string, error) {
-	switch runtime.GOOS {
-	case "linux":
-		return resolveLinuxDataDir()
-	case "darwin":
-		return resolveDarwinDataDir()
-	case "windows":
-		return resolveWindowsDataDir()
-	default:
-		return "", fmt.Errorf("%w: unsupported OS %q", ErrDataDirNotResolvable, runtime.GOOS)
-	}
-}
-
-func resolveLinuxDataDir() (string, error) {
-	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-		return xdg, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
-	}
-	return filepath.Join(home, ".local", "share"), nil
-}
-
-func resolveDarwinDataDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
-	}
-	return filepath.Join(home, "Library", "Application Support"), nil
-}
-
-func resolveWindowsDataDir() (string, error) {
-	appData := os.Getenv("APPDATA")
-	if appData == "" {
-		return "", fmt.Errorf("%w: %%APPDATA%% is not set", ErrDataDirNotResolvable)
-	}
-	return appData, nil
-}
-
-func ensureDir(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return fmt.Errorf("creating directory %q: %w", path, err)
-	}
-	return nil
-}
-
-// Get the Source Directory either from the user provided argument or use the CWD
-//
-// Function will return an error if too many arguments have been provided
 func resolveSourceDir(args []string) (string, error) {
 	numberOfArgs := len(args)
 	if numberOfArgs > 1 {
@@ -440,23 +360,6 @@ func validateDestinationConflict(path string) error {
 func validateNamespace(namespace string) error {
 	if namespace == "" {
 		return ErrEmptyNamespace
-	}
-	return nil
-}
-
-func validateManifest(m Manifest) error {
-	var errs []error
-	if m.Package.Name == "" {
-		errs = append(errs, errors.New("missing required field: package.name"))
-	}
-	if m.Package.Version == "" {
-		errs = append(errs, errors.New("missing required field: package.version"))
-	}
-	if m.Package.Entrypoint == "" {
-		errs = append(errs, errors.New("missing required field: package.entrypoint"))
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%w: %w", ErrInvalidManifest, errors.Join(errs...))
 	}
 	return nil
 }
