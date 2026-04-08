@@ -10,35 +10,53 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_copyPackageFiles(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	writeFile(t, src, "lib.typ", "content")
+	writeFile(t, src, "README.md", "readme")
+	srcSubDir := filepath.Join(src, "utils")
+	os.MkdirAll(srcSubDir, 0755)
+	writeFile(t, srcSubDir, "helper.typ", "helper")
+
+	t.Run("copies all files concurrently", func(t *testing.T) {
+		err := copyPackageFiles(src, dst)
+		assert.NoError(t, err)
+		assert.FileExists(t, filepath.Join(dst, "lib.typ"))
+		assert.FileExists(t, filepath.Join(dst, "README.md"))
+		assert.FileExists(t, filepath.Join(dst, "utils", "helper.typ"))
+	})
+}
+
 func Test_resolveDestination(t *testing.T) {
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 	t.Run("default namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestination(dataDir, manifest, defaultNamespace)
+		got, err := resolveDestinationWithNamespace(dataDir, manifest, defaultNamespace)
 		assert.NoError(t, err)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
 		assert.Equal(t, defaultNamespace, got.Namespace)
-		wantPath := filepath.Join(dataDir, "typst", "packages", "local", "my-package", "0.1.0")
+		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("custom namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestination(dataDir, manifest, "preview")
+		got, err := resolveDestinationWithNamespace(dataDir, manifest, "preview")
 		assert.NoError(t, err)
 		assert.Equal(t, "preview", got.Namespace)
-		wantPath := filepath.Join(dataDir, "typst", "packages", "preview", "my-package", "0.1.0")
+		wantPath := filepath.Join(dataDir, "preview", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("empty namespace returns error", func(t *testing.T) {
-		_, err := resolveDestination(dataDir, manifest, "")
+		_, err := resolveDestinationWithNamespace(dataDir, manifest, "")
 		assert.ErrorIs(t, err, ErrEmptyNamespace)
 	})
 	t.Run("already installed returns error", func(t *testing.T) {
-		existing := filepath.Join(dataDir, "typst", "packages", "local", "my-package", "0.1.0")
+		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		err := os.MkdirAll(existing, 0755)
 		assert.NoError(t, err)
 
-		_, err = resolveDestination(dataDir, manifest, defaultNamespace)
+		_, err = resolveDestinationWithNamespace(dataDir, manifest, defaultNamespace)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
 }
@@ -53,7 +71,7 @@ func Test_resolveLocalPackageDir(t *testing.T) {
 			t.Fatalf("expected a directory at %q", got)
 		}
 	})
-	t.Run("contains typst-packages", func(t *testing.T) {
+	t.Run("contains typst/packages", func(t *testing.T) {
 		got, err := resolveLocalPackageDir()
 		assert.NoError(t, err)
 		suffix := filepath.Join("typst", "packages")
@@ -68,14 +86,14 @@ func Test_resolveLinuxDataDir(t *testing.T) {
 	t.Run("uses xdg if set", func(t *testing.T) {
 		xdgDir := t.TempDir()
 		t.Setenv("XDG_DATA_HOME", xdgDir)
-		got, err := resolveLocalPackageDir()
+		got, err := resolveLinuxDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, xdgDir)
 	})
 	t.Run("fallsback to home/.local", func(t *testing.T) {
 		t.Setenv("XDG_DATA_HOME", "")
 		home, _ := os.UserHomeDir()
-		got, err := resolveLocalPackageDir()
+		got, err := resolveLinuxDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, filepath.Join(home, ".local", "share"))
 	})
@@ -87,7 +105,7 @@ func Test_resolveDarwinDataDir(t *testing.T) {
 	}
 	t.Run("uses Library Application Support", func(t *testing.T) {
 		home, _ := os.UserHomeDir()
-		got, err := resolveLocalPackageDir()
+		got, err := resolveDarwinDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, filepath.Join(home, "Library", "Application Support"))
 	})
@@ -100,13 +118,13 @@ func Test_resolveWindowsDataDir(t *testing.T) {
 	t.Run("uses AppData", func(t *testing.T) {
 		appData := t.TempDir()
 		t.Setenv("APPDATA", appData)
-		got, err := resolveLocalPackageDir()
+		got, err := resolveWindowsDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, appData)
 	})
 	t.Run("missing AppData returns error", func(t *testing.T) {
 		t.Setenv("APPDATA", "")
-		_, err := resolveLocalPackageDir()
+		_, err := resolveWindowsDataDir()
 		assert.Error(t, err)
 	})
 }
@@ -290,6 +308,15 @@ func newManifest(name, version, entrypoint string) Manifest {
 			Version:    version,
 			Entrypoint: entrypoint,
 		},
+	}
+}
+
+func writeFile(t *testing.T, dir, filename, content string) {
+	t.Helper()
+	dir, _ = filepath.EvalSymlinks(dir)
+	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("writing test file: %v", err)
 	}
 }
 

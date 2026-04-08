@@ -16,9 +16,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/charmbracelet/log"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
@@ -65,11 +65,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logger.Debug("resolved local package directory", "path", dataDir)
-	namespace, err := cmd.Flags().GetString("namespace")
-	if err != nil {
-		return err
-	}
-	dest, err := resolveDestination(dataDir, manifest, namespace)
+	dest, err := resolveDestination(dataDir, manifest, cmd)
 	if err != nil {
 		return err
 	}
@@ -78,7 +74,8 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("info: package installed")
+	importStmt := formatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version)
+	printInfo("installed %s", importStmt)
 	return nil
 }
 
@@ -109,6 +106,14 @@ func copyPackageFiles(src, dest string) error {
 	if err != nil {
 		return err
 	}
+	return runTransferJobsWithSpinner(jobs)
+}
+
+func runTransferJobsWithSpinner(jobs []transferJob) error {
+	spinner := setupSpinner()
+	spinner.Start()
+	time.Sleep(200 * time.Millisecond)
+	defer spinner.Stop()
 	return runTransferJobs(jobs)
 }
 
@@ -294,7 +299,20 @@ type Destination struct {
 	Path      string
 }
 
-func resolveDestination(dataDir string, manifest Manifest, namespace string) (Destination, error) {
+// Get the path to the directory in which a given Package will be stored into
+func resolveDestination(dataDir string, manifest Manifest, cmd *cobra.Command) (Destination, error) {
+	namespace, err := cmd.Flags().GetString("namespace")
+	if err != nil {
+		return Destination{}, err
+	}
+	dest, err := resolveDestinationWithNamespace(dataDir, manifest, namespace)
+	if err != nil {
+		return Destination{}, err
+	}
+	return dest, nil
+}
+
+func resolveDestinationWithNamespace(dataDir string, manifest Manifest, namespace string) (Destination, error) {
 	if err := validateNamespace(namespace); err != nil {
 		return Destination{}, err
 	}
@@ -320,6 +338,10 @@ func buildDestination(dataDir string, manifest Manifest, namespace string) Desti
 	}
 }
 
+// TODO: Move into internal package
+// Get the path to the local directory, in which the packages are stored.
+//
+// ${data-dir}/typst/packages/
 func resolveLocalPackageDir() (string, error) {
 	base, err := resolveDataDir()
 	if err != nil {
@@ -379,6 +401,9 @@ func ensureDir(path string) error {
 	return nil
 }
 
+// Get the Source Directory either from the user provided argument or use the CWD
+//
+// Function will return an error if too many arguments have been provided
 func resolveSourceDir(args []string) (string, error) {
 	numberOfArgs := len(args)
 	if numberOfArgs > 1 {
