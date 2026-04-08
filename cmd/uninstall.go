@@ -106,7 +106,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	if err := os.RemoveAll(target); err != nil {
 		return err
 	}
-	identifier := HighStyle.Render(fmt.Sprintf("@%s/%s:%s", namespace, pkgName, pkgVersion))
+	identifier := StyleAccent.Render(fmt.Sprintf("@%s/%s:%s", namespace, pkgName, pkgVersion))
 	logger.Infof("Uninstalled %s", identifier)
 	return nil
 }

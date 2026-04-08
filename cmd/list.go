@@ -59,7 +59,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		fmt.Println(namespaceStyle.Render(fmt.Sprintf("@%s", ns.Name)))
+		fmt.Println(StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
@@ -70,7 +70,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	footer := fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))
 	fmt.Println()
-	fmt.Println(countStyle.Render(footer))
+	fmt.Println(StyleMuted.Render(footer))
 	return nil
 }
 
@@ -81,7 +81,7 @@ func printPackageWithVersions(pkg list.Package, versionStr string) {
 	}
 
 	fmt.Printf("  %s %s\n",
-		packageStyle.Render(pkg.Name),
-		versionStyle.Render(versionStr),
+		StyleNormal.Render(pkg.Name),
+		StyleMuted.Render(versionStr),
 	)
 }

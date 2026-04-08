@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -18,28 +19,46 @@ type logEvent struct {
 	keyvals []any
 }
 
-// Common Colors
 var (
-	Violet    = charmtone.Charple
-	Turquoise = lipgloss.Color("86")
-	Magenta   = charmtone.Cheeky
+	Blue    = charmtone.Malibu // Sardine
+	Green   = charmtone.Bok    // Guac, Julep
+	Yellow  = charmtone.Zest   // Citron, Mustard
+	Red     = charmtone.Coral  // Sriracha, Chili
+	Violet  = charmtone.Charple
+	Magenta = charmtone.Cheeky
+	Normal  = charmtone.Smoke // White
+	Muted   = charmtone.Squid // Darker White
+	Accent  = charmtone.Ash   // Brighter White
 )
 
-// Styles for Messages to stdout/stderr
 var (
-	VersionStyle     = lipgloss.NewStyle().Foreground(Turquoise).Bold(true)
-	HighStyle        = lipgloss.NewStyle().Foreground(Magenta).Bold(true)
-	LogoStyle        = lipgloss.NewStyle().Foreground(Violet)
-	DescriptionStyle = lipgloss.NewStyle().Foreground(Magenta)
+	StyleBlueBold    = lipgloss.NewStyle().Foreground(Blue).Bold(true)
+	StyleBlue        = lipgloss.NewStyle().Foreground(Blue)
+	StyleGreen       = lipgloss.NewStyle().Foreground(Green)
+	StyleYellow      = lipgloss.NewStyle().Foreground(Yellow)
+	StyleRed         = lipgloss.NewStyle().Foreground(Red)
+	StyleNormal      = lipgloss.NewStyle().Foreground(Normal)
+	StyleMuted       = lipgloss.NewStyle().Foreground(Muted)
+	StyleAccent      = lipgloss.NewStyle().Foreground(Accent).Bold(true)
+	StyleLogo        = lipgloss.NewStyle().Foreground(Violet)
+	StyleDescription = lipgloss.NewStyle().Foreground(Magenta)
 )
 
-// Styles for the List Command
-var (
-	namespaceStyle = lipgloss.NewStyle().Foreground(Violet).MarginTop(1)
-	packageStyle   = lipgloss.NewStyle().Foreground(Magenta)
-	versionStyle   = lipgloss.NewStyle().Faint(true)
-	countStyle     = lipgloss.NewStyle().Faint(true)
-)
+func printInfo(format string, a ...any) {
+	prefix := StyleBlueBold.Render("info")
+	text := StyleNormal.Render(fmt.Sprintf(format, a...))
+	fmt.Printf("%s: %s\n", prefix, text)
+}
+
+func printWarn(format string, a ...any) {
+	prefix := StyleBlueBold.Render("warning")
+	text := StyleNormal.Render(fmt.Sprintf(format, a...))
+	fmt.Printf("%s: %s\n", prefix, text)
+}
+
+func formatImportStmt(namespace, name, version string) string {
+	return StyleAccent.Render(fmt.Sprintf("@%s/%s:%s", namespace, name, version))
+}
 
 func setupLogger(cmd *cobra.Command) *log.Logger {
 	logger := log.New(os.Stdout)
@@ -62,7 +81,7 @@ func setupLogger(cmd *cobra.Command) *log.Logger {
 
 func setupSpinner() *spinner.Spinner {
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Suffix = countStyle.Render(" Loading...")
+	s.Suffix = StyleMuted.Render(" Loading...")
 	_ = s.Color("cyan")
 	return s
 }

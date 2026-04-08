@@ -7,7 +7,6 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -20,11 +19,12 @@ var locateCmd = &cobra.Command{
 gotpm locate`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := setupLogger(cmd)
-		target, err := paths.GetTypstPackagePath()
+		target, err := resolveLocalPackageDir()
 		if err != nil {
 			return err
 		}
-		logger.Info("packages at", "path", target)
+		logger.Debug("resolved", "path", target)
+		printInfo("%s %q", StyleMuted.Render("packages located at"), target)
 		return nil
 	},
 }
