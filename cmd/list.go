@@ -9,11 +9,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 
-	"github.com/npikall/gotpm/internal/files"
-	"github.com/npikall/gotpm/internal/list"
-	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -34,20 +35,121 @@ func init() {
 
 var ErrNoPackages = errors.New("no packages installed")
 
+type pkgVersion struct {
+	Name     string
+	Editable bool
+}
+
+type installedPackage struct {
+	Name     string
+	Versions []pkgVersion
+}
+
+type packageNamespace struct {
+	Name     string
+	Packages []installedPackage
+}
+
+// isDirPath reports whether path is a directory, following symlinks.
+func isDirPath(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+// scanPackages walks root (namespace/package/version layout) and returns
+// all installed packages, including editable (symlinked) versions.
+func scanPackages(root string) ([]packageNamespace, error) {
+	namespaceMap := make(map[string][]installedPackage)
+
+	namespaceEntries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, nsEntry := range namespaceEntries {
+		if !nsEntry.IsDir() {
+			continue
+		}
+
+		namespaceName := nsEntry.Name()
+		namespacePath := filepath.Join(root, namespaceName)
+
+		packageEntries, err := os.ReadDir(namespacePath)
+		if err != nil {
+			continue
+		}
+
+		for _, pkgEntry := range packageEntries {
+			if !pkgEntry.IsDir() {
+				continue
+			}
+
+			packageName := pkgEntry.Name()
+			packagePath := filepath.Join(namespacePath, packageName)
+
+			versionEntries, err := os.ReadDir(packagePath)
+			if err != nil {
+				continue
+			}
+
+			var versions []pkgVersion
+			for _, verEntry := range versionEntries {
+				versionPath := filepath.Join(packagePath, verEntry.Name())
+				if !isDirPath(versionPath) {
+					continue
+				}
+				versions = append(versions, pkgVersion{
+					Name:     verEntry.Name(),
+					Editable: verEntry.Type()&fs.ModeSymlink != 0,
+				})
+			}
+
+			if len(versions) == 0 {
+				continue
+			}
+
+			sort.Slice(versions, func(i, j int) bool {
+				return versions[i].Name < versions[j].Name
+			})
+			namespaceMap[namespaceName] = append(namespaceMap[namespaceName], installedPackage{
+				Name:     packageName,
+				Versions: versions,
+			})
+		}
+	}
+
+	var namespaces []packageNamespace
+	for nsName, packages := range namespaceMap {
+		sort.SliceStable(packages, func(i, j int) bool {
+			return packages[i].Name < packages[j].Name
+		})
+		namespaces = append(namespaces, packageNamespace{
+			Name:     nsName,
+			Packages: packages,
+		})
+	}
+
+	sort.Slice(namespaces, func(i, j int) bool {
+		return namespaces[i].Name < namespaces[j].Name
+	})
+
+	return namespaces, nil
+}
+
 func listRunner(cmd *cobra.Command, args []string) error {
 	logger := setupLogger(cmd)
 
-	typstPackagePath, err := paths.GetTypstPackagePath()
+	typstPackagePath, err := resolveLocalPackageDirPath()
 	if err != nil {
 		return err
 	}
 	logger.Debug("looking in", "directory", typstPackagePath)
 
-	if !files.Exists(typstPackagePath) {
+	if !isDirPath(typstPackagePath) {
 		return ErrNoPackages
 	}
 
-	namespaces, err := list.ScanPackages(typstPackagePath)
+	namespaces, err := scanPackages(typstPackagePath)
 	if err != nil {
 		return err
 	}
@@ -63,8 +165,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
-			versions := strings.Join(pkg.Versions, ", ")
-			printPackageWithVersions(pkg, versions)
+			printPackageWithVersions(pkg)
 		}
 	}
 
@@ -74,14 +175,26 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printPackageWithVersions(pkg list.Package, versionStr string) {
-	if len(pkg.Versions) > 5 {
-		versionStr = strings.Join(pkg.Versions[:5], ", ") +
-			fmt.Sprintf(" ... (+%d more)", len(pkg.Versions)-5)
+func printPackageWithVersions(pkg installedPackage) {
+	versions := pkg.Versions
+	truncated := ""
+	if len(versions) > 5 {
+		truncated = fmt.Sprintf(" ... (+%d more)", len(versions)-5)
+		versions = versions[:5]
 	}
 
-	fmt.Printf("  %s %s\n",
+	var parts []string
+	for _, v := range versions {
+		if v.Editable {
+			parts = append(parts, StyleYellow.Render(v.Name+" (editable)"))
+		} else {
+			parts = append(parts, StyleMuted.Render(v.Name))
+		}
+	}
+
+	fmt.Printf("  %s %s%s\n",
 		StyleNormal.Render(pkg.Name),
-		StyleMuted.Render(versionStr),
+		strings.Join(parts, StyleMuted.Render(", ")),
+		StyleMuted.Render(truncated),
 	)
 }
