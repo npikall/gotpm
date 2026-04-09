@@ -59,9 +59,9 @@ _commit_and_tag version:
     git commit -m "chore(release): bump version to {{ version }}"
     git tag -a "v{{ version }}"
 
-# make a new release [target: <major.minor.patch>]
-release target:
+# make a new release (e.g. semver=0.1.2)
+release semver:
     @just _ensure_clean
-    @just changelog --tag {{ target }}
-    @just _commit_and_tag
+    @just changelog --tag {{ semver }}
+    @just _commit_and_tag {{ semver }}
     @echo "{{ GREEN }}Release complete. Run 'git push && git push --tags'.{{ NORMAL }}"
