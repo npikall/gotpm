@@ -42,7 +42,6 @@ gotpm update foo.typ -o bar.typ`,
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
-	updateCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 	updateCmd.Flags().StringP("output", "o", "", "Output file (defaults to input file, or stdout when reading from stdin)")
 }
 

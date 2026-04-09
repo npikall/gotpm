@@ -39,7 +39,6 @@ Valid arguments can be:
 func init() {
 	rootCmd.AddCommand(bumpCmd)
 	bumpCmd.Flags().Bool("dry-run", false, "Perform a dry-run")
-	bumpCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 	bumpCmd.Flags().BoolP("show-current", "c", false, "Show the version of the current package")
 	bumpCmd.Flags().BoolP("show-next", "n", false, "Show the version of the package if it where bumped")
 	bumpCmd.Flags().BoolP("indent", "i", false, "Use Indentation in the typst.toml file.")
