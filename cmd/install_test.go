@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	cmdinternal "github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,11 +33,11 @@ func Test_resolveDestination(t *testing.T) {
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 	t.Run("default namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestinationWithNamespace(dataDir, manifest, defaultNamespace)
+		got, err := resolveDestinationWithNamespace(dataDir, manifest, cmdinternal.DefaultNamespace)
 		assert.NoError(t, err)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
-		assert.Equal(t, defaultNamespace, got.Namespace)
+		assert.Equal(t, cmdinternal.DefaultNamespace, got.Namespace)
 		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
@@ -56,14 +57,14 @@ func Test_resolveDestination(t *testing.T) {
 		err := os.MkdirAll(existing, 0755)
 		assert.NoError(t, err)
 
-		_, err = resolveDestinationWithNamespace(dataDir, manifest, defaultNamespace)
+		_, err = resolveDestinationWithNamespace(dataDir, manifest, cmdinternal.DefaultNamespace)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
 }
 
 func Test_resolveLocalPackageDir(t *testing.T) {
 	t.Run("creates dir", func(t *testing.T) {
-		got, err := resolveLocalPackageDir()
+		got, err := cmdinternal.ResolveLocalPackageDir()
 		assert.NoError(t, err)
 		info, statErr := os.Stat(got)
 		assert.NoError(t, statErr)
@@ -72,7 +73,7 @@ func Test_resolveLocalPackageDir(t *testing.T) {
 		}
 	})
 	t.Run("contains typst/packages", func(t *testing.T) {
-		got, err := resolveLocalPackageDir()
+		got, err := cmdinternal.ResolveLocalPackageDir()
 		assert.NoError(t, err)
 		suffix := filepath.Join("typst", "packages")
 		assertHasSuffix(t, got, suffix)
@@ -86,14 +87,14 @@ func Test_resolveLinuxDataDir(t *testing.T) {
 	t.Run("uses xdg if set", func(t *testing.T) {
 		xdgDir := t.TempDir()
 		t.Setenv("XDG_DATA_HOME", xdgDir)
-		got, err := resolveLinuxDataDir()
+		got, err := cmdinternal.ResolveLinuxDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, xdgDir)
 	})
 	t.Run("fallsback to home/.local", func(t *testing.T) {
 		t.Setenv("XDG_DATA_HOME", "")
 		home, _ := os.UserHomeDir()
-		got, err := resolveLinuxDataDir()
+		got, err := cmdinternal.ResolveLinuxDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, filepath.Join(home, ".local", "share"))
 	})
@@ -105,7 +106,7 @@ func Test_resolveDarwinDataDir(t *testing.T) {
 	}
 	t.Run("uses Library Application Support", func(t *testing.T) {
 		home, _ := os.UserHomeDir()
-		got, err := resolveDarwinDataDir()
+		got, err := cmdinternal.ResolveDarwinDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, filepath.Join(home, "Library", "Application Support"))
 	})
@@ -118,13 +119,13 @@ func Test_resolveWindowsDataDir(t *testing.T) {
 	t.Run("uses AppData", func(t *testing.T) {
 		appData := t.TempDir()
 		t.Setenv("APPDATA", appData)
-		got, err := resolveWindowsDataDir()
+		got, err := cmdinternal.ResolveWindowsDataDir()
 		assert.NoError(t, err)
 		assertHasPrefix(t, got, appData)
 	})
 	t.Run("missing AppData returns error", func(t *testing.T) {
 		t.Setenv("APPDATA", "")
-		_, err := resolveWindowsDataDir()
+		_, err := cmdinternal.ResolveWindowsDataDir()
 		assert.Error(t, err)
 	})
 }
@@ -137,7 +138,7 @@ name = "my-package"
 version = "1.0.0"
 entrypoint = "lib.typ"
 `)
-		got, err := loadManifest(dir)
+		got, err := cmdinternal.LoadManifest(dir)
 		assert.NoError(t, err)
 		assert.Equal(t, "my-package", got.Package.Name)
 		assert.Equal(t, "1.0.0", got.Package.Version)
@@ -145,13 +146,13 @@ entrypoint = "lib.typ"
 	})
 	t.Run("no manifest returns not found error", func(t *testing.T) {
 		dir := t.TempDir()
-		_, err := loadManifest(dir)
-		assert.ErrorIs(t, err, ErrManifestNotFound)
+		_, err := cmdinternal.LoadManifest(dir)
+		assert.ErrorIs(t, err, cmdinternal.ErrManifestNotFound)
 	})
 	t.Run("malformed toml returns invalid error", func(t *testing.T) {
 		dir := writeManifest(t, `this is not valid [ toml`)
-		_, err := loadManifest(dir)
-		assert.ErrorIs(t, err, ErrInvalidManifest)
+		_, err := cmdinternal.LoadManifest(dir)
+		assert.ErrorIs(t, err, cmdinternal.ErrInvalidManifest)
 	})
 	t.Run("missing name returns invalid error", func(t *testing.T) {
 		dir := writeManifest(t, `
@@ -159,8 +160,8 @@ entrypoint = "lib.typ"
 version = "1.0.0"
 entrypoint = "lib.typ"
 `)
-		_, err := loadManifest(dir)
-		assert.ErrorIs(t, err, ErrInvalidManifest)
+		_, err := cmdinternal.LoadManifest(dir)
+		assert.ErrorIs(t, err, cmdinternal.ErrInvalidManifest)
 	})
 	t.Run("missing version returns invalid error", func(t *testing.T) {
 		dir := writeManifest(t, `
@@ -168,8 +169,8 @@ entrypoint = "lib.typ"
 name = "my-package"
 entrypoint = "lib.typ"
 `)
-		_, err := loadManifest(dir)
-		assert.ErrorIs(t, err, ErrInvalidManifest)
+		_, err := cmdinternal.LoadManifest(dir)
+		assert.ErrorIs(t, err, cmdinternal.ErrInvalidManifest)
 	})
 	t.Run("missing entrypoint returns invalid error", func(t *testing.T) {
 		dir := writeManifest(t, `
@@ -177,13 +178,13 @@ entrypoint = "lib.typ"
 name = "my-package"
 version = "1.0.0"
 `)
-		_, err := loadManifest(dir)
-		assert.ErrorIs(t, err, ErrInvalidManifest)
+		_, err := cmdinternal.LoadManifest(dir)
+		assert.ErrorIs(t, err, cmdinternal.ErrInvalidManifest)
 	})
 	t.Run("all fields missing reports all errors", func(t *testing.T) {
 		dir := writeManifest(t, `[package]`)
-		_, err := loadManifest(dir)
-		assert.ErrorIs(t, err, ErrInvalidManifest)
+		_, err := cmdinternal.LoadManifest(dir)
+		assert.ErrorIs(t, err, cmdinternal.ErrInvalidManifest)
 		assert.ErrorContains(t, err, "package.name")
 		assert.ErrorContains(t, err, "package.version")
 		assert.ErrorContains(t, err, "package.entrypoint")
@@ -287,6 +288,7 @@ func writeManifest(t *testing.T, content string) string {
 	}
 	return dir
 }
+
 func assertHasSuffix(t *testing.T, path, suffix string) {
 	t.Helper()
 	if !strings.HasSuffix(path, suffix) {
@@ -301,9 +303,9 @@ func assertHasPrefix(t *testing.T, path, prefix string) {
 	}
 }
 
-func newManifest(name, version, entrypoint string) Manifest {
-	return Manifest{
-		Package: PackageMeta{
+func newManifest(name, version, entrypoint string) cmdinternal.Manifest {
+	return cmdinternal.Manifest{
+		Package: cmdinternal.PackageMeta{
 			Name:       name,
 			Version:    version,
 			Entrypoint: entrypoint,

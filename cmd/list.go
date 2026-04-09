@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	cmdinternal "github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -137,9 +138,9 @@ func scanPackages(root string) ([]packageNamespace, error) {
 }
 
 func listRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger(cmd)
+	logger := cmdinternal.SetupLogger(cmd)
 
-	typstPackagePath, err := resolveLocalPackageDirPath()
+	typstPackagePath, err := cmdinternal.ResolveLocalPackageDirPath()
 	if err != nil {
 		return err
 	}
@@ -161,7 +162,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		fmt.Println(StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
+		fmt.Println(cmdinternal.StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
@@ -171,7 +172,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	footer := fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))
 	fmt.Println()
-	fmt.Println(StyleMuted.Render(footer))
+	fmt.Println(cmdinternal.StyleMuted.Render(footer))
 	return nil
 }
 
@@ -186,15 +187,15 @@ func printPackageWithVersions(pkg installedPackage) {
 	var parts []string
 	for _, v := range versions {
 		if v.Editable {
-			parts = append(parts, StyleYellow.Render(v.Name+" (editable)"))
+			parts = append(parts, cmdinternal.StyleYellow.Render(v.Name+" (editable)"))
 		} else {
-			parts = append(parts, StyleMuted.Render(v.Name))
+			parts = append(parts, cmdinternal.StyleMuted.Render(v.Name))
 		}
 	}
 
 	fmt.Printf("  %s %s%s\n",
-		StyleNormal.Render(pkg.Name),
-		strings.Join(parts, StyleMuted.Render(", ")),
-		StyleMuted.Render(truncated),
+		cmdinternal.StyleNormal.Render(pkg.Name),
+		strings.Join(parts, cmdinternal.StyleMuted.Render(", ")),
+		cmdinternal.StyleMuted.Render(truncated),
 	)
 }

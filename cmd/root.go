@@ -11,10 +11,11 @@ import (
 	"os"
 
 	"github.com/charmbracelet/fang"
+	cmdinternal "github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
-var asciiArt string = StyleLogo.Render(`┌──────────────────────────────┐
+var asciiArt string = cmdinternal.StyleLogo.Render(`┌──────────────────────────────┐
 │ _____     ______________  ___│
 │|  __ \   |_   _| ___ \  \/  |│
 │| |  \/ ___ | | | |_/ / .  . |│
@@ -23,8 +24,8 @@ var asciiArt string = StyleLogo.Render(`┌────────────�
 │ \____/\___/\_/ \_|   \_|  |_/│
 └──────────────────────────────┘`)
 
-var description string = StyleDescription.Render(`
-GoTPM is a minimal Package Manager for Typst. Install the packages you write to 
+var description string = cmdinternal.StyleDescription.Render(`
+GoTPM is a minimal Package Manager for Typst. Install the packages you write to
 your disk, to make them installable via a local import.`)
 
 // rootCmd represents the base command when called without any subcommands

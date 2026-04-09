@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	cmdinternal "github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -30,8 +31,8 @@ func init() {
 var libFile = []byte("#let greet(name) = [Hello #name]")
 
 func initRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger(cmd)
-	cwd := Must(os.Getwd())
+	logger := cmdinternal.SetupLogger(cmd)
+	cwd := cmdinternal.Must(os.Getwd())
 
 	var pkgName string
 	if len(args) > 0 {

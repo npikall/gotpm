@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	cmdinternal "github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
@@ -62,7 +63,7 @@ entrypoint = "lib.typ"
 	t.Run("no args and missing manifest returns error", func(t *testing.T) {
 		dir := t.TempDir()
 		_, _, err := resolvePackageIdentityFromWorkingDir([]string{}, "", false, dir)
-		assert.ErrorIs(t, err, ErrManifestNotFound)
+		assert.ErrorIs(t, err, cmdinternal.ErrManifestNotFound)
 	})
 }
 

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	cmdinternal "github.com/npikall/gotpm/cmd/internal"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
@@ -42,23 +43,23 @@ gotpm install path/to/package/dir -n preview
 
 func init() {
 	rootCmd.AddCommand(installCmd)
-	installCmd.Flags().StringP("namespace", "n", defaultNamespace, "The namespace in which the package should be available.")
+	installCmd.Flags().StringP("namespace", "n", cmdinternal.DefaultNamespace, "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger(cmd)
+	logger := cmdinternal.SetupLogger(cmd)
 	sourceDir, err := resolveSourceDir(args)
 	if err != nil {
 		return err
 	}
 	logger.Debug("operating in source", "path", sourceDir)
-	manifest, err := loadManifest(sourceDir)
+	manifest, err := cmdinternal.LoadManifest(sourceDir)
 	if err != nil {
 		return err
 	}
 	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
-	dataDir, err := resolveLocalPackageDir()
+	dataDir, err := cmdinternal.ResolveLocalPackageDir()
 	if err != nil {
 		return err
 	}
@@ -78,7 +79,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		if err := symlinkPackage(sourceDir, dest.Path); err != nil {
 			return err
 		}
-		printInfo("installed %s (editable)", formatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
+		cmdinternal.PrintInfo("installed %s (editable)", cmdinternal.FormatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
 		return nil
 	}
 
@@ -86,7 +87,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 	if err := copyPackageFiles(sourceDir, dest.Path); err != nil {
 		return err
 	}
-	printInfo("installed %s", formatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
+	cmdinternal.PrintInfo("installed %s", cmdinternal.FormatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
 	return nil
 }
 
@@ -105,7 +106,7 @@ var ignoredFileNames = map[string]struct{}{
 // symlinkPackage creates a symlink at dest pointing to the absolute path of src.
 // The parent directory of dest is created if it does not exist.
 func symlinkPackage(src, dest string) error {
-	if err := ensureDir(filepath.Dir(dest)); err != nil {
+	if err := cmdinternal.EnsureDir(filepath.Dir(dest)); err != nil {
 		return fmt.Errorf("creating parent directory for symlink %q: %w", dest, err)
 	}
 	absSrc, err := filepath.Abs(src)
@@ -128,7 +129,7 @@ func copyPackageFiles(src, dest string) error {
 }
 
 func runTransferJobsWithSpinner(jobs []transferJob) error {
-	spinner := setupSpinner()
+	spinner := cmdinternal.SetupSpinner()
 	spinner.Start()
 	defer spinner.Stop()
 	return runTransferJobs(jobs)
@@ -270,20 +271,16 @@ type Destination struct {
 	Path      string
 }
 
-// Get the path to the directory in which a given Package will be stored into
-func resolveDestination(dataDir string, manifest Manifest, cmd *cobra.Command) (Destination, error) {
+// resolveDestination builds the install destination using the namespace flag.
+func resolveDestination(dataDir string, manifest cmdinternal.Manifest, cmd *cobra.Command) (Destination, error) {
 	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
 		return Destination{}, err
 	}
-	dest, err := resolveDestinationWithNamespace(dataDir, manifest, namespace)
-	if err != nil {
-		return Destination{}, err
-	}
-	return dest, nil
+	return resolveDestinationWithNamespace(dataDir, manifest, namespace)
 }
 
-func resolveDestinationWithNamespace(dataDir string, manifest Manifest, namespace string) (Destination, error) {
+func resolveDestinationWithNamespace(dataDir string, manifest cmdinternal.Manifest, namespace string) (Destination, error) {
 	if err := validateNamespace(namespace); err != nil {
 		return Destination{}, err
 	}
@@ -294,7 +291,7 @@ func resolveDestinationWithNamespace(dataDir string, manifest Manifest, namespac
 	return dest, nil
 }
 
-func buildDestination(dataDir string, manifest Manifest, namespace string) Destination {
+func buildDestination(dataDir string, manifest cmdinternal.Manifest, namespace string) Destination {
 	path := filepath.Join(
 		dataDir,
 		namespace,
@@ -307,21 +304,6 @@ func buildDestination(dataDir string, manifest Manifest, namespace string) Desti
 		Version:   manifest.Package.Version,
 		Path:      path,
 	}
-}
-
-// TODO: Move into internal package
-// Get the path to the local directory, in which the packages are stored.
-//
-// ${data-dir}/typst/packages/
-func resolveLocalPackageDir() (string, error) {
-	localPkgDir, err := resolveLocalPackageDirPath()
-	if err != nil {
-		return "", err
-	}
-	if err := ensureDir(localPkgDir); err != nil {
-		return "", err
-	}
-	return localPkgDir, nil
 }
 
 func resolveSourceDir(args []string) (string, error) {

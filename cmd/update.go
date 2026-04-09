@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/log"
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/npikall/gotpm/internal/request"
 	"github.com/spf13/cobra"
 )
@@ -41,9 +42,26 @@ func init() {
 	updateCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
 }
 
+type logEvent struct {
+	level   string
+	msg     string
+	keyvals []any
+}
+
+func logLogEvent(l logEvent, logger *log.Logger) {
+	switch l.level {
+	case "debug":
+		logger.Debug(l.msg, l.keyvals...)
+	case "info":
+		logger.Info(l.msg, l.keyvals...)
+	case "error":
+		logger.Error(l.msg, l.keyvals...)
+	}
+}
+
 func updateRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger(cmd)
-	cwd := Must(os.Getwd())
+	logger := internal.SetupLogger(cmd)
+	cwd := internal.Must(os.Getwd())
 	ctx := context.Background()
 
 	targetFilePath := getAbsolutePath(args, cwd)
@@ -64,7 +82,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	var wg sync.WaitGroup
 	resultCh := make(chan result, maxRequests)
 	logCh := make(chan logEvent, maxRequests)
-	s := setupSpinner()
+	s := internal.SetupSpinner()
 	s.Start()
 	for _, importStatement := range foundImports {
 		wg.Go(func() {
@@ -124,17 +142,6 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func logLogEvent(l logEvent, logger *log.Logger) {
-	switch l.level {
-	case "debug":
-		logger.Debug(l.msg, l.keyvals...)
-	case "info":
-		logger.Info(l.msg, l.keyvals...)
-	case "error":
-		logger.Error(l.msg, l.keyvals...)
-	}
-}
-
 func getPackageInfos(importStatement []byte) (string, string) {
 	pkgNameVersion := strings.Split(string(importStatement), "/")[1]
 	pkgInfo := strings.Split(pkgNameVersion, ":")
@@ -161,8 +168,8 @@ type result struct {
 	latest string
 }
 
-// Update all typst package import statements in a file, with the values provided
-// by a mapping of package names to the latest version.
+// UpdateFileContent updates all typst package import statements in content
+// with the versions provided by the name→version mapping.
 func UpdateFileContent(content *[]byte, versions map[string]string) {
 	for key, value := range versions {
 		rawPattern := fmt.Sprintf(`@preview/%s:[0-9]*.[0-9]*.[0-9]*`, key)

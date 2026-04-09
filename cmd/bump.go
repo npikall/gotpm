@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/npikall/gotpm/internal/files"
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -48,17 +48,18 @@ func init() {
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
 func bumpRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger(cmd)
+	logger := internal.SetupLogger(cmd)
 
-	cwd := Must(os.Getwd())
+	cwd := internal.Must(os.Getwd())
 	logger.Debug("running in", "cwd", cwd)
 
-	pkg, err := files.LoadPackageFromDirectory(cwd)
+	manifest, err := internal.LoadManifest(cwd)
 	if err != nil {
 		return err
 	}
+	pkg := manifest.Package
 
-	showCurrent := Must(cmd.Flags().GetBool("show-current"))
+	showCurrent := internal.Must(cmd.Flags().GetBool("show-current"))
 	if showCurrent {
 		fmt.Println(pkg.Version)
 		return nil
@@ -72,10 +73,9 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	bumpArg := args[0]
 
-	dryRun := Must(cmd.Flags().GetBool("dry-run"))
+	dryRun := internal.Must(cmd.Flags().GetBool("dry-run"))
 
-	err = pkg.Bump(bumpArg)
-	if err != nil {
+	if err := pkg.Bump(bumpArg); err != nil {
 		return err
 	}
 	logger.Debug("setting toml", "version", pkg.Version)
@@ -86,7 +86,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	showNext := Must(cmd.Flags().GetBool("show-next"))
+	showNext := internal.Must(cmd.Flags().GetBool("show-next"))
 	if showNext {
 		fmt.Println(pkg.Version)
 		return nil
@@ -99,22 +99,22 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("editing", "file", typstTOML)
 
-	// Write updated TOML to a buffer first
-	indent := Must(cmd.Flags().GetBool("indent"))
+	indent := internal.Must(cmd.Flags().GetBool("indent"))
 	var buf bytes.Buffer
-	err = files.UpdateTOML(&buf, pkg, typstTOMLContent, indent)
-	if err != nil {
+	if err := internal.UpdateTOML(&buf, pkg, typstTOMLContent, indent); err != nil {
 		return err
 	}
 	logger.Debug("write edited toml to buffer")
 
-	// Write the buffer to the file
-	err = os.WriteFile(typstTOML, buf.Bytes(), 0644)
-	if err != nil {
+	if err := os.WriteFile(typstTOML, buf.Bytes(), 0644); err != nil {
 		return err
 	}
 	logger.Debug("write buffer", "file", typstTOML)
 
-	logger.Infof("updated version %s -> %s", previousVersion, pkg.Version)
+	internal.PrintInfo(
+		"updated version %s -> %s",
+		internal.StyleAccent.Render(previousVersion),
+		internal.StyleAccent.Render(pkg.Version),
+	)
 	return nil
 }

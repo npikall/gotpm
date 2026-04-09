@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,7 @@ type uninstallFlags struct {
 }
 
 func uninstallRunner(cmd *cobra.Command, args []string) error {
-	logger := setupLogger(cmd)
+	logger := internal.SetupLogger(cmd)
 
 	flags, err := readUninstallFlags(cmd)
 	if err != nil {
@@ -67,9 +68,9 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("resolved package", "name", pkgName, "version", pkgVersion)
 
-	// Intentionally use resolveLocalPackageDirPath (not resolveLocalPackageDir):
+	// Intentionally use ResolveLocalPackageDirPath (not ResolveLocalPackageDir):
 	// uninstall must not create the packages directory if it doesn't exist yet.
-	localPkgDir, err := resolveLocalPackageDirPath()
+	localPkgDir, err := internal.ResolveLocalPackageDirPath()
 	if err != nil {
 		return err
 	}
@@ -83,14 +84,14 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if flags.isDryRun {
-		printWarn("dry-run: would delete %q", target)
+		internal.PrintWarn("dry-run: would delete %q", target)
 		return nil
 	}
 
 	if err := removeTarget(target); err != nil {
 		return err
 	}
-	printInfo("uninstalled %s", formatImportStmt(flags.namespace, pkgName, pkgVersion))
+	internal.PrintInfo("uninstalled %s", internal.FormatImportStmt(flags.namespace, pkgName, pkgVersion))
 	return nil
 }
 
@@ -99,11 +100,7 @@ func resolvePackageIdentity(args []string, flags uninstallFlags) (string, string
 	if err != nil {
 		return "", "", err
 	}
-	pkgName, pkgVersion, err := resolvePackageIdentityFromWorkingDir(args, flags.version, flags.deleteAll, cwd)
-	if err != nil {
-		return "", "", err
-	}
-	return pkgName, pkgVersion, nil
+	return resolvePackageIdentityFromWorkingDir(args, flags.version, flags.deleteAll, cwd)
 }
 
 func readUninstallFlags(cmd *cobra.Command) (uninstallFlags, error) {
@@ -131,7 +128,7 @@ func readUninstallFlags(cmd *cobra.Command) (uninstallFlags, error) {
 	}, nil
 }
 
-// Build the path of the directory to remove.
+// resolveUninstallTarget builds the path of the directory to remove.
 // When deleteAll is true and no version is given, the package directory
 // (all versions) is targeted; otherwise a specific version directory is used.
 func resolveUninstallTarget(pkgDir, namespace, name, version string, deleteAll bool) string {
@@ -141,7 +138,7 @@ func resolveUninstallTarget(pkgDir, namespace, name, version string, deleteAll b
 	return filepath.Join(pkgDir, namespace, name, version)
 }
 
-// Return an error when there is nothing at target to remove.
+// validateTargetExists returns an error when there is nothing at target to remove.
 // Uses Lstat so a dangling symlink still counts as "present".
 func validateTargetExists(target string) error {
 	if _, err := os.Lstat(target); err != nil {
@@ -153,7 +150,7 @@ func validateTargetExists(target string) error {
 	return nil
 }
 
-// Remove target from disk.
+// removeTarget removes target from disk.
 // When target is a symlink, only the link is removed, not the directory it points to.
 // When target is a regular file or directory, it is removed with all its contents.
 func removeTarget(target string) error {
@@ -167,8 +164,8 @@ func removeTarget(target string) error {
 	return os.RemoveAll(target)
 }
 
-// Return the package name and version to uninstall.
-// When a name is provided as an argument it is taken from CLI flags; otherwise
+// resolvePackageIdentityFromWorkingDir returns the package name and version to uninstall.
+// When a name is provided as an argument it is taken from CLI args; otherwise
 // both are read from the typst.toml in dir.
 func resolvePackageIdentityFromWorkingDir(args []string, version string, deleteAll bool, dir string) (name, ver string, err error) {
 	if len(args) > 0 {
@@ -177,7 +174,7 @@ func resolvePackageIdentityFromWorkingDir(args []string, version string, deleteA
 		}
 		return args[0], version, nil
 	}
-	manifest, err := loadManifest(dir)
+	manifest, err := internal.LoadManifest(dir)
 	if err != nil {
 		return "", "", err
 	}
