@@ -25,8 +25,8 @@ gotpm uninstall
 gotpm uninstall foo
 
 # uninstall specific package from 'local' or 'preview'
-gotpm uninstall foo -v 0.1.2
-gotpm uninstall foo -v 0.1.2 -n preview
+gotpm uninstall foo -V 0.1.2
+gotpm uninstall foo -V 0.1.2 -n preview
 
 # all versions of foo in namespace 'local' or 'preview'
 gotpm uninstall foo --all
@@ -39,7 +39,7 @@ gotpm uninstall foo -n preview --all
 func init() {
 	rootCmd.AddCommand(uninstallCmd)
 	uninstallCmd.Flags().StringP("namespace", "n", "local", "The namespace from which the package should be removed from.")
-	uninstallCmd.Flags().StringP("version", "v", "", "The specific version of a package that should be removed.")
+	uninstallCmd.Flags().StringP("version", "V", "", "The specific version of a package that should be removed.")
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
 }

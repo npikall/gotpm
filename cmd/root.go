@@ -56,5 +56,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().CountP("verbose", "V", "enable verbose output")
+	rootCmd.PersistentFlags().CountP("verbose", "v", "enable verbose output")
+	rootCmd.Flags().BoolP("version", "V", false, "version for gotpm")
 }
