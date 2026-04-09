@@ -39,6 +39,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: taiki-e/install-action@just
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -49,7 +51,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
           VERSION: ${{ github.ref_name }}
-        run: make build && mv gotpm gotpm-${{ matrix.suffix }}
+        run: just build && mv gotpm gotpm-${{ matrix.suffix }}
 
       - uses: actions/upload-artifact@v4
         with:
