@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2026-04-09
+
+### 🚀 Features
+
+- make requests to typst index first before github
+- add self-update-ability
+
+### 🚜 Refactor
+
+- make shorthand verbose flag lowercase and global version flag upper
+- move self command into self-version
+
+### ◀️ Revert
+
+- remove unused debug flags
+
+### 💼 Other
+
+- fix release note creation
+
 ## [0.3.5] - 2026-04-09
 
 ### 🚀 Features
@@ -51,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update all dependencies
 - merge pull request #10 from npikall/clean-up
 - fix release recipe
+- fix replacement of make with just
 
 ## [0.3.4] - 2026-02-21
 
@@ -341,7 +362,8 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
-[0.3.5]: https://github.com/npikall/gotpm/compare/v0.3.4..0.3.5
+[0.3.6]: https://github.com/npikall/gotpm/compare/v0.3.5..0.3.6
+[0.3.5]: https://github.com/npikall/gotpm/compare/v0.3.4..v0.3.5
 [0.3.4]: https://github.com/npikall/gotpm/compare/v0.3.3..v0.3.4
 [0.3.3]: https://github.com/npikall/gotpm/compare/v0.3.2..v0.3.3
 [0.3.2]: https://github.com/npikall/gotpm/compare/v0.3.1..v0.3.2
