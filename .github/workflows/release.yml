@@ -42,9 +42,6 @@ jobs:
       - name: Install Just
         uses: taiki-e/install-action@just
 
-      - name: Install git-cliff
-        uses: taiki-e/install-action@git-cliff
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -75,6 +72,9 @@ jobs:
 
       - name: Generate install.sh
         run: sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > artifacts/install.sh
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff
 
       - name: Run git-cliff
         run: git cliff -v --latest --no-exec --strip header --output release-notes.md
