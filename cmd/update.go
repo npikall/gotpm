@@ -18,7 +18,6 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/cmd/internal"
-	"github.com/npikall/gotpm/internal/request"
 	"github.com/spf13/cobra"
 )
 
@@ -160,17 +159,17 @@ func fetchAndSendLatestVersion(ctx context.Context, importStatement []byte, resu
 }
 
 func lookupLatestVersion(ctx context.Context, pkgName string) (string, error) {
-	apiURL, err := url.JoinPath(request.TypstPackageEndpoint, pkgName)
+	apiURL, err := url.JoinPath(internal.TypstPackageEndpoint, pkgName)
 	if err != nil {
 		return "", err
 	}
 
-	response, err := request.FetchDataFromGitHub(apiURL, ctx)
+	response, err := internal.FetchDataFromGitHub(apiURL, ctx)
 	if err != nil {
 		return "", err
 	}
 
-	return request.GetLatestVersion(response)
+	return internal.GetLatestVersion(response)
 }
 
 func collectVersionResults(resultCh <-chan result) map[string]string {
