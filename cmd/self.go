@@ -14,7 +14,12 @@ import (
 // selfCmd represents the self command
 var selfCmd = &cobra.Command{
 	Use:   "self",
-	Short: "Inspect the gotpm binary in more detail",
+	Short: "Inspect or manage the gotpm binary",
+}
+
+var selfVersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print build information for the gotpm binary",
 	Run: func(cmd *cobra.Command, args []string) {
 		internal.PrintInfo("gotpm version=%s hash=%s os=%s arch=%s\n", gitTag, gitCommit, buildOS, buildARCH)
 	},
@@ -22,4 +27,5 @@ var selfCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(selfCmd)
+	selfCmd.AddCommand(selfVersionCmd)
 }
