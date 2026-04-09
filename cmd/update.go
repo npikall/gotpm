@@ -124,13 +124,15 @@ func writeOutputContent(content []byte, inputFilePath string, outputPath string)
 }
 
 func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte) (map[string]string, []logEvent) {
+	index, _ := fetchTypstVersionIndex(ctx)
+
 	resultCh := make(chan result, len(imports))
 	logCh := make(chan logEvent, len(imports))
 
 	var wg sync.WaitGroup
 	for _, importStatement := range imports {
 		wg.Go(func() {
-			fetchAndSendLatestVersion(ctx, importStatement, resultCh, logCh)
+			processImport(ctx, importStatement, index, resultCh, logCh)
 		})
 	}
 	wg.Wait()
@@ -140,10 +142,29 @@ func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte) (map
 	return collectVersionResults(resultCh), collectLogEvents(logCh)
 }
 
-func fetchAndSendLatestVersion(ctx context.Context, importStatement []byte, resultCh chan<- result, logCh chan<- logEvent) {
+// lookupVersion queries the Typst package index first and falls back to the
+// GitHub API for missing packages or when the index is unavailable.
+// Returns the version, its source ("index" or "github"), and any error.
+func lookupVersion(ctx context.Context, index map[string]string, pkgName string) (string, string, error) {
+	if version, ok := index[pkgName]; ok {
+		return version, "index", nil
+	}
+	version, err := lookupVersionFromGitHub(ctx, pkgName)
+	return version, "github", err
+}
+
+func fetchTypstVersionIndex(ctx context.Context) (map[string]string, error) {
+	entries, err := internal.FetchTypstIndex(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return internal.BuildVersionIndex(entries), nil
+}
+
+func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- result, logCh chan<- logEvent) {
 	pkgName, pkgVersion := parsePackageRef(importStatement)
 
-	latestVersion, err := lookupLatestVersion(ctx, pkgName)
+	latestVersion, source, err := lookupVersion(ctx, index, pkgName)
 	if err != nil {
 		logCh <- logEvent{"error", err.Error(), nil}
 		return
@@ -154,21 +175,19 @@ func fetchAndSendLatestVersion(ctx context.Context, importStatement []byte, resu
 		return
 	}
 
-	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion}}
+	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion, "via", source}}
 	resultCh <- result{name: pkgName, latest: latestVersion}
 }
 
-func lookupLatestVersion(ctx context.Context, pkgName string) (string, error) {
+func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error) {
 	apiURL, err := url.JoinPath(internal.TypstPackageEndpoint, pkgName)
 	if err != nil {
 		return "", err
 	}
-
 	response, err := internal.FetchDataFromGitHub(apiURL, ctx)
 	if err != nil {
 		return "", err
 	}
-
 	return internal.GetLatestVersion(response)
 }
 
