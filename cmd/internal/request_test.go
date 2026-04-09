@@ -1,4 +1,4 @@
-package request_test
+package internal_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/npikall/gotpm/internal/request"
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,8 +20,8 @@ func TestFetchDataFromGitHub(t *testing.T) {
 	}))
 	t.Run("success", func(t *testing.T) {
 		ctx := context.Background()
-		got, err := request.FetchDataFromGitHub(testServer.URL, ctx)
-		want := []*request.ResponseModel{
+		got, err := internal.FetchDataFromGitHub(testServer.URL, ctx)
+		want := []*internal.ResponseModel{
 			{Name: "foobar"},
 			{Name: "baz"},
 		}
@@ -33,16 +33,16 @@ func TestFetchDataFromGitHub(t *testing.T) {
 func TestValidateVersions(t *testing.T) {
 	tests := []struct {
 		name string
-		resp request.ResponseModel
+		resp internal.ResponseModel
 		want bool
 		err  error
 	}{
-		{name: "valid response", resp: request.ResponseModel{Name: "0.0.1"}, want: true, err: nil},
-		{name: "invalid response", resp: request.ResponseModel{Name: "a.b.c"}, want: false, err: nil},
+		{name: "valid response", resp: internal.ResponseModel{Name: "0.0.1"}, want: true, err: nil},
+		{name: "invalid response", resp: internal.ResponseModel{Name: "a.b.c"}, want: false, err: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := request.ValidateVersion(tt.resp)
+			got, err := internal.ValidateVersion(tt.resp)
 			assert.Equal(t, tt.want, got)
 			assert.ErrorIs(t, err, tt.err)
 		})
@@ -52,17 +52,17 @@ func TestValidateVersions(t *testing.T) {
 func TestGetLatestVersion(t *testing.T) {
 	tests := []struct {
 		name     string
-		versions []*request.ResponseModel
+		versions []*internal.ResponseModel
 		want     string
 		wantErr  bool
 	}{
-		{"trivial", []*request.ResponseModel{{"0.1.0"}, {"0.2.0"}}, "0.2.0", false},
-		{"some invalid version", []*request.ResponseModel{{"invalid"}, {"0.2.0"}}, "0.2.0", true},
-		{"more complex", []*request.ResponseModel{{"1.2.1"}, {"1.2.3"}, {"1.3.2"}}, "1.3.2", false},
+		{"trivial", []*internal.ResponseModel{{"0.1.0"}, {"0.2.0"}}, "0.2.0", false},
+		{"some invalid version", []*internal.ResponseModel{{"invalid"}, {"0.2.0"}}, "0.2.0", true},
+		{"more complex", []*internal.ResponseModel{{"1.2.1"}, {"1.2.3"}, {"1.3.2"}}, "1.3.2", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := request.GetLatestVersion(tt.versions)
+			got, gotErr := internal.GetLatestVersion(tt.versions)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("GetLatestVersion() failed: %v", gotErr)

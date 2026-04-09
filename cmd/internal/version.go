@@ -1,4 +1,4 @@
-package files
+package internal
 
 import (
 	"errors"
@@ -8,8 +8,7 @@ import (
 	"strings"
 )
 
-// A Semantic Version struct, where
-// only positive integers are allowed
+// Version is a semantic version where only positive integers are allowed.
 type Version struct {
 	Major uint64
 	Minor uint64
@@ -25,8 +24,8 @@ const (
 var ErrInvalidIncrement = errors.New("invalid version incrementation, must be one of [major|minor|patch]")
 var ErrInvalidVersion = errors.New("not a valid semantic version")
 
-// Bump the Version by the given increment (major, minor, patch)
-// Returns an ErrInvalidIncrement if the wrong increment is used.
+// Bump increments the Version by the given increment (major, minor, patch).
+// Returns ErrInvalidIncrement if an unrecognized increment is used.
 func (v *Version) Bump(increment string) error {
 	switch increment {
 	case MAJOR:
@@ -48,41 +47,38 @@ func (v Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
-// Create a new Version struct with all Fields set to Zero
+// NewVersion returns a Version with all fields set to zero.
 func NewVersion() Version {
 	return Version{Major: 0, Minor: 0, Patch: 0}
 }
 
-// Compare two version structs. Useful to sort arrays of Versions
+// CompareVersions compares two Version structs. Useful for sorting.
+// Returns 1 if a > b, -1 if a < b, 0 if equal.
 func CompareVersions(a, b Version) int {
 	switch {
 	case a.Major != b.Major:
 		if a.Major > b.Major {
 			return 1
-		} else {
-			return -1
 		}
+		return -1
 	case a.Minor != b.Minor:
 		if a.Minor > b.Minor {
 			return 1
-		} else {
-			return -1
 		}
+		return -1
 	case a.Patch != b.Patch:
 		if a.Patch > b.Patch {
 			return 1
-		} else {
-			return -1
 		}
+		return -1
 	default:
 		return 0
 	}
 }
 
-// Parse a string into a Version Struct
+// ParseVersion parses a string into a Version struct.
 func ParseVersion(s string) (Version, error) {
-	isSemVer := IsSemVer(s)
-	if !isSemVer {
+	if !IsSemVer(s) {
 		return Version{}, ErrInvalidVersion
 	}
 	parts := strings.Split(s, ".")
@@ -105,9 +101,8 @@ func ParseVersion(s string) (Version, error) {
 	return version, nil
 }
 
-// Check if a given string is a valid semantic version (e.g. 0.1.0)
-//   - No Letters, just positive Numbers
-//   - 3 Components (Numbers) separated with '.'
+// IsSemVer reports whether s is a valid semantic version (e.g. 0.1.0).
+// Only non-negative integers separated by dots are accepted.
 func IsSemVer(s string) bool {
 	rgxPattern := regexp.MustCompile(`^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)$`)
 	return rgxPattern.MatchString(s)

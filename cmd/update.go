@@ -8,29 +8,33 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
+	"io"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/charmbracelet/log"
-	"github.com/npikall/gotpm/internal/request"
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
 	Use: "update [file]",
-	Example: `# update import statements
+	Example: `# update import statements in a file (writes back in place)
 gotpm update foo.typ
 
-# defaults to 'dependencies.typ'
-gotpm update`,
+# pipe content via stdin, write result to stdout
+cat foo.typ | gotpm update
+
+# pipe content via stdin, write result to a file
+cat foo.typ | gotpm update -o foo.typ
+
+# read from a file, write result to a different file
+gotpm update foo.typ -o bar.typ`,
 	Short: "Update all dependencies from a file to their latest version.",
 	Long:  "Update all dependencies from a file to their latest version.",
 	RunE:  updateRunner,
@@ -39,89 +43,13 @@ gotpm update`,
 func init() {
 	rootCmd.AddCommand(updateCmd)
 	updateCmd.Flags().BoolP("debug", "d", false, "Print Debug Level Information")
+	updateCmd.Flags().StringP("output", "o", "", "Output file (defaults to input file, or stdout when reading from stdin)")
 }
 
-func updateRunner(cmd *cobra.Command, args []string) error {
-	logger := setupVerboseLogger(cmd)
-	cwd := Must(os.Getwd())
-	ctx := context.Background()
-
-	targetFilePath := getAbsolutePath(args, cwd)
-	logger.Debug("update", "target", targetFilePath)
-
-	if _, err := os.Stat(targetFilePath); errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-
-	targetFileContent, err := os.ReadFile(targetFilePath)
-	if err != nil {
-		return err
-	}
-
-	foundImports := extractImportStatements(targetFileContent)
-	maxRequests := len(foundImports)
-
-	var wg sync.WaitGroup
-	resultCh := make(chan result, maxRequests)
-	logCh := make(chan logEvent, maxRequests)
-	s := setupSpinner()
-	s.Start()
-	for _, importStatement := range foundImports {
-		wg.Go(func() {
-			pkgName, pkgVersion := getPackageInfos(importStatement)
-
-			apiURL, err := url.JoinPath(request.TypstPackageEndpoint, pkgName)
-			if err != nil {
-				logCh <- logEvent{"error", err.Error(), nil}
-				return
-			}
-
-			response, err := request.FetchDataFromGitHub(apiURL, ctx)
-			if err != nil {
-				logCh <- logEvent{"error", err.Error(), nil}
-				return
-			}
-
-			latestVersion, err := request.GetLatestVersion(response)
-			if err != nil {
-				logCh <- logEvent{"error", err.Error(), nil}
-				return
-			}
-
-			if latestVersion == pkgVersion {
-				logCh <- logEvent{"debug", "already at latest", []any{"package", pkgName}}
-				return
-			}
-
-			logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion}}
-			resultCh <- result{name: pkgName, latest: latestVersion}
-		})
-	}
-	wg.Wait()
-	close(resultCh)
-	close(logCh)
-
-	var newVersions = make(map[string]string)
-	for r := range resultCh {
-		newVersions[r.name] = r.latest
-	}
-	s.Stop()
-
-	for event := range logCh {
-		logLogEvent(event, logger)
-	}
-
-	if len(newVersions) == 0 {
-		logger.Info("all dependencies are up to date")
-	}
-
-	UpdateFileContent(&targetFileContent, newVersions)
-	err = os.WriteFile(targetFilePath, targetFileContent, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+type logEvent struct {
+	level   string
+	msg     string
+	keyvals []any
 }
 
 func logLogEvent(l logEvent, logger *log.Logger) {
@@ -135,25 +63,140 @@ func logLogEvent(l logEvent, logger *log.Logger) {
 	}
 }
 
-func getPackageInfos(importStatement []byte) (string, string) {
+func updateRunner(cmd *cobra.Command, args []string) error {
+	logger := internal.SetupLogger(cmd)
+	ctx := context.Background()
+	outputPath, _ := cmd.Flags().GetString("output")
+
+	content, inputFilePath, err := readInputContent(args)
+	if err != nil {
+		return err
+	}
+
+	imports := extractImportStatements(content)
+
+	s := internal.SetupSpinner()
+	s.Start()
+	newVersions, logEvents := fetchLatestVersionsConcurrently(ctx, imports)
+	s.Stop()
+
+	for _, event := range logEvents {
+		logLogEvent(event, logger)
+	}
+
+	if len(newVersions) == 0 {
+		logger.Info("all dependencies are up to date")
+	}
+
+	UpdateFileContent(&content, newVersions)
+	return writeOutputContent(content, inputFilePath, outputPath)
+}
+
+func readInputContent(args []string) (content []byte, inputFilePath string, err error) {
+	if len(args) > 0 {
+		content, err = os.ReadFile(args[0])
+		return content, args[0], err
+	}
+	if isStdinPiped() {
+		content, err = io.ReadAll(os.Stdin)
+		return content, "", err
+	}
+	return nil, "", fmt.Errorf("no input: provide a file argument or pipe content via stdin")
+}
+
+func isStdinPiped() bool {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeCharDevice) == 0
+}
+
+func writeOutputContent(content []byte, inputFilePath string, outputPath string) error {
+	if outputPath != "" {
+		return os.WriteFile(outputPath, content, 0644)
+	}
+	if inputFilePath != "" {
+		return os.WriteFile(inputFilePath, content, 0644)
+	}
+	_, err := os.Stdout.Write(content)
+	return err
+}
+
+func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte) (map[string]string, []logEvent) {
+	resultCh := make(chan result, len(imports))
+	logCh := make(chan logEvent, len(imports))
+
+	var wg sync.WaitGroup
+	for _, importStatement := range imports {
+		wg.Go(func() {
+			fetchAndSendLatestVersion(ctx, importStatement, resultCh, logCh)
+		})
+	}
+	wg.Wait()
+	close(resultCh)
+	close(logCh)
+
+	return collectVersionResults(resultCh), collectLogEvents(logCh)
+}
+
+func fetchAndSendLatestVersion(ctx context.Context, importStatement []byte, resultCh chan<- result, logCh chan<- logEvent) {
+	pkgName, pkgVersion := parsePackageRef(importStatement)
+
+	latestVersion, err := lookupLatestVersion(ctx, pkgName)
+	if err != nil {
+		logCh <- logEvent{"error", err.Error(), nil}
+		return
+	}
+
+	if latestVersion == pkgVersion {
+		logCh <- logEvent{"debug", "already at latest", []any{"package", pkgName}}
+		return
+	}
+
+	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion}}
+	resultCh <- result{name: pkgName, latest: latestVersion}
+}
+
+func lookupLatestVersion(ctx context.Context, pkgName string) (string, error) {
+	apiURL, err := url.JoinPath(internal.TypstPackageEndpoint, pkgName)
+	if err != nil {
+		return "", err
+	}
+
+	response, err := internal.FetchDataFromGitHub(apiURL, ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return internal.GetLatestVersion(response)
+}
+
+func collectVersionResults(resultCh <-chan result) map[string]string {
+	versions := make(map[string]string)
+	for r := range resultCh {
+		versions[r.name] = r.latest
+	}
+	return versions
+}
+
+func collectLogEvents(logCh <-chan logEvent) []logEvent {
+	var events []logEvent
+	for event := range logCh {
+		events = append(events, event)
+	}
+	return events
+}
+
+func parsePackageRef(importStatement []byte) (name, version string) {
 	pkgNameVersion := strings.Split(string(importStatement), "/")[1]
 	pkgInfo := strings.Split(pkgNameVersion, ":")
-	pkgName := pkgInfo[0]
-	pkgVersion := pkgInfo[1]
-	return pkgName, pkgVersion
+	return pkgInfo[0], pkgInfo[1]
 }
 
 func extractImportStatements(targetFile []byte) [][]byte {
 	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]*`)
-	foundImports := pattern.FindAll(targetFile, -1)
-	return foundImports
-}
-
-func getAbsolutePath(args []string, cwd string) string {
-	if len(args) > 0 {
-		return filepath.Join(cwd, args[0])
-	}
-	return filepath.Join(cwd, "dependencies.typ")
+	return pattern.FindAll(targetFile, -1)
 }
 
 type result struct {
@@ -161,8 +204,8 @@ type result struct {
 	latest string
 }
 
-// Update all typst package import statements in a file, with the values provided
-// by a mapping of package names to the latest version.
+// UpdateFileContent updates all typst package import statements in content
+// with the versions provided by the name→version mapping.
 func UpdateFileContent(content *[]byte, versions map[string]string) {
 	for key, value := range versions {
 		rawPattern := fmt.Sprintf(`@preview/%s:[0-9]*.[0-9]*.[0-9]*`, key)

@@ -1,4 +1,4 @@
-package request
+package internal
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/go-playground/validator/v10"
-	bump "github.com/npikall/gotpm/internal/files"
 )
 
 const TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
@@ -60,13 +59,13 @@ func ValidateVersion(resp ResponseModel) (bool, error) {
 }
 
 func GetLatestVersion(versions []*ResponseModel) (string, error) {
-	candidate := bump.NewVersion()
+	candidate := NewVersion()
 	for _, v := range versions {
-		currentVersion, err := bump.ParseVersion(v.Name)
+		currentVersion, err := ParseVersion(v.Name)
 		if err != nil {
 			return "", err
 		}
-		res := bump.CompareVersions(candidate, currentVersion)
+		res := CompareVersions(candidate, currentVersion)
 		switch res {
 		case -1:
 			candidate = currentVersion
