@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	cmdinternal "github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -138,9 +138,9 @@ func scanPackages(root string) ([]packageNamespace, error) {
 }
 
 func listRunner(cmd *cobra.Command, args []string) error {
-	logger := cmdinternal.SetupLogger(cmd)
+	logger := internal.SetupLogger(cmd)
 
-	typstPackagePath, err := cmdinternal.ResolveLocalPackageDirPath()
+	typstPackagePath, err := internal.ResolveLocalPackageDirPath()
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		fmt.Println(cmdinternal.StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
+		fmt.Println(internal.StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
@@ -172,7 +172,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	footer := fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))
 	fmt.Println()
-	fmt.Println(cmdinternal.StyleMuted.Render(footer))
+	fmt.Println(internal.StyleMuted.Render(footer))
 	return nil
 }
 
@@ -187,15 +187,15 @@ func printPackageWithVersions(pkg installedPackage) {
 	var parts []string
 	for _, v := range versions {
 		if v.Editable {
-			parts = append(parts, cmdinternal.StyleYellow.Render(v.Name+" (editable)"))
+			parts = append(parts, internal.StyleYellow.Render(v.Name+" (editable)"))
 		} else {
-			parts = append(parts, cmdinternal.StyleMuted.Render(v.Name))
+			parts = append(parts, internal.StyleMuted.Render(v.Name))
 		}
 	}
 
 	fmt.Printf("  %s %s%s\n",
-		cmdinternal.StyleNormal.Render(pkg.Name),
-		strings.Join(parts, cmdinternal.StyleMuted.Render(", ")),
-		cmdinternal.StyleMuted.Render(truncated),
+		internal.StyleNormal.Render(pkg.Name),
+		strings.Join(parts, internal.StyleMuted.Render(", ")),
+		internal.StyleMuted.Render(truncated),
 	)
 }

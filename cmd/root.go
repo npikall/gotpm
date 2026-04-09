@@ -11,11 +11,11 @@ import (
 	"os"
 
 	"github.com/charmbracelet/fang"
-	cmdinternal "github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
-var asciiArt string = cmdinternal.StyleLogo.Render(`┌──────────────────────────────┐
+var asciiArt string = internal.StyleLogo.Render(`┌──────────────────────────────┐
 │ _____     ______________  ___│
 │|  __ \   |_   _| ___ \  \/  |│
 │| |  \/ ___ | | | |_/ / .  . |│
@@ -24,7 +24,7 @@ var asciiArt string = cmdinternal.StyleLogo.Render(`┌────────�
 │ \____/\___/\_/ \_|   \_|  |_/│
 └──────────────────────────────┘`)
 
-var description string = cmdinternal.StyleDescription.Render(`
+var description string = internal.StyleDescription.Render(`
 GoTPM is a minimal Package Manager for Typst. Install the packages you write to
 your disk, to make them installable via a local import.`)
 
