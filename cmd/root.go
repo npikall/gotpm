@@ -36,10 +36,10 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	gitTag    string
-	gitCommit string
-	buildOS   string
-	buildARCH string
+	gitTag    string = "dev"
+	gitCommit string = "00000000"
+	buildOS   string = "NOOS"
+	buildARCH string = "NOARCH"
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
