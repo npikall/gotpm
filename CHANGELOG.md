@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-04-10
+
+### 🐛 Bug Fixes
+
+- ignore patterns not working properly
+
 ## [0.3.6] - 2026-04-09
 
 ### 🚀 Features
@@ -24,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 💼 Other
 
 - fix release note creation
+- fix git-cliff installation
 
 ## [0.3.5] - 2026-04-09
 
@@ -362,7 +369,8 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
-[0.3.6]: https://github.com/npikall/gotpm/compare/v0.3.5..0.3.6
+[0.3.7]: https://github.com/npikall/gotpm/compare/v0.3.6..0.3.7
+[0.3.6]: https://github.com/npikall/gotpm/compare/v0.3.5..v0.3.6
 [0.3.5]: https://github.com/npikall/gotpm/compare/v0.3.4..v0.3.5
 [0.3.4]: https://github.com/npikall/gotpm/compare/v0.3.3..v0.3.4
 [0.3.3]: https://github.com/npikall/gotpm/compare/v0.3.2..v0.3.3
