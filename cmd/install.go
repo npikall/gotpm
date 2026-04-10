@@ -257,6 +257,7 @@ func readIgnoreLines(path string) []string {
 	}
 	var lines []string
 	for line := range strings.Lines(string(data)) {
+		line = strings.TrimRight(line, "\r\n")
 		if line != "" {
 			lines = append(lines, line)
 		}

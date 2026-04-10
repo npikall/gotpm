@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/npikall/gotpm/cmd/internal"
+	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -365,6 +366,138 @@ func Test_symlinkPackage(t *testing.T) {
 		assert.NoError(t, err)
 		assert.DirExists(t, filepath.Dir(dest))
 	})
+}
+
+func Test_readIgnoreLines(t *testing.T) {
+	t.Run("returns nil for non-existent file", func(t *testing.T) {
+		got := readIgnoreLines("/does/not/exist/.typstignore")
+		assert.Nil(t, got)
+	})
+	t.Run("returns trimmed non-empty lines", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".typstignore")
+		os.WriteFile(path, []byte("*.typ\nREADME.md\n"), 0644)
+		got := readIgnoreLines(path)
+		assert.Equal(t, []string{"*.typ", "README.md"}, got)
+	})
+	t.Run("skips blank lines", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".typstignore")
+		os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), 0644)
+		got := readIgnoreLines(path)
+		assert.Equal(t, []string{"*.typ", "README.md"}, got)
+	})
+	t.Run("strips windows-style CRLF line endings", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".typstignore")
+		os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), 0644)
+		got := readIgnoreLines(path)
+		assert.Equal(t, []string{"*.typ", "README.md"}, got)
+	})
+}
+
+func Test_shouldIgnore(t *testing.T) {
+	t.Run("root . is never ignored", func(t *testing.T) {
+		assert.False(t, shouldIgnore(".", nil))
+	})
+	t.Run("hardcoded filenames are ignored", func(t *testing.T) {
+		for name := range ignoredFileNames {
+			assert.True(t, shouldIgnore(name, nil), "expected %q to be ignored", name)
+			assert.True(t, shouldIgnore(filepath.Join("subdir", name), nil))
+		}
+	})
+	t.Run("nil matcher does not ignore unknown files", func(t *testing.T) {
+		assert.False(t, shouldIgnore("lib.typ", nil))
+	})
+	t.Run("matcher-matched path is ignored", func(t *testing.T) {
+		matcher := buildIgnoreMatcher_fromLines(t, "*.md")
+		assert.True(t, shouldIgnore("README.md", matcher))
+		assert.False(t, shouldIgnore("lib.typ", matcher))
+	})
+}
+
+func Test_collectJobs_respectsTypstIgnore(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	writeFile(t, src, "lib.typ", "content")
+	writeFile(t, src, "README.md", "readme")
+	writeFile(t, src, "secret.txt", "secret")
+	writeFile(t, src, ".typstignore", "*.md\nsecret.txt\n")
+
+	jobs, err := collectJobs(src, dst, buildIgnoreMatcher(src))
+	assert.NoError(t, err)
+
+	paths := jobSrcBasenames(jobs)
+	assert.Contains(t, paths, "lib.typ")
+	assert.NotContains(t, paths, "README.md", ".typstignore pattern *.md should exclude README.md")
+	assert.NotContains(t, paths, "secret.txt", ".typstignore pattern secret.txt should exclude secret.txt")
+	assert.NotContains(t, paths, ".typstignore", "hardcoded rule should exclude .typstignore itself")
+}
+
+func Test_collectJobs_respectsGitIgnore(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	writeFile(t, src, "lib.typ", "content")
+	writeFile(t, src, "README.md", "readme")
+	writeFile(t, src, ".gitignore", "*.md\n")
+
+	jobs, err := collectJobs(src, dst, buildIgnoreMatcher(src))
+	assert.NoError(t, err)
+
+	paths := jobSrcBasenames(jobs)
+	assert.Contains(t, paths, "lib.typ")
+	assert.NotContains(t, paths, "README.md", ".gitignore pattern *.md should exclude README.md")
+	assert.NotContains(t, paths, ".gitignore", "hardcoded rule should exclude .gitignore itself")
+}
+
+func Test_collectJobs_gitIgnoreAndTypstIgnoreCombined(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	writeFile(t, src, "lib.typ", "content")
+	writeFile(t, src, "README.md", "readme")
+	writeFile(t, src, "secret.txt", "secret")
+	writeFile(t, src, ".gitignore", "*.md\n")
+	writeFile(t, src, ".typstignore", "secret.txt\n")
+
+	jobs, err := collectJobs(src, dst, buildIgnoreMatcher(src))
+	assert.NoError(t, err)
+
+	paths := jobSrcBasenames(jobs)
+	assert.Contains(t, paths, "lib.typ")
+	assert.NotContains(t, paths, "README.md")
+	assert.NotContains(t, paths, "secret.txt")
+}
+
+func Test_collectJobs_ignoredDirectorySkipsContents(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	writeFile(t, src, "lib.typ", "content")
+	subdir := filepath.Join(src, "dist")
+	os.MkdirAll(subdir, 0755)
+	writeFile(t, subdir, "output.typ", "generated")
+	writeFile(t, src, ".typstignore", "dist/\n")
+
+	jobs, err := collectJobs(src, dst, buildIgnoreMatcher(src))
+	assert.NoError(t, err)
+
+	paths := jobSrcBasenames(jobs)
+	assert.Contains(t, paths, "lib.typ")
+	assert.NotContains(t, paths, "dist/output.typ", "files inside ignored directory should be excluded")
+}
+
+// buildIgnoreMatcher_fromLines builds a matcher from inline pattern strings,
+// used in unit tests that do not need real files on disk.
+func buildIgnoreMatcher_fromLines(t *testing.T, patterns ...string) *ignore.GitIgnore {
+	t.Helper()
+	dir := t.TempDir()
+	writeFile(t, dir, ".typstignore", strings.Join(patterns, "\n")+"\n")
+	return buildIgnoreMatcher(dir)
+}
+
+// jobSrcBasenames extracts the base filename of each job's source path.
+func jobSrcBasenames(jobs []transferJob) []string {
+	names := make([]string, len(jobs))
+	for i, j := range jobs {
+		names[i] = filepath.Base(j.src)
+	}
+	return names
 }
 
 func Test_validateDestinationConflict_rejectsEditableReinstall(t *testing.T) {
