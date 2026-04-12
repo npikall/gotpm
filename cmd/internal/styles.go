@@ -35,13 +35,13 @@ var (
 func PrintInfo(format string, a ...any) {
 	prefix := StyleBlueBold.Render("info")
 	text := StyleNormal.Render(fmt.Sprintf(format, a...))
-	fmt.Printf("%s: %s\n", prefix, text)
+	lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
 func PrintWarn(format string, a ...any) {
 	prefix := StyleBlueBold.Render("warning")
 	text := StyleNormal.Render(fmt.Sprintf(format, a...))
-	fmt.Printf("%s: %s\n", prefix, text)
+	lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
 func FormatImportStmt(namespace, name, version string) string {

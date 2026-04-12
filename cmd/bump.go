@@ -9,10 +9,10 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"charm.land/lipgloss/v2"
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
@@ -60,7 +60,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 
 	showCurrent := internal.Must(cmd.Flags().GetBool("show-current"))
 	if showCurrent {
-		fmt.Println(pkg.Version)
+		lipgloss.Println(pkg.Version)
 		return nil
 	}
 
@@ -87,7 +87,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 
 	showNext := internal.Must(cmd.Flags().GetBool("show-next"))
 	if showNext {
-		fmt.Println(pkg.Version)
+		lipgloss.Println(pkg.Version)
 		return nil
 	}
 

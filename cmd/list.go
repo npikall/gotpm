@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
@@ -161,7 +162,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		fmt.Println(internal.StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
+		lipgloss.Println(internal.StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
@@ -170,8 +171,8 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	footer := fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))
-	fmt.Println()
-	fmt.Println(internal.StyleMuted.Render(footer))
+	lipgloss.Println()
+	lipgloss.Println(internal.StyleMuted.Render(footer))
 	return nil
 }
 
@@ -192,7 +193,7 @@ func printPackageWithVersions(pkg installedPackage) {
 		}
 	}
 
-	fmt.Printf("  %s %s%s\n",
+	lipgloss.Printf("  %s %s%s\n",
 		internal.StyleNormal.Render(pkg.Name),
 		strings.Join(parts, internal.StyleMuted.Render(", ")),
 		internal.StyleMuted.Render(truncated),
