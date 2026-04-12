@@ -2,13 +2,15 @@
 # requires-python = ">=3.14"
 # dependencies = [
 #     "httpx>=0.28.1",
+#     "rich>=15.0.0",
 # ]
 # ///
 import asyncio
 import re
 from pathlib import Path
 
-import httpx
+import httpx  # ty:ignore[unresolved-import]
+from rich import print  # ty:ignore[unresolved-import]
 
 type LatestVersions = dict[str, str | None]
 
@@ -17,13 +19,13 @@ ACTION_REF_PATTERN = re.compile(
 )
 
 
-def main() -> None:
+async def main() -> None:
     github_dir = get_project_root() / ".github"
     repos = scan_action_repos(github_dir)
     print(f"found {len(repos)} unique action repos: {repos}")
-    latest_versions = asyncio.run(fetch_latest_versions(repos))
-    apply_updates(github_dir, latest_versions)
-    print("done.")
+    latest_versions = await fetch_latest_versions(repos)
+    await apply_updates(github_dir, latest_versions)
+    print("done")
 
 
 def scan_action_repos(github_dir: Path) -> list[str]:
@@ -34,35 +36,40 @@ def scan_action_repos(github_dir: Path) -> list[str]:
     return sorted(repos)
 
 
-def apply_updates(
+async def apply_updates(
     github_dir: Path,
     latest_versions: LatestVersions,
 ) -> None:
-    # TODO: update all files asyncronosly, if it makes sense
-    for workflow in github_dir.rglob("*.yml"):
-        _update_workflow_file(workflow, latest_versions)
+    workflows = list(github_dir.rglob("*.yml"))
+    await asyncio.gather(
+        *[_update_workflow_file(wf, latest_versions) for wf in workflows]
+    )
 
 
-def _update_workflow_file(
+def _pin_updated_ref(
+    m: re.Match[str],
+    file: Path,
+    latest_versions: LatestVersions,
+) -> str:
+    prefix, repo, current_pin = m.group(1), m.group(2), m.group(3)
+    latest_tag = latest_versions.get(repo)
+    if latest_tag is None or latest_tag == current_pin:
+        return m.group(0)
+    latest_major = latest_tag.split(".", maxsplit=1)[0]
+    print(f"{file.name}: {repo}@{current_pin} -> @{latest_major}")
+    return f"{prefix}{repo}@{latest_major}"
+
+
+async def _update_workflow_file(
     file: Path,
     latest_versions: LatestVersions,
 ) -> None:
-    original = file.read_text()
-
-    # TODO: extract function, and make function name more expressive
-    def replace(m: re.Match[str]) -> str:
-        prefix, repo, current_pin = m.group(1), m.group(2), m.group(3)
-        latest_tag = latest_versions.get(repo)
-        if latest_tag is None:
-            return m.group(0)
-        if latest_tag == current_pin:
-            return m.group(0)
-        print(f"{file.name}: {repo}@{current_pin} -> @{latest_tag}")
-        return f"{prefix}{repo}@{latest_tag}"
-
-    updated = ACTION_REF_PATTERN.sub(replace, original)
+    original = await asyncio.to_thread(file.read_text)
+    updated = ACTION_REF_PATTERN.sub(
+        lambda m: _pin_updated_ref(m, file, latest_versions), original
+    )
     if updated != original:
-        file.write_text(updated)
+        await asyncio.to_thread(file.write_text, updated)
 
 
 async def fetch_latest_versions(
@@ -74,11 +81,6 @@ async def fetch_latest_versions(
             *[_fetch_latest_github_tag(repo, client) for repo in repos]
         )
     return dict(zip(repos, tags))
-
-
-async def fetch_latest(repo: str, client: httpx.AsyncClient) -> tuple[str, str | None]:
-    latest_tag = await _fetch_latest_github_tag(repo, client)
-    return repo, latest_tag
 
 
 async def _fetch_latest_github_tag(repo: str, client: httpx.AsyncClient) -> str | None:
@@ -98,4 +100,4 @@ def get_project_root(marker: str = "go.mod") -> Path:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

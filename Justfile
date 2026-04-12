@@ -59,6 +59,10 @@ _commit_and_tag version:
     git commit -m "chore(release): bump version to {{ version }}"
     git tag -a "v{{ version }}"
 
+# update template dependencies and GitHub Actions to their latest versions
+update-gh:
+    uv run scripts/update_github_actions.py
+
 # make a new release (e.g. semver=0.1.2)
 release semver:
     @just _ensure_clean
