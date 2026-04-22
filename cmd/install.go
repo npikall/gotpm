@@ -26,8 +26,11 @@ var installCmd = &cobra.Command{
 	Use:   "install [path]",
 	Short: "Install a Typst Package locally.",
 	Long: `All files that are not specifically excluded get copied to
-$DATA_DIR/typst/packages, where the $DATA_DIR is dependend on
-the machines operating system.
+$DATA_DIR/typst/packages, where the $DATA_DIR is dependent on
+the machine's operating system.
+
+The destination directory can be overridden via the --install-dir flag
+or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
 `,
 	Example: `# install Package located in the CWD
 gotpm install
@@ -45,6 +48,8 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
+	installCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
+	_ = installCmd.Flags().MarkHidden(internal.InstallDirFlag)
 }
 
 func installRunner(cmd *cobra.Command, args []string) error {
@@ -59,12 +64,12 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
-	dataDir, err := internal.ResolveLocalPackageDir()
+	dataDir, overridden, err := internal.ResolvePackageDirPath(cmd)
 	if err != nil {
 		return err
 	}
 	logger.Debug("resolved local package directory", "path", dataDir)
-	dest, err := resolveDestination(dataDir, manifest, cmd)
+	dest, err := resolveDestination(dataDir, overridden, manifest, cmd)
 	if err != nil {
 		return err
 	}
@@ -273,9 +278,25 @@ type Destination struct {
 }
 
 // resolveDestination builds the install destination using the namespace flag.
-func resolveDestination(dataDir string, manifest internal.Manifest, cmd *cobra.Command) (Destination, error) {
+// When overridden is true, dataDir is used as the final path without appending
+// namespace/name/version sub-directories.
+func resolveDestination(dataDir string, overridden bool, manifest internal.Manifest, cmd *cobra.Command) (Destination, error) {
 	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
+		return Destination{}, err
+	}
+	if overridden {
+		if err := validateDestinationConflict(dataDir); err != nil {
+			return Destination{}, err
+		}
+		return Destination{
+			Namespace: namespace,
+			Name:      manifest.Package.Name,
+			Version:   manifest.Package.Version,
+			Path:      dataDir,
+		}, nil
+	}
+	if err := internal.EnsureDir(dataDir); err != nil {
 		return Destination{}, err
 	}
 	return resolveDestinationWithNamespace(dataDir, manifest, namespace)
