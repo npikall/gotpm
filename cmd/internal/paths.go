@@ -6,11 +6,18 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/spf13/cobra"
 )
 
 const (
 	typstPackagesRelPath = "typst/packages"
 	DefaultNamespace     = "local"
+
+	// InstallDirEnvVar is the environment variable that overrides the package directory.
+	InstallDirEnvVar = "GOTPM_INSTALL_DIR"
+	// InstallDirFlag is the cobra flag name used to override the package directory.
+	InstallDirFlag = "install-dir"
 )
 
 var ErrDataDirNotResolvable = errors.New("could not resolve typst local package directory")
@@ -26,6 +33,26 @@ func ResolveLocalPackageDirPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(base, typstPackagesRelPath), nil
+}
+
+// ResolvePackageDirPath returns the package directory path without creating it,
+// and whether an override was provided (flag or env).
+// Resolution order: --install-dir flag > $GOTPM_INSTALL_DIR env > OS default.
+// When overridden, the returned path is the final destination — callers must not
+// append namespace/name/version sub-directories.
+func ResolvePackageDirPath(cmd *cobra.Command) (path string, overridden bool, err error) {
+	dir, err := cmd.Flags().GetString(InstallDirFlag)
+	if err != nil {
+		return "", false, err
+	}
+	if dir != "" {
+		return dir, true, nil
+	}
+	if env := os.Getenv(InstallDirEnvVar); env != "" {
+		return env, true, nil
+	}
+	p, err := ResolveLocalPackageDirPath()
+	return p, false, err
 }
 
 // ResolveLocalPackageDir returns the path to the typst packages directory,
