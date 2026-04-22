@@ -20,6 +20,11 @@ import (
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall [name]",
 	Short: "Uninstall a Typst Package from the local Storage",
+	Long: `Removes a locally installed Typst package from the package directory.
+
+The package directory can be overridden via the --install-dir flag
+or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
+`,
 	Example: `# get package metadata from typst.toml
 gotpm uninstall
 gotpm uninstall foo
@@ -42,6 +47,8 @@ func init() {
 	uninstallCmd.Flags().StringP("version", "V", "", "The specific version of a package that should be removed.")
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
+	uninstallCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
+	_ = uninstallCmd.Flags().MarkHidden(internal.InstallDirFlag)
 }
 
 var ErrInsufficientPackage = errors.New("both package and version must be specified")
@@ -68,15 +75,19 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("resolved package", "name", pkgName, "version", pkgVersion)
 
-	// Intentionally use ResolveLocalPackageDirPath (not ResolveLocalPackageDir):
-	// uninstall must not create the packages directory if it doesn't exist yet.
-	localPkgDir, err := internal.ResolveLocalPackageDirPath()
+	// Intentionally does not create the directory if it doesn't exist yet.
+	localPkgDir, overridden, err := internal.ResolvePackageDirPath(cmd)
 	if err != nil {
 		return err
 	}
 	logger.Debug("resolved local package directory", "path", localPkgDir)
 
-	target := resolveUninstallTarget(localPkgDir, flags.namespace, pkgName, pkgVersion, flags.deleteAll)
+	var target string
+	if overridden {
+		target = localPkgDir
+	} else {
+		target = resolveUninstallTarget(localPkgDir, flags.namespace, pkgName, pkgVersion, flags.deleteAll)
+	}
 	logger.Debug("uninstalling from", "path", target)
 
 	if err := validateTargetExists(target); err != nil {
