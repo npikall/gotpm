@@ -9,6 +9,7 @@ import (
 
 	"github.com/npikall/gotpm/cmd/internal"
 	ignore "github.com/sabhiram/go-gitignore"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -510,4 +511,41 @@ func Test_validateDestinationConflict_rejectsEditableReinstall(t *testing.T) {
 
 	err := validateDestinationConflict(dest)
 	assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+}
+
+func Test_resolveDestination_installDirOverride(t *testing.T) {
+	manifest := newManifest("my-package", "0.1.0", "lib.typ")
+
+	newCmd := func(namespace string) *cobra.Command {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("namespace", namespace, "")
+		cmd.Flags().String(internal.InstallDirFlag, "", "")
+		return cmd
+	}
+
+	t.Run("overridden true uses path directly without subfolders", func(t *testing.T) {
+		// Use a path that doesn't exist yet so conflict check passes.
+		base := t.TempDir()
+		dest := filepath.Join(base, "custom-dest")
+		cmd := newCmd(internal.DefaultNamespace)
+		got, err := resolveDestination(dest, true, manifest, cmd)
+		assert.NoError(t, err)
+		assert.Equal(t, dest, got.Path)
+		assert.Equal(t, "my-package", got.Name)
+		assert.Equal(t, "0.1.0", got.Version)
+	})
+	t.Run("overridden false appends namespace/name/version", func(t *testing.T) {
+		dataDir := t.TempDir()
+		cmd := newCmd(internal.DefaultNamespace)
+		got, err := resolveDestination(dataDir, false, manifest, cmd)
+		assert.NoError(t, err)
+		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
+		assert.Equal(t, wantPath, got.Path)
+	})
+	t.Run("overridden true conflict returns error when path exists", func(t *testing.T) {
+		existing := t.TempDir()
+		cmd := newCmd(internal.DefaultNamespace)
+		_, err := resolveDestination(existing, true, manifest, cmd)
+		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+	})
 }
