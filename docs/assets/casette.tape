@@ -7,14 +7,14 @@ Set Height 600
 Require gotpm
 
 Sleep 500ms
-Type "gotpm init" Sleep 500ms Enter
+Type "gotpm init foo -v" Sleep 500ms Enter
 Sleep 3s
 
 Hide
 Type "clear" Enter
 Show
 
-Type "gotpm install" Sleep 500ms 
+Type "gotpm install foo -e" Sleep 500ms 
 Enter
 Sleep 3s
 
@@ -22,6 +22,14 @@ Hide
 Type "clear" Enter
 Show
 
-Type "gotpm uninstall" Sleep 500ms 
+Type "gotpm list" Sleep 500ms 
+Enter
+Sleep 3s
+
+Hide
+Type "clear" Enter
+Show
+
+Type "gotpm uninstall foo --all" Sleep 500ms 
 Enter
 Sleep 3s
