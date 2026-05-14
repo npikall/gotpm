@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/log"
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
@@ -83,8 +84,17 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		logLogEvent(event, logger)
 	}
 
+	// Write to stderr, because stdout is reserved for content thats piped from stdin
 	if len(newVersions) == 0 {
-		logger.Info("all dependencies are up to date")
+		prefix := internal.StyleBlueBold.Render("info")
+		text := internal.StyleNormal.Render("all dependencies are up to date")
+		msg := lipgloss.Sprintf("%s: %s\n", prefix, text)
+		lipgloss.Fprint(os.Stderr, msg)
+	} else {
+		for pkg, res := range newVersions {
+			str := lipgloss.Sprintln(internal.StyleGreen.Render("Updated"), pkg, res.Current, "->", res.Latest)
+			lipgloss.Fprint(os.Stderr, str)
+		}
 	}
 
 	UpdateFileContent(&content, newVersions)
@@ -122,10 +132,10 @@ func writeOutputContent(content []byte, inputFilePath string, outputPath string)
 	return err
 }
 
-func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte) (map[string]string, []logEvent) {
+func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte) (map[string]Result, []logEvent) {
 	index, _ := fetchTypstVersionIndex(ctx)
 
-	resultCh := make(chan result, len(imports))
+	resultCh := make(chan Result, len(imports))
 	logCh := make(chan logEvent, len(imports))
 
 	var wg sync.WaitGroup
@@ -160,7 +170,7 @@ func fetchTypstVersionIndex(ctx context.Context) (map[string]string, error) {
 	return internal.BuildVersionIndex(entries), nil
 }
 
-func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- result, logCh chan<- logEvent) {
+func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- Result, logCh chan<- logEvent) {
 	pkgName, pkgVersion := parsePackageRef(importStatement)
 
 	latestVersion, source, err := lookupVersion(ctx, index, pkgName)
@@ -175,7 +185,7 @@ func processImport(ctx context.Context, importStatement []byte, index map[string
 	}
 
 	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion, "via", source}}
-	resultCh <- result{name: pkgName, latest: latestVersion}
+	resultCh <- Result{Name: pkgName, Latest: latestVersion, Current: pkgVersion}
 }
 
 func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error) {
@@ -190,10 +200,10 @@ func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error
 	return internal.GetLatestVersion(response)
 }
 
-func collectVersionResults(resultCh <-chan result) map[string]string {
-	versions := make(map[string]string)
+func collectVersionResults(resultCh <-chan Result) map[string]Result {
+	versions := make(map[string]Result)
 	for r := range resultCh {
-		versions[r.name] = r.latest
+		versions[r.Name] = r
 	}
 	return versions
 }
@@ -217,20 +227,21 @@ func extractImportStatements(targetFile []byte) [][]byte {
 	return pattern.FindAll(targetFile, -1)
 }
 
-type result struct {
-	name   string
-	latest string
+type Result struct {
+	Name    string
+	Current string
+	Latest  string
 }
 
 // UpdateFileContent updates all typst package import statements in content
 // with the versions provided by the name→version mapping.
-func UpdateFileContent(content *[]byte, versions map[string]string) {
+func UpdateFileContent(content *[]byte, versions map[string]Result) {
 	for key, value := range versions {
 		rawPattern := fmt.Sprintf(`@preview/%s:[0-9]*.[0-9]*.[0-9]*`, key)
 		pattern := regexp.MustCompile(rawPattern)
 
 		namespacePkg := strings.Split(rawPattern, ":")[0]
-		replacement := fmt.Sprintf("%s:%s", namespacePkg, value)
+		replacement := fmt.Sprintf("%s:%s", namespacePkg, value.Latest)
 
 		*content = pattern.ReplaceAll(*content, []byte(replacement))
 	}
