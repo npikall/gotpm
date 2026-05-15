@@ -44,7 +44,7 @@ Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/rele
 ```bash
 git clone https://github.com/npikall/gotpm.git
 cd gotpm
-make install # or read the Makefile to do build and install manually
+just install # or read the justfile to do build and install manually
 ```
 
 ![Gopher](https://raw.githubusercontent.com/egonelbre/gophers/master/.thumb/vector/projects/network-side.png)
