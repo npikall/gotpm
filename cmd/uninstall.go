@@ -95,7 +95,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if flags.isDryRun {
-		internal.PrintWarn("dry-run: would delete %q", target)
+		internal.PrintWarn("dryrun would delete %q", target)
 		return nil
 	}
 
