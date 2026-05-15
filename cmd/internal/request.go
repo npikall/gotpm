@@ -3,12 +3,10 @@ package internal
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/charmbracelet/log"
-	"github.com/go-playground/validator/v10"
 )
 
 const TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
@@ -42,26 +40,6 @@ func FetchDataFromGitHub(url string, ctx context.Context) ([]*ResponseModel, err
 	}
 
 	return result, nil
-}
-
-var ErrInvalidValidation = errors.New("invalid validation")
-
-// Validate that a given response from the github api of the typst
-// package repository only contains valid semver strings.
-func ValidateVersion(resp ResponseModel) (bool, error) {
-	validate := validator.New()
-	err := validate.Struct(resp)
-
-	if err != nil {
-		if _, ok := err.(validator.ValidationErrors); ok {
-			return false, nil
-		}
-
-		if _, ok := err.(*validator.InvalidValidationError); ok {
-			return false, ErrInvalidValidation
-		}
-	}
-	return true, nil
 }
 
 func GetLatestVersion(versions []*ResponseModel) (string, error) {

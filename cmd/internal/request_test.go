@@ -30,25 +30,6 @@ func TestFetchDataFromGitHub(t *testing.T) {
 	})
 }
 
-func TestValidateVersions(t *testing.T) {
-	tests := []struct {
-		name string
-		resp internal.ResponseModel
-		want bool
-		err  error
-	}{
-		{name: "valid response", resp: internal.ResponseModel{Name: "0.0.1"}, want: true, err: nil},
-		{name: "invalid response", resp: internal.ResponseModel{Name: "a.b.c"}, want: false, err: nil},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := internal.ValidateVersion(tt.resp)
-			assert.Equal(t, tt.want, got)
-			assert.ErrorIs(t, err, tt.err)
-		})
-	}
-}
-
 func TestGetLatestVersion(t *testing.T) {
 	tests := []struct {
 		name     string
