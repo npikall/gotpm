@@ -3,6 +3,7 @@ _default:
     @just --list
 
 alias t := test
+alias b := build
 alias fmt := format
 
 # Informations Embeded into Binary
