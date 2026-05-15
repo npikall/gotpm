@@ -23,7 +23,7 @@ var (
 	StyleBlueBold    = lipgloss.NewStyle().Foreground(Blue).Bold(true)
 	StyleBlue        = lipgloss.NewStyle().Foreground(Blue)
 	StyleGreen       = lipgloss.NewStyle().Foreground(Green)
-	StyleYellow      = lipgloss.NewStyle().Foreground(Yellow)
+	StyleYellow      = lipgloss.NewStyle().Foreground(Yellow).Bold(true)
 	StyleRed         = lipgloss.NewStyle().Foreground(Red)
 	StyleNormal      = lipgloss.NewStyle().Foreground(Normal)
 	StyleMuted       = lipgloss.NewStyle().Foreground(Muted)
@@ -39,8 +39,8 @@ func PrintInfo(format string, a ...any) {
 }
 
 func PrintWarn(format string, a ...any) {
-	prefix := StyleBlueBold.Render("warning")
-	text := StyleNormal.Render(fmt.Sprintf(format, a...))
+	prefix := StyleYellow.Render("warning")
+	text := StyleAccent.Render(fmt.Sprintf(format, a...))
 	lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
