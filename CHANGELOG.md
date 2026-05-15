@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.11] - 2026-05-15
+
+### 🐛 Bug Fixes
+
+- warning message style
+
+### 📚 Documentation
+
+- update readme
+- update contributing guide
+
+### 🚜 Refactor
+
+- remove newline character from self info
+- reformat dryrun message
+
+### ◀️ Revert
+
+- remove dead code
+
+### 💼 Other
+
+- fix function name in install script
+- add alias for build recipe
+
 ## [0.3.10] - 2026-05-14
 
 ### 📚 Documentation
@@ -414,7 +439,8 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
-[0.3.10]: https://github.com/npikall/gotpm/compare/v0.3.9..0.3.10
+[0.3.11]: https://github.com/npikall/gotpm/compare/v0.3.10..0.3.11
+[0.3.10]: https://github.com/npikall/gotpm/compare/v0.3.9..v0.3.10
 [0.3.9]: https://github.com/npikall/gotpm/compare/v0.3.8..v0.3.9
 [0.3.8]: https://github.com/npikall/gotpm/compare/v0.3.7..v0.3.8
 [0.3.7]: https://github.com/npikall/gotpm/compare/v0.3.6..v0.3.7
