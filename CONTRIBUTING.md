@@ -31,13 +31,17 @@ Ready to contribute? Here's how to set up `gotpm` for local development.
 
 4. When you're done making changes, check that your changes are formatted correctly and the tests are passing.
 
+   > [!TIP]
+   > Install the [Just][just] Taskrunner.
+
    ```sh
    # format the code
-   make format
+   just format
 
    # run the tests
-   make test
+   just test
    ```
 
 5. Commit your changes and push your branch to GitHub:
 6. Submit a pull request through the GitHub website.
+   [just]: https://github.com/casey/just
