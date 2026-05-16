@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
+	"charm.land/log/v2"
 	"github.com/briandowns/spinner"
-	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 

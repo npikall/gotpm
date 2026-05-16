@@ -10,7 +10,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/charmbracelet/fang"
+	"charm.land/fang/v2"
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )

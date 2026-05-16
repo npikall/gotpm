@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 )
 
 const TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
