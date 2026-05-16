@@ -25,7 +25,7 @@ gotpm locate`,
 			return err
 		}
 		logger.Debug("resolved", "path", target)
-		internal.PrintInfo("%s %q", internal.StyleMuted.Render("packages located at"), target)
+		internal.PrintInfo("packages located at \"%s\"", internal.StyleAccent.Render(target))
 		return nil
 	},
 }
