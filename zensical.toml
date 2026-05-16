@@ -8,7 +8,7 @@ Copyright &copy; 2025 Nikolas Pikall
 repo_url = "https://github.com/npikall/gotpm"
 repo_name = "npikall/gotpm"
 
-nav = ["index.md", "useage.md", "changelog.md", "contributing.md", "license.md"]
+nav = ["index.md", "usage.md", "changelog.md", "contributing.md", "license.md"]
 
 [project.theme]
 # variant = "classic"

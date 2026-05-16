@@ -2,7 +2,7 @@
 icon: lucide/user
 ---
 
-# Useage
+# Usage
 
 ## `bump`
 
