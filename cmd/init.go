@@ -18,7 +18,7 @@ import (
 // initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use: "init",
-	Example: `# initilize a new Package
+	Example: `# initialize a new Package
 gotpm init`,
 	Short: "Initialize a new minimal Typst Package",
 	RunE:  initRunner,
