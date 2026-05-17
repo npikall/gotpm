@@ -32,6 +32,10 @@ jobs:
             suffix: windows-arm64.exe
           - os: macos-latest
             goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - os: macos-latest
+            goos: darwin
             goarch: arm64
             suffix: darwin-arm64
 
@@ -72,8 +76,15 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Generate install.sh
-        run: sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > artifacts/install.sh
+      - name: Generate install scripts
+        run: |
+          sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > artifacts/install.sh
+          sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.ps1.tmpl > artifacts/install.ps1
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum gotpm-* > checksums.txt
 
       - name: Install git-cliff
         uses: taiki-e/install-action@git-cliff
@@ -85,7 +96,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          chmod +x artifacts/gotpm-linux-* artifacts/gotpm-darwin-*
+          chmod +x artifacts/gotpm-linux-* artifacts/gotpm-darwin-* artifacts/install.sh
           gh release create ${{ github.ref_name }} artifacts/* \
             --repo ${{ github.repository }} \
             --title "GoTPM - ${{ github.ref_name }}" \
