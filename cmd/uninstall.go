@@ -102,8 +102,17 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	if err := removeTarget(target); err != nil {
 		return err
 	}
-	internal.PrintInfo("uninstalled %s", internal.FormatImportStmt(flags.namespace, pkgName, pkgVersion))
+	importStmt := formatImportWithWildcard(flags, pkgVersion, pkgName)
+	internal.PrintInfo("uninstalled %s", importStmt)
 	return nil
+}
+
+func formatImportWithWildcard(flags uninstallFlags, pkgVersion string, pkgName string) string {
+	if flags.deleteAll {
+		pkgVersion = "*.*.*"
+	}
+	importStmt := internal.FormatImportStmt(flags.namespace, pkgName, pkgVersion)
+	return importStmt
 }
 
 func resolvePackageIdentity(args []string, flags uninstallFlags) (string, string, error) {
