@@ -195,7 +195,7 @@ func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error
 	}
 	response, err := internal.FetchDataFromGitHub(apiURL, ctx)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not find package %q", pkgName)
 	}
 	return internal.GetLatestVersion(response)
 }
