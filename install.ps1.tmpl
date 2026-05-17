@@ -1,0 +1,87 @@
+# gotpm installer for Windows
+# Usage: irm https://github.com/npikall/gotpm/releases/latest/download/install.ps1 | iex
+
+function Install-Gotpm {
+    $ErrorActionPreference = "Stop"
+
+    $VERSION = "{{VERSION}}"
+    $REPO = "npikall/gotpm"
+    $BINARY = "gotpm"
+    $BASE_URL = "https://github.com/$REPO/releases/download/$VERSION"
+
+    $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
+        "AMD64" { "amd64" }
+        "ARM64" { "arm64" }
+        default { throw "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE" }
+    }
+
+    $suffix = "windows-$arch.exe"
+
+    # Find first existing writable directory
+    $candidates = @(
+        "$env:USERPROFILE\.local\bin",
+        "$env:USERPROFILE\.bin",
+        "$env:USERPROFILE\bin",
+        "$env:LOCALAPPDATA\Programs\gotpm"
+    )
+
+    $install_dir = $null
+    foreach ($dir in $candidates) {
+        if (-not (Test-Path $dir)) { continue }
+        $probe = Join-Path $dir ".gotpm_write_test"
+        try {
+            [System.IO.File]::WriteAllText($probe, "")
+            Remove-Item $probe -ErrorAction SilentlyContinue
+            $install_dir = $dir
+            break
+        } catch {
+            continue
+        }
+    }
+
+    if (-not $install_dir) {
+        $install_dir = "$env:USERPROFILE\.local\bin"
+        New-Item -ItemType Directory -Force -Path $install_dir | Out-Null
+    }
+
+    $url = "$BASE_URL/$BINARY-$suffix"
+    $checksums_url = "$BASE_URL/checksums.txt"
+    $target = Join-Path $install_dir "$BINARY.exe"
+    $tmp = [System.IO.Path]::GetTempFileName() + ".exe"
+    $tmp_checksums = [System.IO.Path]::GetTempFileName()
+
+    try {
+        Write-Host "Downloading $BINARY $VERSION for windows/$arch..."
+        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+
+        Write-Host "Verifying checksum..."
+        Invoke-WebRequest -Uri $checksums_url -OutFile $tmp_checksums -UseBasicParsing
+
+        $checksum_line = Get-Content $tmp_checksums | Where-Object { $_ -match [regex]::Escape("$BINARY-$suffix") }
+        if (-not $checksum_line) {
+            throw "No checksum found for $BINARY-$suffix in checksums.txt"
+        }
+        $expected = ($checksum_line -split '\s+')[0].ToLower()
+        $actual = (Get-FileHash -Algorithm SHA256 $tmp).Hash.ToLower()
+
+        if ($actual -ne $expected) {
+            throw "Checksum mismatch!`n  expected: $expected`n  got:      $actual"
+        }
+
+        Move-Item -Force $tmp $target
+        Write-Host "Installed to $target"
+
+        $user_path = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        if ($user_path -notlike "*$install_dir*") {
+            [System.Environment]::SetEnvironmentVariable("PATH", "$install_dir;$user_path", "User")
+            Write-Host ""
+            Write-Host "Added $install_dir to your PATH."
+            Write-Host "Restart your terminal for the change to take effect."
+        }
+    } finally {
+        if (Test-Path $tmp) { Remove-Item $tmp -ErrorAction SilentlyContinue }
+        if (Test-Path $tmp_checksums) { Remove-Item $tmp_checksums -ErrorAction SilentlyContinue }
+    }
+}
+
+Install-Gotpm
