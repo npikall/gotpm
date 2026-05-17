@@ -11,7 +11,7 @@ import (
 
 // SetupLogger creates a logger whose level is controlled by the --verbose flag.
 func SetupLogger(cmd *cobra.Command) *log.Logger {
-	logger := log.New(os.Stdout)
+	logger := log.New(os.Stderr)
 	logger.SetReportTimestamp(true)
 	verboseCount, err := cmd.Flags().GetCount("verbose")
 	if err != nil {
