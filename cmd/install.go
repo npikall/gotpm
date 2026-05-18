@@ -55,58 +55,35 @@ func init() {
 
 func installRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
+
+	opts, err := readInstallOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	sourceDir, err := resolveSourceDir(args)
 	if err != nil {
 		return err
 	}
 	logger.Debug("operating in source", "path", sourceDir)
+
 	manifest, err := internal.LoadManifest(sourceDir)
 	if err != nil {
 		return err
 	}
 	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
-	dataDir, overridden, err := internal.ResolvePackageDirPath(cmd)
+
+	dest, err := resolveInstallDestination(cmd, manifest, opts)
 	if err != nil {
 		return err
 	}
-	logger.Debug("resolved local package directory", "path", dataDir)
+	logger.Debug("resolved destination", "path", dest.Path)
 
-	force, err := cmd.Flags().GetBool("force")
-	if err != nil {
+	if err := prepareDestination(dest.Path, opts.Force); err != nil {
 		return err
 	}
 
-	dest, err := resolveDestination(dataDir, overridden, manifest, cmd, force)
-	if err != nil {
-		return err
-	}
-
-	if force {
-		if err := removeTarget(dest.Path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("removing existing package: %w", err)
-		}
-	}
-
-	editable, err := cmd.Flags().GetBool("editable")
-	if err != nil {
-		return err
-	}
-
-	if editable {
-		logger.Info("symlinking to destination", "path", dest.Path)
-		if err := symlinkPackage(sourceDir, dest.Path); err != nil {
-			return err
-		}
-		internal.PrintInfo("installed %s (editable)", internal.FormatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
-		return nil
-	}
-
-	logger.Info("copy to destination", "path", dest.Path)
-	if err := copyPackageFiles(sourceDir, dest.Path); err != nil {
-		return err
-	}
-	internal.PrintInfo("installed %s", internal.FormatImportStmt(dest.Namespace, manifest.Package.Name, manifest.Package.Version))
-	return nil
+	return performInstall(sourceDir, dest, opts)
 }
 
 var (
@@ -115,10 +92,110 @@ var (
 	ErrPackageAlreadyInstalled = errors.New("package already installed at destination")
 )
 
-var ignoredFileNames = map[string]struct{}{
-	".git":         {},
-	".gitignore":   {},
-	".typstignore": {},
+// InstallOptions holds the resolved install flags.
+type InstallOptions struct {
+	Force     bool
+	Editable  bool
+	Namespace string
+}
+
+func readInstallOptions(cmd *cobra.Command) (InstallOptions, error) {
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		return InstallOptions{}, err
+	}
+	editable, err := cmd.Flags().GetBool("editable")
+	if err != nil {
+		return InstallOptions{}, err
+	}
+	namespace, err := cmd.Flags().GetString("namespace")
+	if err != nil {
+		return InstallOptions{}, err
+	}
+	return InstallOptions{Force: force, Editable: editable, Namespace: namespace}, nil
+}
+
+// resolveInstallDestination routes to the appropriate destination resolver based
+// on whether an install-dir override was provided.
+func resolveInstallDestination(cmd *cobra.Command, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
+	dataDir, overridden, err := internal.ResolvePackageDirPath(cmd)
+	if err != nil {
+		return Destination{}, err
+	}
+	if overridden {
+		return resolveOverriddenDestination(dataDir, manifest, opts)
+	}
+	return resolveDefaultDestination(dataDir, manifest, opts)
+}
+
+// resolveOverriddenDestination is used when --install-dir or $GOTPM_INSTALL_DIR is set.
+// dataDir is used as the final install path without appending namespace/name/version.
+func resolveOverriddenDestination(dataDir string, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
+	if !opts.Force {
+		if err := validateDestinationConflict(dataDir); err != nil {
+			return Destination{}, err
+		}
+	}
+	return Destination{
+		Namespace: opts.Namespace,
+		Name:      manifest.Package.Name,
+		Version:   manifest.Package.Version,
+		Path:      dataDir,
+	}, nil
+}
+
+// resolveDefaultDestination is used for the standard install path.
+// It appends namespace/name/version sub-directories to dataDir.
+func resolveDefaultDestination(dataDir string, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
+	if err := internal.EnsureDir(dataDir); err != nil {
+		return Destination{}, err
+	}
+	if err := validateNamespace(opts.Namespace); err != nil {
+		return Destination{}, err
+	}
+	dest := buildDestination(dataDir, manifest, opts.Namespace)
+	if !opts.Force {
+		if err := validateDestinationConflict(dest.Path); err != nil {
+			return Destination{}, err
+		}
+	}
+	return dest, nil
+}
+
+// prepareDestination removes an existing install when force is set.
+// A missing destination is not an error.
+func prepareDestination(path string, force bool) error {
+	if !force {
+		return nil
+	}
+	if err := removeTarget(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("removing existing package: %w", err)
+	}
+	return nil
+}
+
+// performInstall dispatches to the appropriate install mode.
+func performInstall(sourceDir string, dest Destination, opts InstallOptions) error {
+	if opts.Editable {
+		return installEditable(sourceDir, dest)
+	}
+	return installCopy(sourceDir, dest)
+}
+
+func installEditable(sourceDir string, dest Destination) error {
+	if err := symlinkPackage(sourceDir, dest.Path); err != nil {
+		return err
+	}
+	internal.PrintInfo("installed %s (editable)", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
+	return nil
+}
+
+func installCopy(sourceDir string, dest Destination) error {
+	if err := copyPackageFiles(sourceDir, dest.Path); err != nil {
+		return err
+	}
+	internal.PrintInfo("installed %s", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
+	return nil
 }
 
 // symlinkPackage creates a symlink at dest pointing to the absolute path of src.
@@ -268,6 +345,12 @@ func shouldIgnore(rel string, matcher *ignore.GitIgnore) bool {
 	return false
 }
 
+var ignoredFileNames = map[string]struct{}{
+	".git":         {},
+	".gitignore":   {},
+	".typstignore": {},
+}
+
 func readIgnoreLines(path string) []string {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -288,47 +371,6 @@ type Destination struct {
 	Name      string
 	Version   string
 	Path      string
-}
-
-// resolveDestination builds the install destination using the namespace flag.
-// When overridden is true, dataDir is used as the final path without appending
-// namespace/name/version sub-directories.
-// When force is true, conflict validation is skipped.
-func resolveDestination(dataDir string, overridden bool, manifest internal.Manifest, cmd *cobra.Command, force bool) (Destination, error) {
-	namespace, err := cmd.Flags().GetString("namespace")
-	if err != nil {
-		return Destination{}, err
-	}
-	if overridden {
-		if !force {
-			if err := validateDestinationConflict(dataDir); err != nil {
-				return Destination{}, err
-			}
-		}
-		return Destination{
-			Namespace: namespace,
-			Name:      manifest.Package.Name,
-			Version:   manifest.Package.Version,
-			Path:      dataDir,
-		}, nil
-	}
-	if err := internal.EnsureDir(dataDir); err != nil {
-		return Destination{}, err
-	}
-	return resolveDestinationWithNamespace(dataDir, manifest, namespace, force)
-}
-
-func resolveDestinationWithNamespace(dataDir string, manifest internal.Manifest, namespace string, force bool) (Destination, error) {
-	if err := validateNamespace(namespace); err != nil {
-		return Destination{}, err
-	}
-	dest := buildDestination(dataDir, manifest, namespace)
-	if !force {
-		if err := validateDestinationConflict(dest.Path); err != nil {
-			return Destination{}, err
-		}
-	}
-	return dest, nil
 }
 
 func buildDestination(dataDir string, manifest internal.Manifest, namespace string) Destination {

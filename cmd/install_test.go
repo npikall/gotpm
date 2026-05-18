@@ -31,11 +31,12 @@ func Test_copyPackageFiles(t *testing.T) {
 	})
 }
 
-func Test_resolveDestination(t *testing.T) {
+func Test_resolveDefaultDestination(t *testing.T) {
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 	t.Run("default namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestinationWithNamespace(dataDir, manifest, internal.DefaultNamespace, false)
+		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		got, err := resolveDefaultDestination(dataDir, manifest, opts)
 		assert.NoError(t, err)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
@@ -44,14 +45,16 @@ func Test_resolveDestination(t *testing.T) {
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("custom namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestinationWithNamespace(dataDir, manifest, "preview", false)
+		opts := InstallOptions{Namespace: "preview"}
+		got, err := resolveDefaultDestination(dataDir, manifest, opts)
 		assert.NoError(t, err)
 		assert.Equal(t, "preview", got.Namespace)
 		wantPath := filepath.Join(dataDir, "preview", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("empty namespace returns error", func(t *testing.T) {
-		_, err := resolveDestinationWithNamespace(dataDir, manifest, "", false)
+		opts := InstallOptions{Namespace: ""}
+		_, err := resolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrEmptyNamespace)
 	})
 	t.Run("already installed returns error", func(t *testing.T) {
@@ -59,8 +62,17 @@ func Test_resolveDestination(t *testing.T) {
 		err := os.MkdirAll(existing, 0755)
 		assert.NoError(t, err)
 
-		_, err = resolveDestinationWithNamespace(dataDir, manifest, internal.DefaultNamespace, false)
+		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		_, err = resolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+	})
+	t.Run("force skips conflict check", func(t *testing.T) {
+		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
+		os.MkdirAll(existing, 0755)
+
+		opts := InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
+		_, err := resolveDefaultDestination(dataDir, manifest, opts)
+		assert.NoError(t, err)
 	})
 }
 
@@ -513,40 +525,32 @@ func Test_validateDestinationConflict_rejectsEditableReinstall(t *testing.T) {
 	assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 }
 
-func Test_resolveDestination_installDirOverride(t *testing.T) {
+func Test_resolveOverriddenDestination(t *testing.T) {
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 
-	newCmd := func(namespace string) *cobra.Command {
-		cmd := &cobra.Command{}
-		cmd.Flags().String("namespace", namespace, "")
-		cmd.Flags().String(internal.InstallDirFlag, "", "")
-		return cmd
-	}
-
-	t.Run("overridden true uses path directly without subfolders", func(t *testing.T) {
-		// Use a path that doesn't exist yet so conflict check passes.
+	t.Run("uses path directly without subfolders", func(t *testing.T) {
 		base := t.TempDir()
 		dest := filepath.Join(base, "custom-dest")
-		cmd := newCmd(internal.DefaultNamespace)
-		got, err := resolveDestination(dest, true, manifest, cmd, false)
+		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		got, err := resolveOverriddenDestination(dest, manifest, opts)
 		assert.NoError(t, err)
 		assert.Equal(t, dest, got.Path)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
+		assert.Equal(t, internal.DefaultNamespace, got.Namespace)
 	})
-	t.Run("overridden false appends namespace/name/version", func(t *testing.T) {
-		dataDir := t.TempDir()
-		cmd := newCmd(internal.DefaultNamespace)
-		got, err := resolveDestination(dataDir, false, manifest, cmd, false)
-		assert.NoError(t, err)
-		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		assert.Equal(t, wantPath, got.Path)
-	})
-	t.Run("overridden true conflict returns error when path exists", func(t *testing.T) {
+	t.Run("conflict returns error when path exists", func(t *testing.T) {
 		existing := t.TempDir()
-		cmd := newCmd(internal.DefaultNamespace)
-		_, err := resolveDestination(existing, true, manifest, cmd, false)
+		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		_, err := resolveOverriddenDestination(existing, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+	})
+	t.Run("force skips conflict check", func(t *testing.T) {
+		existing := t.TempDir()
+		opts := InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
+		got, err := resolveOverriddenDestination(existing, manifest, opts)
+		assert.NoError(t, err)
+		assert.Equal(t, existing, got.Path)
 	})
 }
 
@@ -622,5 +626,132 @@ func Test_installRunner_force(t *testing.T) {
 		target, err := os.Readlink(dest)
 		assert.NoError(t, err)
 		assert.Equal(t, src, target)
+	})
+}
+
+func Test_buildDestination(t *testing.T) {
+	dataDir := "/data"
+	manifest := newManifest("my-pkg", "1.2.3", "lib.typ")
+
+	t.Run("local namespace", func(t *testing.T) {
+		got := buildDestination(dataDir, manifest, "local")
+		assert.Equal(t, "local", got.Namespace)
+		assert.Equal(t, "my-pkg", got.Name)
+		assert.Equal(t, "1.2.3", got.Version)
+		assert.Equal(t, filepath.Join(dataDir, "local", "my-pkg", "1.2.3"), got.Path)
+	})
+	t.Run("preview namespace", func(t *testing.T) {
+		got := buildDestination(dataDir, manifest, "preview")
+		assert.Equal(t, filepath.Join(dataDir, "preview", "my-pkg", "1.2.3"), got.Path)
+	})
+}
+
+func Test_copyFile(t *testing.T) {
+	t.Run("copies content to dest", func(t *testing.T) {
+		src := filepath.Join(t.TempDir(), "src.typ")
+		dst := filepath.Join(t.TempDir(), "dst.typ")
+		check(os.WriteFile(src, []byte("hello"), 0644))
+
+		err := copyFile(src, dst)
+		assert.NoError(t, err)
+		got, err := os.ReadFile(dst)
+		assert.NoError(t, err)
+		assert.Equal(t, "hello", string(got))
+	})
+	t.Run("creates parent directories", func(t *testing.T) {
+		src := filepath.Join(t.TempDir(), "src.typ")
+		dst := filepath.Join(t.TempDir(), "a", "b", "c", "dst.typ")
+		check(os.WriteFile(src, []byte("x"), 0644))
+
+		err := copyFile(src, dst)
+		assert.NoError(t, err)
+		assert.FileExists(t, dst)
+	})
+	t.Run("preserves file mode", func(t *testing.T) {
+		src := filepath.Join(t.TempDir(), "exec.typ")
+		dst := filepath.Join(t.TempDir(), "exec-dst.typ")
+		check(os.WriteFile(src, []byte("x"), 0755))
+
+		err := copyFile(src, dst)
+		assert.NoError(t, err)
+		info, err := os.Stat(dst)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+	})
+	t.Run("missing source returns error", func(t *testing.T) {
+		err := copyFile("/does/not/exist.typ", filepath.Join(t.TempDir(), "dst.typ"))
+		assert.ErrorContains(t, err, "opening source file")
+	})
+}
+
+func Test_runTransferJobs(t *testing.T) {
+	t.Run("copies all jobs successfully", func(t *testing.T) {
+		srcDir := t.TempDir()
+		dstDir := t.TempDir()
+		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), 0644))
+		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), 0644))
+
+		jobs := []transferJob{
+			{src: filepath.Join(srcDir, "a.typ"), dst: filepath.Join(dstDir, "a.typ")},
+			{src: filepath.Join(srcDir, "b.typ"), dst: filepath.Join(dstDir, "b.typ")},
+		}
+
+		err := runTransferJobs(jobs)
+		assert.NoError(t, err)
+		assert.FileExists(t, filepath.Join(dstDir, "a.typ"))
+		assert.FileExists(t, filepath.Join(dstDir, "b.typ"))
+	})
+	t.Run("aggregates errors from failed jobs", func(t *testing.T) {
+		jobs := []transferJob{
+			{src: "/does/not/exist/a.typ", dst: filepath.Join(t.TempDir(), "a.typ")},
+			{src: "/does/not/exist/b.typ", dst: filepath.Join(t.TempDir(), "b.typ")},
+		}
+
+		err := runTransferJobs(jobs)
+		assert.Error(t, err)
+	})
+	t.Run("empty job list returns no error", func(t *testing.T) {
+		err := runTransferJobs(nil)
+		assert.NoError(t, err)
+	})
+}
+
+func Test_readInstallOptions(t *testing.T) {
+	newCmd := func() *cobra.Command {
+		cmd := &cobra.Command{}
+		cmd.Flags().BoolP("force", "f", false, "")
+		cmd.Flags().BoolP("editable", "e", false, "")
+		cmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "")
+		return cmd
+	}
+
+	t.Run("defaults", func(t *testing.T) {
+		cmd := newCmd()
+		opts, err := readInstallOptions(cmd)
+		assert.NoError(t, err)
+		assert.False(t, opts.Force)
+		assert.False(t, opts.Editable)
+		assert.Equal(t, internal.DefaultNamespace, opts.Namespace)
+	})
+	t.Run("force flag", func(t *testing.T) {
+		cmd := newCmd()
+		check(cmd.Flags().Set("force", "true"))
+		opts, err := readInstallOptions(cmd)
+		assert.NoError(t, err)
+		assert.True(t, opts.Force)
+	})
+	t.Run("editable flag", func(t *testing.T) {
+		cmd := newCmd()
+		check(cmd.Flags().Set("editable", "true"))
+		opts, err := readInstallOptions(cmd)
+		assert.NoError(t, err)
+		assert.True(t, opts.Editable)
+	})
+	t.Run("custom namespace", func(t *testing.T) {
+		cmd := newCmd()
+		check(cmd.Flags().Set("namespace", "preview"))
+		opts, err := readInstallOptions(cmd)
+		assert.NoError(t, err)
+		assert.Equal(t, "preview", opts.Namespace)
 	})
 }
