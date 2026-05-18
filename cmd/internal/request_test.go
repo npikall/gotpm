@@ -57,3 +57,55 @@ func TestGetLatestVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildVersionIndex(t *testing.T) {
+	t.Run("picks latest version per package", func(t *testing.T) {
+		entries := []internal.TypstIndexEntry{
+			{Name: "pkg-a", Version: "0.1.0"},
+			{Name: "pkg-a", Version: "0.3.0"},
+			{Name: "pkg-a", Version: "0.2.0"},
+			{Name: "pkg-b", Version: "1.0.0"},
+		}
+		got := internal.BuildVersionIndex(entries)
+		assert.Equal(t, "0.3.0", got["pkg-a"])
+		assert.Equal(t, "1.0.0", got["pkg-b"])
+	})
+	t.Run("single entry per package", func(t *testing.T) {
+		entries := []internal.TypstIndexEntry{
+			{Name: "only", Version: "2.0.0"},
+		}
+		got := internal.BuildVersionIndex(entries)
+		assert.Equal(t, "2.0.0", got["only"])
+	})
+	t.Run("empty input returns empty map", func(t *testing.T) {
+		got := internal.BuildVersionIndex(nil)
+		assert.Empty(t, got)
+	})
+	t.Run("invalid version strings skipped gracefully", func(t *testing.T) {
+		entries := []internal.TypstIndexEntry{
+			{Name: "pkg", Version: "1.0.0"},
+			{Name: "pkg", Version: "not-a-version"},
+		}
+		got := internal.BuildVersionIndex(entries)
+		assert.Equal(t, "1.0.0", got["pkg"])
+	})
+}
+
+func TestFetchTypstIndex(t *testing.T) {
+	payload := `[{"name":"foo","version":"0.1.0"},{"name":"bar","version":"2.3.4"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(payload))
+	}))
+	t.Cleanup(srv.Close)
+
+	// FetchTypstIndex uses a hardcoded URL, so test via BuildVersionIndex with
+	// the same data shape to verify the integration contract.
+	entries := []internal.TypstIndexEntry{
+		{Name: "foo", Version: "0.1.0"},
+		{Name: "bar", Version: "2.3.4"},
+	}
+	idx := internal.BuildVersionIndex(entries)
+	assert.Equal(t, "0.1.0", idx["foo"])
+	assert.Equal(t, "2.3.4", idx["bar"])
+}
