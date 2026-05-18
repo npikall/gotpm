@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.12] - 2026-05-18
+
+### 🚀 Features
+
+- print wildcard version when deleting all
+- emit information in init command
+- add caching of package index
+- add force install flag
+- update imports on directorys
+
+### 🐛 Bug Fixes
+
+- typo in example string
+- clear error message when no package is found
+
+### 📚 Documentation
+
+- fix typos
+
+### 🚜 Refactor
+
+- change rendering of locate command
+- write logs to stderr
+- change default color to normal white
+- simplify code
+- clean up code
+- explicitly ignore lipgloss errors
+
+### 🧪 Testing
+
+- add vibed test cases
+- remove unused import
+
+### 💼 Other
+
+- migrate fang and log to v2 and update all minor versions
+
 ## [0.3.11] - 2026-05-15
 
 ### 🐛 Bug Fixes
@@ -439,7 +476,8 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
-[0.3.11]: https://github.com/npikall/gotpm/compare/v0.3.10..0.3.11
+[0.3.12]: https://github.com/npikall/gotpm/compare/v0.3.11..0.3.12
+[0.3.11]: https://github.com/npikall/gotpm/compare/v0.3.10..v0.3.11
 [0.3.10]: https://github.com/npikall/gotpm/compare/v0.3.9..v0.3.10
 [0.3.9]: https://github.com/npikall/gotpm/compare/v0.3.8..v0.3.9
 [0.3.8]: https://github.com/npikall/gotpm/compare/v0.3.7..v0.3.8
