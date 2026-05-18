@@ -14,7 +14,7 @@ var (
 	Red     = charmtone.Coral
 	Violet  = charmtone.Charple
 	Magenta = charmtone.Cheeky
-	Normal  = charmtone.Smoke
+	Normal  = lipgloss.White
 	Muted   = charmtone.Squid
 	Accent  = charmtone.Ash
 )
