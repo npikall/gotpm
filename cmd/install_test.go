@@ -35,7 +35,7 @@ func Test_resolveDestination(t *testing.T) {
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 	t.Run("default namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestinationWithNamespace(dataDir, manifest, internal.DefaultNamespace)
+		got, err := resolveDestinationWithNamespace(dataDir, manifest, internal.DefaultNamespace, false)
 		assert.NoError(t, err)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
@@ -44,14 +44,14 @@ func Test_resolveDestination(t *testing.T) {
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("custom namespace builds correct path", func(t *testing.T) {
-		got, err := resolveDestinationWithNamespace(dataDir, manifest, "preview")
+		got, err := resolveDestinationWithNamespace(dataDir, manifest, "preview", false)
 		assert.NoError(t, err)
 		assert.Equal(t, "preview", got.Namespace)
 		wantPath := filepath.Join(dataDir, "preview", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("empty namespace returns error", func(t *testing.T) {
-		_, err := resolveDestinationWithNamespace(dataDir, manifest, "")
+		_, err := resolveDestinationWithNamespace(dataDir, manifest, "", false)
 		assert.ErrorIs(t, err, ErrEmptyNamespace)
 	})
 	t.Run("already installed returns error", func(t *testing.T) {
@@ -59,7 +59,7 @@ func Test_resolveDestination(t *testing.T) {
 		err := os.MkdirAll(existing, 0755)
 		assert.NoError(t, err)
 
-		_, err = resolveDestinationWithNamespace(dataDir, manifest, internal.DefaultNamespace)
+		_, err = resolveDestinationWithNamespace(dataDir, manifest, internal.DefaultNamespace, false)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
 }
@@ -528,7 +528,7 @@ func Test_resolveDestination_installDirOverride(t *testing.T) {
 		base := t.TempDir()
 		dest := filepath.Join(base, "custom-dest")
 		cmd := newCmd(internal.DefaultNamespace)
-		got, err := resolveDestination(dest, true, manifest, cmd)
+		got, err := resolveDestination(dest, true, manifest, cmd, false)
 		assert.NoError(t, err)
 		assert.Equal(t, dest, got.Path)
 		assert.Equal(t, "my-package", got.Name)
@@ -537,7 +537,7 @@ func Test_resolveDestination_installDirOverride(t *testing.T) {
 	t.Run("overridden false appends namespace/name/version", func(t *testing.T) {
 		dataDir := t.TempDir()
 		cmd := newCmd(internal.DefaultNamespace)
-		got, err := resolveDestination(dataDir, false, manifest, cmd)
+		got, err := resolveDestination(dataDir, false, manifest, cmd, false)
 		assert.NoError(t, err)
 		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
@@ -545,7 +545,82 @@ func Test_resolveDestination_installDirOverride(t *testing.T) {
 	t.Run("overridden true conflict returns error when path exists", func(t *testing.T) {
 		existing := t.TempDir()
 		cmd := newCmd(internal.DefaultNamespace)
-		_, err := resolveDestination(existing, true, manifest, cmd)
+		_, err := resolveDestination(existing, true, manifest, cmd, false)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+	})
+}
+
+func Test_installRunner_force(t *testing.T) {
+	const manifest = "[package]\nname = \"my-pkg\"\nversion = \"0.1.0\"\nentrypoint = \"lib.typ\"\n"
+	newForceCmd := func(installDir string) *cobra.Command {
+		cmd := &cobra.Command{}
+		cmd.Flags().CountP("verbose", "v", "")
+		cmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "")
+		cmd.Flags().BoolP("editable", "e", false, "")
+		cmd.Flags().BoolP("force", "f", false, "")
+		cmd.Flags().String(internal.InstallDirFlag, installDir, "")
+		return cmd
+	}
+
+	t.Run("force overwrites existing copy install", func(t *testing.T) {
+		src := writeManifest(t, manifest)
+		writeFile(t, src, "lib.typ", "v1")
+
+		dest := filepath.Join(t.TempDir(), "pkg-dest")
+
+		// first install
+		cmd := newForceCmd(dest)
+		err := installRunner(cmd, []string{src})
+		assert.NoError(t, err)
+
+		// write updated file
+		writeFile(t, src, "lib.typ", "v2")
+		writeFile(t, src, "extra.typ", "new")
+
+		// second install without --force should fail
+		cmd = newForceCmd(dest)
+		err = installRunner(cmd, []string{src})
+		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
+
+		// second install with --force should succeed
+		cmd = newForceCmd(dest)
+		check(cmd.Flags().Set("force", "true"))
+		err = installRunner(cmd, []string{src})
+		assert.NoError(t, err)
+		content, err := os.ReadFile(filepath.Join(dest, "lib.typ"))
+		assert.NoError(t, err)
+		assert.Equal(t, "v2", string(content))
+		assert.FileExists(t, filepath.Join(dest, "extra.typ"))
+	})
+
+	t.Run("force replaces existing editable install", func(t *testing.T) {
+		src := writeManifest(t, manifest)
+		writeFile(t, src, "lib.typ", "content")
+		src, _ = filepath.EvalSymlinks(src)
+
+		dest := filepath.Join(t.TempDir(), "pkg-dest")
+
+		// first install as editable
+		cmd := newForceCmd(dest)
+		check(cmd.Flags().Set("editable", "true"))
+		check(installRunner(cmd, []string{src}))
+
+		info, err := os.Lstat(dest)
+		assert.NoError(t, err)
+		assert.True(t, info.Mode()&os.ModeSymlink != 0)
+
+		// force re-install as editable
+		cmd = newForceCmd(dest)
+		check(cmd.Flags().Set("editable", "true"))
+		check(cmd.Flags().Set("force", "true"))
+		err = installRunner(cmd, []string{src})
+		assert.NoError(t, err)
+
+		info, err = os.Lstat(dest)
+		assert.NoError(t, err)
+		assert.True(t, info.Mode()&os.ModeSymlink != 0)
+		target, err := os.Readlink(dest)
+		assert.NoError(t, err)
+		assert.Equal(t, src, target)
 	})
 }

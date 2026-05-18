@@ -48,6 +48,7 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
+	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
 	installCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
 	_ = installCmd.Flags().MarkHidden(internal.InstallDirFlag)
 }
@@ -69,9 +70,21 @@ func installRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logger.Debug("resolved local package directory", "path", dataDir)
-	dest, err := resolveDestination(dataDir, overridden, manifest, cmd)
+
+	force, err := cmd.Flags().GetBool("force")
 	if err != nil {
 		return err
+	}
+
+	dest, err := resolveDestination(dataDir, overridden, manifest, cmd, force)
+	if err != nil {
+		return err
+	}
+
+	if force {
+		if err := removeTarget(dest.Path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("removing existing package: %w", err)
+		}
 	}
 
 	editable, err := cmd.Flags().GetBool("editable")
@@ -280,14 +293,17 @@ type Destination struct {
 // resolveDestination builds the install destination using the namespace flag.
 // When overridden is true, dataDir is used as the final path without appending
 // namespace/name/version sub-directories.
-func resolveDestination(dataDir string, overridden bool, manifest internal.Manifest, cmd *cobra.Command) (Destination, error) {
+// When force is true, conflict validation is skipped.
+func resolveDestination(dataDir string, overridden bool, manifest internal.Manifest, cmd *cobra.Command, force bool) (Destination, error) {
 	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
 		return Destination{}, err
 	}
 	if overridden {
-		if err := validateDestinationConflict(dataDir); err != nil {
-			return Destination{}, err
+		if !force {
+			if err := validateDestinationConflict(dataDir); err != nil {
+				return Destination{}, err
+			}
 		}
 		return Destination{
 			Namespace: namespace,
@@ -299,16 +315,18 @@ func resolveDestination(dataDir string, overridden bool, manifest internal.Manif
 	if err := internal.EnsureDir(dataDir); err != nil {
 		return Destination{}, err
 	}
-	return resolveDestinationWithNamespace(dataDir, manifest, namespace)
+	return resolveDestinationWithNamespace(dataDir, manifest, namespace, force)
 }
 
-func resolveDestinationWithNamespace(dataDir string, manifest internal.Manifest, namespace string) (Destination, error) {
+func resolveDestinationWithNamespace(dataDir string, manifest internal.Manifest, namespace string, force bool) (Destination, error) {
 	if err := validateNamespace(namespace); err != nil {
 		return Destination{}, err
 	}
 	dest := buildDestination(dataDir, manifest, namespace)
-	if err := validateDestinationConflict(dest.Path); err != nil {
-		return Destination{}, err
+	if !force {
+		if err := validateDestinationConflict(dest.Path); err != nil {
+			return Destination{}, err
+		}
 	}
 	return dest, nil
 }
