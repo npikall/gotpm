@@ -45,16 +45,18 @@ func initRunner(cmd *cobra.Command, args []string) error {
 	} else {
 		pkgName = filepath.Base(cwd)
 	}
+	logger.Debug("working directory", "current", cwd)
+	logger.Debug("new package", "name", pkgName)
 
 	// Write minimal typst.toml
 	bootstrap := []struct {
 		path    string
 		content []byte
 	}{
-		{path: filepath.Join(cwd, "typst.toml"), content: fmt.Appendf(nil, `[package]
+		{path: filepath.Join(cwd, "typst.toml"), content: []byte(fmt.Sprintf(`[package]
 name = "%s"
 version = "0.1.0"
-entrypoint = "lib.typ"`, pkgName)},
+entrypoint = "lib.typ"`, pkgName))},
 		{path: filepath.Join(cwd, "lib.typ"), content: libFile},
 	}
 
@@ -65,6 +67,6 @@ entrypoint = "lib.typ"`, pkgName)},
 		}
 	}
 
-	logger.Info("initialize", "package", pkgName)
+	internal.PrintInfo("initialize package %q", pkgName)
 	return nil
 }
