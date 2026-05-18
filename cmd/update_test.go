@@ -9,7 +9,7 @@ import (
 
 func TestUpdateFileContent(t *testing.T) {
 	got := []byte(`#import "@preview/foo:0.1.0"`)
-	versions := map[string]cmd.Result{"foo": cmd.Result{Name: "foo", Latest: "0.2.0", Current: "0.1.0"}}
+	versions := map[string]cmd.Result{"foo": {Name: "foo", Latest: "0.2.0", Current: "0.1.0"}}
 
 	cmd.UpdateFileContent(&got, versions)
 
