@@ -10,8 +10,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -24,9 +26,18 @@ import (
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
-	Use: "update [file]",
+	Use: "update [file|directory]",
 	Example: `# update import statements in a file (writes back in place)
 gotpm update foo.typ
+
+# update all .typ files in a directory (writes back in place)
+gotpm update src/
+
+# recursively update all .typ files in a directory
+gotpm update src/ -r
+
+# update files with custom extensions
+gotpm update src/ --ext .typ --ext .md
 
 # pipe content via stdin, write result to stdout
 cat foo.typ | gotpm update
@@ -36,8 +47,8 @@ cat foo.typ | gotpm update -o foo.typ
 
 # read from a file, write result to a different file
 gotpm update foo.typ -o bar.typ`,
-	Short: "Update all dependencies from a file to their latest version.",
-	Long:  "Update all dependencies from a file to their latest version.",
+	Short: "Update all dependencies from a file or directory to their latest version.",
+	Long:  "Update all dependencies from a file or directory to their latest version.",
 	RunE:  updateRunner,
 }
 
@@ -45,6 +56,8 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	updateCmd.Flags().StringP("output", "o", "", "Output file (defaults to input file, or stdout when reading from stdin)")
 	updateCmd.Flags().Bool("no-cache", false, "Skip reading and writing the package index cache")
+	updateCmd.Flags().BoolP("recursive", "r", false, "Recursively process subdirectories (only applies when input is a directory)")
+	updateCmd.Flags().StringSlice("ext", []string{".typ"}, "File extensions to process when input is a directory")
 }
 
 type logEvent struct {
@@ -53,14 +66,14 @@ type logEvent struct {
 	keyvals []any
 }
 
-func logLogEvent(l logEvent, logger *log.Logger) {
-	switch l.level {
+func emitLogEvent(e logEvent, logger *log.Logger) {
+	switch e.level {
 	case "debug":
-		logger.Debug(l.msg, l.keyvals...)
+		logger.Debug(e.msg, e.keyvals...)
 	case "info":
-		logger.Info(l.msg, l.keyvals...)
+		logger.Info(e.msg, e.keyvals...)
 	case "error":
-		logger.Error(l.msg, l.keyvals...)
+		logger.Error(e.msg, e.keyvals...)
 	}
 }
 
@@ -69,50 +82,123 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	outputPath, _ := cmd.Flags().GetString("output")
 	noCache, _ := cmd.Flags().GetBool("no-cache")
+	recursive, _ := cmd.Flags().GetBool("recursive")
+	exts, _ := cmd.Flags().GetStringSlice("ext")
 
-	content, inputFilePath, err := readInputContent(args)
+	if isStdinPiped() {
+		content, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+		content = runUpdate(ctx, logger, content, noCache)
+		return writeOutputContent(content, "", outputPath)
+	}
+
+	if len(args) == 0 {
+		return fmt.Errorf("no input: provide a file argument or pipe content via stdin")
+	}
+
+	files, err := collectInputFiles(args, exts, recursive)
 	if err != nil {
 		return err
 	}
+	if outputPath != "" && len(files) > 1 {
+		return fmt.Errorf("--output cannot be used with multiple files or a directory")
+	}
 
+	for _, f := range files {
+		str := lipgloss.Sprintln(internal.StyleYellow.Render("Updating"), fmt.Sprintf("imports in %q", f))
+		_, _ = lipgloss.Fprint(os.Stderr, str)
+		content, err := os.ReadFile(f)
+		if err != nil {
+			logger.Error(err.Error(), "file", f)
+			continue
+		}
+		content = runUpdate(ctx, logger, content, noCache)
+		if err := writeOutputContent(content, f, outputPath); err != nil {
+			logger.Error(err.Error(), "file", f)
+		}
+	}
+	return nil
+}
+
+func collectInputFiles(args []string, exts []string, recursive bool) ([]string, error) {
+	var files []string
+	for _, arg := range args {
+		info, err := os.Stat(arg)
+		if err != nil {
+			return nil, err
+		}
+		if info.IsDir() {
+			dirFiles, err := collectFiles(arg, exts, recursive)
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, dirFiles...)
+		} else {
+			files = append(files, arg)
+		}
+	}
+	return files, nil
+}
+
+func runUpdate(ctx context.Context, logger *log.Logger, content []byte, noCache bool) []byte {
 	imports := extractImportStatements(content)
 
 	s := internal.SetupSpinner()
 	s.Start()
-	newVersions, logEvents := fetchLatestVersionsConcurrently(ctx, imports, noCache)
+	updates, logEvents := fetchLatestVersionsConcurrently(ctx, imports, noCache)
 	s.Stop()
 
 	for _, event := range logEvents {
-		logLogEvent(event, logger)
+		emitLogEvent(event, logger)
 	}
 
-	// Write to stderr, because stdout is reserved for content thats piped from stdin
-	if len(newVersions) == 0 {
-		prefix := internal.StyleBlueBold.Render("info")
-		text := internal.StyleNormal.Render("all dependencies are up to date")
-		msg := lipgloss.Sprintf("%s: %s\n", prefix, text)
-		lipgloss.Fprint(os.Stderr, msg)
-	} else {
-		for pkg, res := range newVersions {
-			str := lipgloss.Sprintln(internal.StyleGreen.Render("Updated"), pkg, res.Current, "->", res.Latest)
-			lipgloss.Fprint(os.Stderr, str)
-		}
-	}
-
-	UpdateFileContent(&content, newVersions)
-	return writeOutputContent(content, inputFilePath, outputPath)
+	// Write to stderr, because stdout is reserved for content piped from stdin.
+	printUpdateSummary(updates)
+	UpdateFileContent(&content, updates)
+	return content
 }
 
-func readInputContent(args []string) (content []byte, inputFilePath string, err error) {
-	if len(args) > 0 {
-		content, err = os.ReadFile(args[0])
-		return content, args[0], err
+func printUpdateSummary(updates map[string]Result) {
+	if len(updates) == 0 {
+		prefix := internal.StyleBlueBold.Render("info")
+		text := internal.StyleNormal.Render("all dependencies are up to date")
+		_, _ = lipgloss.Fprintf(os.Stderr, "%s: %s\n", prefix, text)
+		return
 	}
-	if isStdinPiped() {
-		content, err = io.ReadAll(os.Stdin)
-		return content, "", err
+	for pkg, res := range updates {
+		str := lipgloss.Sprintln(internal.StyleGreen.Render("  Updated"), pkg, res.Current, "->", res.Latest)
+		_, _ = lipgloss.Fprint(os.Stderr, str)
 	}
-	return nil, "", fmt.Errorf("no input: provide a file argument or pipe content via stdin")
+}
+
+func collectFiles(root string, exts []string, recursive bool) ([]string, error) {
+	extSet := make(map[string]bool, len(exts))
+	for _, e := range exts {
+		if !strings.HasPrefix(e, ".") {
+			e = "." + e
+		}
+		extSet[strings.ToLower(e)] = true
+	}
+
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path != root && !recursive {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if extSet[strings.ToLower(filepath.Ext(path))] {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
 }
 
 func isStdinPiped() bool {
@@ -182,7 +268,7 @@ func fetchTypstVersionIndex(ctx context.Context, noCache bool) (map[string]strin
 }
 
 func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- Result, logCh chan<- logEvent) {
-	pkgName, pkgVersion := parsePackageRef(importStatement)
+	pkgName, currentVersion := parsePackageRef(importStatement)
 
 	latestVersion, source, err := lookupVersion(ctx, index, pkgName)
 	if err != nil {
@@ -190,13 +276,13 @@ func processImport(ctx context.Context, importStatement []byte, index map[string
 		return
 	}
 
-	if latestVersion == pkgVersion {
+	if latestVersion == currentVersion {
 		logCh <- logEvent{"debug", "already at latest", []any{"package", pkgName}}
 		return
 	}
 
-	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", pkgVersion, "to", latestVersion, "via", source}}
-	resultCh <- Result{Name: pkgName, Latest: latestVersion, Current: pkgVersion}
+	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", currentVersion, "to", latestVersion, "via", source}}
+	resultCh <- Result{Name: pkgName, Latest: latestVersion, Current: currentVersion}
 }
 
 func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error) {
