@@ -44,6 +44,7 @@ gotpm update foo.typ -o bar.typ`,
 func init() {
 	rootCmd.AddCommand(updateCmd)
 	updateCmd.Flags().StringP("output", "o", "", "Output file (defaults to input file, or stdout when reading from stdin)")
+	updateCmd.Flags().Bool("no-cache", false, "Skip reading and writing the package index cache")
 }
 
 type logEvent struct {
@@ -67,6 +68,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
 	ctx := context.Background()
 	outputPath, _ := cmd.Flags().GetString("output")
+	noCache, _ := cmd.Flags().GetBool("no-cache")
 
 	content, inputFilePath, err := readInputContent(args)
 	if err != nil {
@@ -77,7 +79,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 
 	s := internal.SetupSpinner()
 	s.Start()
-	newVersions, logEvents := fetchLatestVersionsConcurrently(ctx, imports)
+	newVersions, logEvents := fetchLatestVersionsConcurrently(ctx, imports, noCache)
 	s.Stop()
 
 	for _, event := range logEvents {
@@ -132,8 +134,8 @@ func writeOutputContent(content []byte, inputFilePath string, outputPath string)
 	return err
 }
 
-func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte) (map[string]Result, []logEvent) {
-	index, _ := fetchTypstVersionIndex(ctx)
+func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte, noCache bool) (map[string]Result, []logEvent) {
+	index, _ := fetchTypstVersionIndex(ctx, noCache)
 
 	resultCh := make(chan Result, len(imports))
 	logCh := make(chan logEvent, len(imports))
@@ -162,12 +164,21 @@ func lookupVersion(ctx context.Context, index map[string]string, pkgName string)
 	return version, "github", err
 }
 
-func fetchTypstVersionIndex(ctx context.Context) (map[string]string, error) {
+func fetchTypstVersionIndex(ctx context.Context, noCache bool) (map[string]string, error) {
+	if !noCache {
+		if cache, err := internal.LoadIndexCache(); err == nil && cache != nil && cache.IsValid() {
+			return cache.Index, nil
+		}
+	}
 	entries, err := internal.FetchTypstIndex(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return internal.BuildVersionIndex(entries), nil
+	index := internal.BuildVersionIndex(entries)
+	if !noCache {
+		_ = internal.SaveIndexCache(index)
+	}
+	return index, nil
 }
 
 func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- Result, logCh chan<- logEvent) {
