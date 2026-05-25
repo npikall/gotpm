@@ -61,6 +61,11 @@ func init() {
 	updateCmd.Flags().StringSlice("ext", []string{".typ"}, "File extensions to process when input is a directory")
 }
 
+var (
+	ErrMissingInput        = errors.New("no input: provide a file argument or pipe content via stdin")
+	ErrInvalidOutputOption = errors.New("option '--output' cannot be used with multiple files or a directory")
+)
+
 type logEvent struct {
 	level   string
 	msg     string
@@ -89,14 +94,14 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	if isStdinPiped() {
 		content, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not read from stdin: %w", err)
 		}
 		content = runUpdate(ctx, logger, content, noCache)
 		return writeOutputContent(content, "", outputPath)
 	}
 
 	if len(args) == 0 {
-		return errors.New("no input: provide a file argument or pipe content via stdin")
+		return ErrMissingInput
 	}
 
 	files, err := collectInputFiles(args, exts, recursive)
@@ -104,7 +109,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if outputPath != "" && len(files) > 1 {
-		return errors.New("--output cannot be used with multiple files or a directory")
+		return ErrInvalidOutputOption
 	}
 
 	for _, f := range files {
@@ -128,7 +133,7 @@ func collectInputFiles(args []string, exts []string, recursive bool) ([]string, 
 	for _, arg := range args {
 		info, err := os.Stat(arg)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not read fileinfo: %w", err)
 		}
 		if info.IsDir() {
 			dirFiles, err := collectFiles(arg, exts, recursive)
@@ -199,7 +204,10 @@ func collectFiles(root string, exts []string, recursive bool) ([]string, error) 
 		}
 		return nil
 	})
-	return files, err
+	if err != nil {
+		return nil, fmt.Errorf("could not walk directory %q: %w", root, err)
+	}
+	return files, nil
 }
 
 func isStdinPiped() bool {
@@ -212,13 +220,24 @@ func isStdinPiped() bool {
 
 func writeOutputContent(content []byte, inputFilePath string, outputPath string) error {
 	if outputPath != "" {
-		return os.WriteFile(outputPath, content, 0o644)
+		err := os.WriteFile(outputPath, content, 0o644) //nolint: gosec, mnd
+		if err != nil {
+			return fmt.Errorf("could not write file %q: %w", outputPath, err)
+		}
+		return nil
 	}
 	if inputFilePath != "" {
-		return os.WriteFile(inputFilePath, content, 0o644)
+		err := os.WriteFile(inputFilePath, content, 0o644) //nolint: gosec, mnd
+		if err != nil {
+			return fmt.Errorf("could not write file %q: %w", inputFilePath, err)
+		}
+		return nil
 	}
 	_, err := os.Stdout.Write(content)
-	return err
+	if err != nil {
+		return fmt.Errorf("could not write to 'stdout': %w", err)
+	}
+	return nil
 }
 
 func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte, noCache bool) (map[string]Result, []logEvent) {
@@ -259,7 +278,7 @@ func fetchTypstVersionIndex(ctx context.Context, noCache bool) (map[string]strin
 	}
 	entries, err := internal.FetchTypstIndex(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not fetch the typst index: %w", err)
 	}
 	index := internal.BuildVersionIndex(entries)
 	if !noCache {
@@ -289,13 +308,17 @@ func processImport(ctx context.Context, importStatement []byte, index map[string
 func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error) {
 	apiURL, err := url.JoinPath(internal.TypstPackageEndpoint, pkgName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could create url for %q: %w", pkgName, err)
 	}
 	response, err := internal.FetchDataFromGitHub(apiURL, ctx)
 	if err != nil {
-		return "", fmt.Errorf("could not find package %q", pkgName)
+		return "", fmt.Errorf("could not find package %q on github: %w", pkgName, err)
 	}
-	return internal.GetLatestVersion(response)
+	latest, err := internal.GetLatestVersion(response)
+	if err != nil {
+		return "", fmt.Errorf("could not get latest version from response for %q: %w", pkgName, err)
+	}
+	return latest, nil
 }
 
 func collectVersionResults(resultCh <-chan Result) map[string]Result {

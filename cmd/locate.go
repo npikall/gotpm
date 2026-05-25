@@ -7,6 +7,8 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +24,7 @@ gotpm locate`,
 		logger := internal.SetupLogger(cmd)
 		target, err := internal.ResolveLocalPackageDir()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not resolve package directory: %w", err)
 		}
 		logger.Debug("resolved", "path", target)
 		internal.PrintInfo("packages located at \"%s\"", internal.StyleAccent.Render(target))

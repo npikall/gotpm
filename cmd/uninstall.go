@@ -78,7 +78,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	// Intentionally does not create the directory if it doesn't exist yet.
 	localPkgDir, overridden, err := internal.ResolvePackageDirPath(cmd)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not resolve local package directory: %w", err)
 	}
 	logger.Debug("resolved local package directory", "path", localPkgDir)
 
@@ -118,7 +118,7 @@ func formatImportWithWildcard(flags uninstallFlags, pkgVersion string, pkgName s
 func resolvePackageIdentity(args []string, flags uninstallFlags) (string, string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("could not get current working directory: %w", err)
 	}
 	return resolvePackageIdentityFromWorkingDir(args, flags.version, flags.deleteAll, cwd)
 }
@@ -126,19 +126,19 @@ func resolvePackageIdentity(args []string, flags uninstallFlags) (string, string
 func readUninstallFlags(cmd *cobra.Command) (uninstallFlags, error) {
 	deleteAll, err := cmd.Flags().GetBool("all")
 	if err != nil {
-		return uninstallFlags{}, err
+		return UninstallFlags{}, fmt.Errorf("could not get flag '--all': %w", err)
 	}
 	version, err := cmd.Flags().GetString("version")
 	if err != nil {
-		return uninstallFlags{}, err
+		return UninstallFlags{}, fmt.Errorf("could not get flag '--version': %w", err)
 	}
 	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
-		return uninstallFlags{}, err
+		return UninstallFlags{}, fmt.Errorf("could not get flag '--namespace': %w", err)
 	}
 	isDryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
-		return uninstallFlags{}, err
+		return UninstallFlags{}, fmt.Errorf("could not get flag '--dry-run': %w", err)
 	}
 	return uninstallFlags{
 		namespace: namespace,
@@ -163,7 +163,7 @@ func resolveUninstallTarget(pkgDir, namespace, name, version string, deleteAll b
 func validateTargetExists(target string) error {
 	if _, err := os.Lstat(target); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("path does not exist %q", target)
+			return fmt.Errorf("path does not exist %q: %w", target, err)
 		}
 		return fmt.Errorf("checking target %q: %w", target, err)
 	}
@@ -179,9 +179,15 @@ func removeTarget(target string) error {
 		return fmt.Errorf("checking target %q: %w", target, err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return os.Remove(target)
+		if err := os.Remove(target); err != nil {
+			return fmt.Errorf("could not remove %q: %w", target, err)
+		}
+		return nil
 	}
-	return os.RemoveAll(target)
+	if err = os.RemoveAll(target); err != nil {
+		return fmt.Errorf("could not remove-all %q: %w", target, err)
+	}
+	return nil
 }
 
 // resolvePackageIdentityFromWorkingDir returns the package name and version to uninstall.
@@ -196,7 +202,7 @@ func resolvePackageIdentityFromWorkingDir(args []string, version string, deleteA
 	}
 	manifest, err := internal.LoadManifest(dir)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("could not load typst manifest: %w", err)
 	}
 	return manifest.Package.Name, manifest.Package.Version, nil
 }

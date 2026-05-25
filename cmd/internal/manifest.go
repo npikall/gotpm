@@ -12,8 +12,11 @@ import (
 const manifestFileName = "typst.toml"
 
 var (
-	ErrManifestNotFound = errors.New("not found 'typst.toml': not a typst package directory")
-	ErrInvalidManifest  = errors.New("invalid 'typst.toml'")
+	ErrManifestNotFound  = errors.New("not found 'typst.toml': not a typst package directory")
+	ErrInvalidManifest   = errors.New("invalid 'typst.toml'")
+	ErrMissingName       = errors.New("missing required field: package.name")
+	ErrMissingVersion    = errors.New("missing required field: package.version")
+	ErrMissingEntrypoint = errors.New("missing required field: package.entrypoint")
 )
 
 type Manifest struct {
@@ -67,7 +70,7 @@ func LoadManifest(dir string) (Manifest, error) {
 }
 
 func readManifestFile(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint: gosec
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, ErrManifestNotFound
@@ -88,13 +91,13 @@ func parseManifest(data []byte) (Manifest, error) {
 func validateManifest(m Manifest) error {
 	var errs []error
 	if m.Package.Name == "" {
-		errs = append(errs, errors.New("missing required field: package.name"))
+		errs = append(errs, ErrMissingName)
 	}
 	if m.Package.Version == "" {
-		errs = append(errs, errors.New("missing required field: package.version"))
+		errs = append(errs, ErrMissingVersion)
 	}
 	if m.Package.Entrypoint == "" {
-		errs = append(errs, errors.New("missing required field: package.entrypoint"))
+		errs = append(errs, ErrMissingEntrypoint)
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%w: %w", ErrInvalidManifest, errors.Join(errs...))

@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/BurntSushi/toml"
@@ -29,7 +30,10 @@ func ConfigurableUpdateToml(w io.Writer, p PackageMeta, data []byte, unmarshal U
 	if !indent {
 		encoder.Indent = ""
 	}
-	return encoder.Encode(m)
+	if err := encoder.Encode(m); err != nil {
+		return fmt.Errorf("could not encode manifest: %w", err)
+	}
+	return nil
 }
 
 // UpdateTOML writes the package metadata (name, version, entrypoint) back into

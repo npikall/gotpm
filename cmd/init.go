@@ -38,9 +38,8 @@ func initRunner(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		pkgName = args[0]
 		cwd = filepath.Join(cwd, pkgName)
-		err := os.Mkdir(cwd, 0o755)
-		if err != nil {
-			return err
+		if err := os.Mkdir(cwd, 0o750); err != nil { //nolint: mnd
+			return fmt.Errorf("could not create directory: %w", err)
 		}
 	} else {
 		pkgName = filepath.Base(cwd)
@@ -61,9 +60,8 @@ entrypoint = "lib.typ"`, pkgName)},
 	}
 
 	for _, boot := range bootstrap {
-		err := os.WriteFile(boot.path, []byte(boot.content), 0o644)
-		if err != nil {
-			return err
+		if err := os.WriteFile(boot.path, boot.content, 0o600); err != nil { //nolint: mnd
+			return fmt.Errorf("could not write file: %w", err)
 		}
 	}
 

@@ -9,6 +9,7 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -54,7 +55,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 
 	manifest, err := internal.LoadManifest(cwd)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not load manifest: %w", err)
 	}
 	pkg := manifest.Package
 
@@ -75,7 +76,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	dryRun := internal.Must(cmd.Flags().GetBool("dry-run"))
 
 	if err := pkg.Bump(bumpArg); err != nil {
-		return err
+		return fmt.Errorf("could not bump version: %w", err)
 	}
 	logger.Debug("setting toml", "version", pkg.Version)
 
@@ -94,19 +95,19 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	typstTOML := filepath.Join(cwd, "typst.toml")
 	typstTOMLContent, err := os.ReadFile(typstTOML)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not read typst.toml: %w", err)
 	}
 	logger.Debug("editing", "file", typstTOML)
 
 	indent := internal.Must(cmd.Flags().GetBool("indent"))
 	var buf bytes.Buffer
 	if err := internal.UpdateTOML(&buf, pkg, typstTOMLContent, indent); err != nil {
-		return err
+		return fmt.Errorf("could not update typst.toml: %w", err)
 	}
 	logger.Debug("write edited toml to buffer")
 
-	if err := os.WriteFile(typstTOML, buf.Bytes(), 0o644); err != nil {
-		return err
+	if err := os.WriteFile(typstTOML, buf.Bytes(), 0o600); err != nil { //nolint: mnd
+		return fmt.Errorf("could not write typst.toml: %w", err)
 	}
 	logger.Debug("write buffer", "file", typstTOML)
 

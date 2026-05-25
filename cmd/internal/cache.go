@@ -2,6 +2,7 @@ package internal
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -38,14 +39,14 @@ func LoadIndexCache() (*IndexCache, error) {
 	}
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, fmt.Errorf("cache does not exist: %w", err)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open cache: %w", err)
 	}
 	var cache IndexCache
 	if err := json.Unmarshal(data, &cache); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not unmarshal cache: %w", err)
 	}
 	return &cache, nil
 }
@@ -65,7 +66,11 @@ func SaveIndexCache(index map[string]string) error {
 	}
 	data, err := json.Marshal(cache)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not marshal index: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	err = os.WriteFile(path, data, 0o600) //nolint: mnd
+	if err != nil {
+		return fmt.Errorf("could not write cache: %w", err)
+	}
+	return nil
 }

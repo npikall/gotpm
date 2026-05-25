@@ -3,6 +3,8 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -13,6 +15,8 @@ const (
 	TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
 	TypstPackageIndexURL string = "https://packages.typst.org/preview/index.json"
 )
+
+var ErrHTTPFailedRequest = errors.New("http request failed")
 
 type ResponseModel struct {
 	Name string `json:"name" validate:"semver"`
@@ -27,18 +31,18 @@ func FetchDataFromGitHub(url string, ctx context.Context) ([]*ResponseModel, err
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create new request: %w", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not send request: %w", err)
 	}
 	defer closeResponse(resp)
 
 	var result []*ResponseModel
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not decode response: %w", err)
 	}
 
 	return result, nil
@@ -74,16 +78,16 @@ func FetchTypstIndex(ctx context.Context) ([]TypstIndexEntry, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, TypstPackageIndexURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create request: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not send request: %w", err)
 	}
 	defer closeResponse(resp)
 	var entries []TypstIndexEntry
 	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not decode response: %w", err)
 	}
 	return entries, nil
 }

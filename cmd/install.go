@@ -69,7 +69,7 @@ func installRunner(cmd *cobra.Command, args []string) error {
 
 	manifest, err := internal.LoadManifest(sourceDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not load manifest: %w", err)
 	}
 	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
 
@@ -90,6 +90,7 @@ var (
 	ErrTooManyArguments        = errors.New("too many arguments: expected one directory path")
 	ErrEmptyNamespace          = errors.New("namespace must not be empty")
 	ErrPackageAlreadyInstalled = errors.New("package already installed at destination")
+	ErrNotADirectory           = errors.New("path is not a directory")
 )
 
 // InstallOptions holds the resolved install flags.
@@ -102,15 +103,15 @@ type InstallOptions struct {
 func readInstallOptions(cmd *cobra.Command) (InstallOptions, error) {
 	force, err := cmd.Flags().GetBool("force")
 	if err != nil {
-		return InstallOptions{}, err
+		return InstallOptions{}, fmt.Errorf("could not read flag '--force': %w", err)
 	}
 	editable, err := cmd.Flags().GetBool("editable")
 	if err != nil {
-		return InstallOptions{}, err
+		return InstallOptions{}, fmt.Errorf("could not read flag '--editable': %w", err)
 	}
 	namespace, err := cmd.Flags().GetString("namespace")
 	if err != nil {
-		return InstallOptions{}, err
+		return InstallOptions{}, fmt.Errorf("could not read flag '--namespace': %w", err)
 	}
 	return InstallOptions{Force: force, Editable: editable, Namespace: namespace}, nil
 }
@@ -120,7 +121,7 @@ func readInstallOptions(cmd *cobra.Command) (InstallOptions, error) {
 func resolveInstallDestination(cmd *cobra.Command, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
 	dataDir, overridden, err := internal.ResolvePackageDirPath(cmd)
 	if err != nil {
-		return Destination{}, err
+		return Destination{}, fmt.Errorf("could not resolve package directory: %w", err)
 	}
 	if overridden {
 		return resolveOverriddenDestination(dataDir, manifest, opts)
@@ -148,7 +149,7 @@ func resolveOverriddenDestination(dataDir string, manifest internal.Manifest, op
 // It appends namespace/name/version sub-directories to dataDir.
 func resolveDefaultDestination(dataDir string, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
 	if err := internal.EnsureDir(dataDir); err != nil {
-		return Destination{}, err
+		return Destination{}, fmt.Errorf("could not ensure directory %q: %w", dataDir, err)
 	}
 	if err := validateNamespace(opts.Namespace); err != nil {
 		return Destination{}, err
@@ -329,7 +330,10 @@ func collectJobs(src, dest string, matcher *ignore.GitIgnore) ([]transferJob, er
 		}
 		return nil
 	})
-	return jobs, err
+	if err != nil {
+		return nil, fmt.Errorf("could not collect all files to transfer: %w", err)
+	}
+	return jobs, nil
 }
 
 func shouldIgnore(rel string, matcher *ignore.GitIgnore) bool {
@@ -432,12 +436,12 @@ func validateIsDirectory(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("directory does not exist: %q", path)
+			return fmt.Errorf("directory does not exist %q: %w", path, err)
 		}
 		return fmt.Errorf("accessing path %q: %w", path, err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("path is not a directory: %q", path)
+		return fmt.Errorf("not a directory %q: %w", path, ErrNotADirectory)
 	}
 	return nil
 }

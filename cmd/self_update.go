@@ -30,12 +30,14 @@ func init() {
 	selfUpdateCmd.Flags().Bool("check", false, "check for an update without installing it")
 }
 
+var ErrUpdateDevelopmentBuild = errors.New("cannot self-update a development build; install a tagged release first")
+
 func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 	checkOnly, _ := cmd.Flags().GetBool("check")
 	ctx := context.Background()
 
 	if gitTag == "dev" {
-		return errors.New("cannot self-update a development build; install a tagged release first")
+		return ErrUpdateDevelopmentBuild
 	}
 
 	currentVersion := strings.TrimPrefix(gitTag, "v")

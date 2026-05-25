@@ -43,7 +43,7 @@ func ResolveLocalPackageDirPath() (string, error) {
 func ResolvePackageDirPath(cmd *cobra.Command) (path string, overridden bool, err error) {
 	dir, err := cmd.Flags().GetString(InstallDirFlag)
 	if err != nil {
-		return "", false, err
+		return "", false, fmt.Errorf("could not parse flag: %w", err)
 	}
 	if dir != "" {
 		return dir, true, nil
