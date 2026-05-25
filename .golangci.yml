@@ -80,4 +80,5 @@ linters:
           - gosec
 formatters:
   enable:
+    - goimports
     - gofumpt
