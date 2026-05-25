@@ -41,6 +41,10 @@ func FetchDataFromGitHub(url string, ctx context.Context) ([]*ResponseModel, err
 	}
 	defer closeResponse(resp)
 
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, fmt.Errorf("%w with status %s for %s", ErrHTTPFailedRequest, resp.Status, url)
+	}
+
 	var result []*ResponseModel
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("could not decode response: %w", err)
@@ -86,6 +90,11 @@ func FetchTypstIndex(ctx context.Context) ([]TypstIndexEntry, error) {
 		return nil, fmt.Errorf("could not send request: %w", err)
 	}
 	defer closeResponse(resp)
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, fmt.Errorf("%w with status %s for typst package index", ErrHTTPFailedRequest, resp.Status)
+	}
+
 	var entries []TypstIndexEntry
 	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
 		return nil, fmt.Errorf("could not decode response: %w", err)
