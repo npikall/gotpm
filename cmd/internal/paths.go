@@ -40,7 +40,7 @@ func ResolveLocalPackageDirPath() (string, error) {
 // Resolution order: --install-dir flag > $GOTPM_INSTALL_DIR env > OS default.
 // When overridden, the returned path is the final destination — callers must not
 // append namespace/name/version sub-directories.
-func ResolvePackageDirPath(cmd *cobra.Command) (path string, overridden bool, err error) {
+func ResolvePackageDirPath(cmd *cobra.Command) (string, bool, error) {
 	dir, err := cmd.Flags().GetString(InstallDirFlag)
 	if err != nil {
 		return "", false, fmt.Errorf("could not parse flag: %w", err)
