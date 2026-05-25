@@ -51,8 +51,8 @@ type packageNamespace struct {
 	Packages []installedPackage
 }
 
-// isDirPath reports whether path is a directory, following symlinks.
-func isDirPath(path string) bool {
+// IsDirPath reports whether path is a directory, following symlinks.
+func IsDirPath(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
 }
@@ -78,7 +78,7 @@ func scanVersions(packagePath string) []pkgVersion {
 	var versions []pkgVersion
 	for _, verDir := range versionDirs {
 		versionPath := filepath.Join(packagePath, verDir.Name())
-		if !isDirPath(versionPath) {
+		if !IsDirPath(versionPath) {
 			continue
 		}
 		versions = append(versions, pkgVersion{
@@ -116,9 +116,9 @@ func scanNamespacePackages(namespacePath string) []installedPackage {
 	return packages
 }
 
-// scanPackages walks root (namespace/package/version layout) and returns
+// ScanPackages walks root (namespace/package/version layout) and returns
 // all installed packages, including editable (symlinked) versions.
-func scanPackages(root string) ([]packageNamespace, error) {
+func ScanPackages(root string) ([]packageNamespace, error) {
 	namespaceDirs, err := os.ReadDir(root)
 	if err != nil {
 		return nil, fmt.Errorf("could not read typst packages: %w", err)
@@ -158,11 +158,11 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("looking in", "directory", typstPackagePath)
 
-	if !isDirPath(typstPackagePath) {
+	if !IsDirPath(typstPackagePath) {
 		return ErrNoPackages
 	}
 
-	namespaces, err := scanPackages(typstPackagePath)
+	namespaces, err := ScanPackages(typstPackagePath)
 	if err != nil {
 		return err
 	}
