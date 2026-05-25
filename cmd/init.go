@@ -21,16 +21,16 @@ var initCmd = &cobra.Command{
 	Example: `# initialize a new Package
 gotpm init`,
 	Short: "Initialize a new minimal Typst Package",
-	RunE:  initRunner,
+	RunE:  InitRunner,
 }
 
 func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
-var libFile = []byte("#let greet(name) = [Hello #name]")
+var LibFile = []byte("#let greet(name) = [Hello #name]")
 
-func initRunner(cmd *cobra.Command, args []string) error {
+func InitRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
 	cwd := internal.Must(os.Getwd())
 
@@ -56,7 +56,7 @@ func initRunner(cmd *cobra.Command, args []string) error {
 name = "%s"
 version = "0.1.0"
 entrypoint = "lib.typ"`, pkgName)},
-		{path: filepath.Join(cwd, "lib.typ"), content: libFile},
+		{path: filepath.Join(cwd, "lib.typ"), content: LibFile},
 	}
 
 	for _, boot := range bootstrap {
