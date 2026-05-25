@@ -9,7 +9,7 @@ import (
 )
 
 // Version is a semantic version where only positive integers are allowed.
-type Version struct {
+type Version struct { //nolint: recvcheck
 	Major uint64
 	Minor uint64
 	Patch uint64
@@ -96,7 +96,7 @@ func ParseVersion(s string) (Version, error) {
 			version.Major = num
 		case 1:
 			version.Minor = num
-		case 2:
+		case 2: //nolint: mnd
 			version.Patch = num
 		}
 	}

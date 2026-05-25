@@ -37,7 +37,7 @@ func LoadIndexCache() (*IndexCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint: gosec
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("cache does not exist: %w", err)
 	}

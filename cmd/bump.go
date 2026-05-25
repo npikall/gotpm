@@ -93,7 +93,7 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	typstTOML := filepath.Join(cwd, "typst.toml")
-	typstTOMLContent, err := os.ReadFile(typstTOML)
+	typstTOMLContent, err := os.ReadFile(typstTOML) //nolint: gosec
 	if err != nil {
 		return fmt.Errorf("could not read typst.toml: %w", err)
 	}

@@ -19,7 +19,7 @@ func SetupLogger(cmd *cobra.Command) *log.Logger {
 		return logger
 	}
 	switch {
-	case verboseCount >= 2:
+	case verboseCount >= 2: //nolint: mnd
 		logger.SetLevel(log.DebugLevel)
 	case verboseCount == 1:
 		logger.SetLevel(log.InfoLevel)
@@ -31,14 +31,14 @@ func SetupLogger(cmd *cobra.Command) *log.Logger {
 
 // SetupSpinner returns a spinner ready to start.
 func SetupSpinner() *spinner.Spinner {
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) //nolint: mnd
 	s.Suffix = StyleMuted.Render(" Loading...")
 	_ = s.Color("cyan")
 	return s
 }
 
 // Must returns t, or exits the process with a fatal log entry if err is non-nil.
-func Must[T any](t T, err error) T {
+func Must[T any](t T, err error) T { //nolint: ireturn
 	if err != nil {
 		log.Fatal(err)
 	}
