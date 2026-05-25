@@ -1,0 +1,83 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - canonicalheader
+    - contextcheck
+    - copyloopvar
+    - cyclop
+    - decorder
+    - dupl
+    - dupword
+    - err113
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - funcorder
+    - gocheckcompilerdirectives
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godox
+    - goheader
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - govet
+    - iface
+    - inamedparam
+    - ineffassign
+    - interfacebloat
+    - intrange
+    - iotamixing
+    - ireturn
+    - loggercheck
+    - maintidx
+    - misspell
+    - mnd
+    - modernize
+    - nestif
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - reassign
+    - recvcheck
+    # - revive
+    - staticcheck
+    - tagalign
+    - testifylint
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
+    - wrapcheck
+  exclusions:
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - funlen
+          - goconst
+          - varnamelen
+          - gocyclo
+          - errcheck
+          - gosec
+formatters:
+  enable:
+    - gofumpt
