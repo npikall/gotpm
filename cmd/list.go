@@ -57,83 +57,95 @@ func isDirPath(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+func sortVersionsByName(v []pkgVersion) {
+	sort.Slice(v, func(i, j int) bool { return v[i].Name < v[j].Name })
+}
+
+func sortPackagesByName(p []installedPackage) {
+	sort.SliceStable(p, func(i, j int) bool { return p[i].Name < p[j].Name })
+}
+
+func sortNamespacesByName(n []packageNamespace) {
+	sort.Slice(n, func(i, j int) bool { return n[i].Name < n[j].Name })
+}
+
+func scanVersions(packagePath string) []pkgVersion {
+	versionDirs, err := os.ReadDir(packagePath)
+	if err != nil {
+		return nil
+	}
+
+	var versions []pkgVersion
+	for _, verDir := range versionDirs {
+		versionPath := filepath.Join(packagePath, verDir.Name())
+		if !isDirPath(versionPath) {
+			continue
+		}
+		versions = append(versions, pkgVersion{
+			Name:     verDir.Name(),
+			Editable: verDir.Type()&fs.ModeSymlink != 0,
+		})
+	}
+	return versions
+}
+
+func scanNamespacePackages(namespacePath string) []installedPackage {
+	packageDirs, err := os.ReadDir(namespacePath)
+	if err != nil {
+		return nil
+	}
+
+	var packages []installedPackage
+	for _, pkgDir := range packageDirs {
+		if !pkgDir.IsDir() {
+			continue
+		}
+
+		packagePath := filepath.Join(namespacePath, pkgDir.Name())
+		versions := scanVersions(packagePath)
+		if len(versions) == 0 {
+			continue
+		}
+
+		sortVersionsByName(versions)
+		packages = append(packages, installedPackage{
+			Name:     pkgDir.Name(),
+			Versions: versions,
+		})
+	}
+	return packages
+}
+
 // scanPackages walks root (namespace/package/version layout) and returns
 // all installed packages, including editable (symlinked) versions.
 func scanPackages(root string) ([]packageNamespace, error) {
-	namespaceMap := make(map[string][]installedPackage)
-
-	namespaceEntries, err := os.ReadDir(root)
+	namespaceDirs, err := os.ReadDir(root)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not read typst packages: %w", err)
 	}
 
-	for _, nsEntry := range namespaceEntries {
-		if !nsEntry.IsDir() {
+	packagesByNamespace := make(map[string][]installedPackage)
+	for _, nsDir := range namespaceDirs {
+		if !nsDir.IsDir() {
 			continue
 		}
-
-		namespaceName := nsEntry.Name()
-		namespacePath := filepath.Join(root, namespaceName)
-
-		packageEntries, err := os.ReadDir(namespacePath)
-		if err != nil {
-			continue
-		}
-
-		for _, pkgEntry := range packageEntries {
-			if !pkgEntry.IsDir() {
-				continue
-			}
-
-			packageName := pkgEntry.Name()
-			packagePath := filepath.Join(namespacePath, packageName)
-
-			versionEntries, err := os.ReadDir(packagePath)
-			if err != nil {
-				continue
-			}
-
-			var versions []pkgVersion
-			for _, verEntry := range versionEntries {
-				versionPath := filepath.Join(packagePath, verEntry.Name())
-				if !isDirPath(versionPath) {
-					continue
-				}
-				versions = append(versions, pkgVersion{
-					Name:     verEntry.Name(),
-					Editable: verEntry.Type()&fs.ModeSymlink != 0,
-				})
-			}
-
-			if len(versions) == 0 {
-				continue
-			}
-
-			sort.Slice(versions, func(i, j int) bool {
-				return versions[i].Name < versions[j].Name
-			})
-			namespaceMap[namespaceName] = append(namespaceMap[namespaceName], installedPackage{
-				Name:     packageName,
-				Versions: versions,
-			})
+		namespaceName := nsDir.Name()
+		packages := scanNamespacePackages(filepath.Join(root, namespaceName))
+		if len(packages) > 0 {
+			packagesByNamespace[namespaceName] = packages
 		}
 	}
 
 	var namespaces []packageNamespace
-	for nsName, packages := range namespaceMap {
-		sort.SliceStable(packages, func(i, j int) bool {
-			return packages[i].Name < packages[j].Name
-		})
+	for namespaceName, packages := range packagesByNamespace {
+		sortPackagesByName(packages)
 		namespaces = append(namespaces, packageNamespace{
-			Name:     nsName,
+			Name:     namespaceName,
 			Packages: packages,
 		})
 	}
 
-	sort.Slice(namespaces, func(i, j int) bool {
-		return namespaces[i].Name < namespaces[j].Name
-	})
-
+	sortNamespacesByName(namespaces)
 	return namespaces, nil
 }
 
@@ -142,7 +154,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	typstPackagePath, err := internal.ResolveLocalPackageDirPath()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not resolve package directory: %w", err)
 	}
 	logger.Debug("looking in", "directory", typstPackagePath)
 
@@ -162,7 +174,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		lipgloss.Println(internal.StyleGreen.Render("@" + ns.Name))
+		_, _ = lipgloss.Println(internal.StyleGreen.Render("@" + ns.Name))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
@@ -171,16 +183,17 @@ func listRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	footer := fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))
-	lipgloss.Println()
-	lipgloss.Println(internal.StyleMuted.Render(footer))
+	_, _ = lipgloss.Println()
+	_, _ = lipgloss.Println(internal.StyleMuted.Render(footer))
 	return nil
 }
 
 func printPackageWithVersions(pkg installedPackage) {
 	versions := pkg.Versions
 	truncated := ""
-	if len(versions) > 5 {
-		truncated = fmt.Sprintf(" ... (+%d more)", len(versions)-5)
+	maxDisplayedVersions := 5
+	if len(versions) > maxDisplayedVersions {
+		truncated = fmt.Sprintf(" ... (+%d more)", len(versions)-maxDisplayedVersions)
 		versions = versions[:5]
 	}
 
@@ -193,7 +206,7 @@ func printPackageWithVersions(pkg installedPackage) {
 		}
 	}
 
-	lipgloss.Printf("  %s %s%s\n",
+	_, _ = lipgloss.Printf("  %s %s%s\n",
 		internal.StyleNormal.Render(pkg.Name),
 		strings.Join(parts, internal.StyleMuted.Render(", ")),
 		internal.StyleMuted.Render(truncated),
