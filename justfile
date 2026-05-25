@@ -46,6 +46,11 @@ test:
 # run the go formatter
 format:
     go fmt ./...
+    golangci-lint fmt
+
+# run the linter
+lint:
+    golangci-lint run
 
 # write the changelog from commit messages (https://git-cliff.org/)
 changelog *args:
