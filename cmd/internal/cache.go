@@ -31,7 +31,7 @@ func ResolveCachePath() (string, error) {
 	return filepath.Join(base, cacheAppDir, cacheFileName), nil
 }
 
-// LoadIndexCache reads the on-disk cache. Returns nil, nil when the file does not exist.
+// LoadIndexCache reads the on-disk cache.
 func LoadIndexCache() (*IndexCache, error) {
 	path, err := ResolveCachePath()
 	if err != nil {
