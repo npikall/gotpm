@@ -12,7 +12,7 @@ import (
 const manifestFileName = "typst.toml"
 
 var (
-	ErrManifestNotFound  = errors.New("not found 'typst.toml': not a typst package directory")
+	ErrManifestNotFound  = errors.New("not a typst package directory, no typst.toml")
 	ErrInvalidManifest   = errors.New("invalid 'typst.toml'")
 	ErrMissingName       = errors.New("missing required field: package.name")
 	ErrMissingVersion    = errors.New("missing required field: package.version")
