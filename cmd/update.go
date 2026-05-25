@@ -57,7 +57,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	updateCmd.Flags().StringP("output", "o", "", "Output file (defaults to input file, or stdout when reading from stdin)")
 	updateCmd.Flags().Bool("no-cache", false, "Skip reading and writing the package index cache")
-	updateCmd.Flags().BoolP("recursive", "r", false, "Recursively process subdirectories (only applies when input is a directory)")
+	updateCmd.Flags().BoolP("recursive", "r", false, "Process recursively (only applies when input is a directory)")
 	updateCmd.Flags().StringSlice("ext", []string{".typ"}, "File extensions to process when input is a directory")
 }
 
@@ -97,7 +97,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("could not read from stdin: %w", err)
 		}
 		content = runUpdate(ctx, logger, content, noCache)
-		return writeOutputContent(content, "", outputPath)
+		return WriteOutputContent(content, "", outputPath)
 	}
 
 	if len(args) == 0 {
@@ -112,17 +112,17 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		return ErrInvalidOutputOption
 	}
 
-	for _, f := range files {
-		str := lipgloss.Sprintln(internal.StyleYellow.Render("Updating"), fmt.Sprintf("imports in %q", f))
+	for _, file := range files {
+		str := lipgloss.Sprintln(internal.StyleYellow.Render("Updating"), fmt.Sprintf("imports in %q", file))
 		_, _ = lipgloss.Fprint(os.Stderr, str)
-		content, err := os.ReadFile(f)
+		content, err := os.ReadFile(file) //nolint: gosec
 		if err != nil {
-			logger.Error(err.Error(), "file", f)
+			logger.Error(err.Error(), "file", file)
 			continue
 		}
 		content = runUpdate(ctx, logger, content, noCache)
-		if err := writeOutputContent(content, f, outputPath); err != nil {
-			logger.Error(err.Error(), "file", f)
+		if err := WriteOutputContent(content, file, outputPath); err != nil {
+			logger.Error(err.Error(), "file", file)
 		}
 	}
 	return nil
@@ -149,11 +149,11 @@ func collectInputFiles(args []string, exts []string, recursive bool) ([]string, 
 }
 
 func runUpdate(ctx context.Context, logger *log.Logger, content []byte, noCache bool) []byte {
-	imports := extractImportStatements(content)
+	imports := ExtractImportStatements(content)
 
 	s := internal.SetupSpinner()
 	s.Start()
-	updates, logEvents := fetchLatestVersionsConcurrently(ctx, imports, noCache)
+	updates, logEvents := fetchLatestVersions(ctx, imports, noCache)
 	s.Stop()
 
 	for _, event := range logEvents {
@@ -218,7 +218,7 @@ func isStdinPiped() bool {
 	return (stat.Mode() & os.ModeCharDevice) == 0
 }
 
-func writeOutputContent(content []byte, inputFilePath string, outputPath string) error {
+func WriteOutputContent(content []byte, inputFilePath string, outputPath string) error {
 	if outputPath != "" {
 		err := os.WriteFile(outputPath, content, 0o644) //nolint: gosec, mnd
 		if err != nil {
@@ -240,13 +240,13 @@ func writeOutputContent(content []byte, inputFilePath string, outputPath string)
 	return nil
 }
 
-func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte, noCache bool) (map[string]Result, []logEvent) {
+func fetchLatestVersions(ctx context.Context, imports [][]byte, noCache bool) (map[string]Result, []logEvent) {
 	index, _ := fetchTypstVersionIndex(ctx, noCache)
 
 	resultCh := make(chan Result, len(imports))
 	logCh := make(chan logEvent, len(imports))
 
-	var wg sync.WaitGroup
+	var wg sync.WaitGroup //nolint: varnamelen
 	for _, importStatement := range imports {
 		wg.Go(func() {
 			processImport(ctx, importStatement, index, resultCh, logCh)
@@ -259,10 +259,10 @@ func fetchLatestVersionsConcurrently(ctx context.Context, imports [][]byte, noCa
 	return collectVersionResults(resultCh), collectLogEvents(logCh)
 }
 
-// lookupVersion queries the Typst package index first and falls back to the
+// LookupVersion queries the Typst package index first and falls back to the
 // GitHub API for missing packages or when the index is unavailable.
 // Returns the version, its source ("index" or "github"), and any error.
-func lookupVersion(ctx context.Context, index map[string]string, pkgName string) (string, string, error) {
+func LookupVersion(ctx context.Context, index map[string]string, pkgName string) (string, string, error) {
 	if version, ok := index[pkgName]; ok {
 		return version, "index", nil
 	}
@@ -272,7 +272,7 @@ func lookupVersion(ctx context.Context, index map[string]string, pkgName string)
 
 func fetchTypstVersionIndex(ctx context.Context, noCache bool) (map[string]string, error) {
 	if !noCache {
-		if cache, err := internal.LoadIndexCache(); err == nil && cache != nil && cache.IsValid() {
+		if cache, err := internal.LoadIndexCache(); err == nil && cache.IsValid() {
 			return cache.Index, nil
 		}
 	}
@@ -288,9 +288,9 @@ func fetchTypstVersionIndex(ctx context.Context, noCache bool) (map[string]strin
 }
 
 func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- Result, logCh chan<- logEvent) {
-	pkgName, currentVersion := parsePackageRef(importStatement)
+	pkgName, currentVersion := ParsePackageRef(importStatement)
 
-	latestVersion, source, err := lookupVersion(ctx, index, pkgName)
+	latestVersion, source, err := LookupVersion(ctx, index, pkgName)
 	if err != nil {
 		logCh <- logEvent{"error", err.Error(), nil}
 		return
@@ -337,13 +337,13 @@ func collectLogEvents(logCh <-chan logEvent) []logEvent {
 	return events
 }
 
-func parsePackageRef(importStatement []byte) (name, version string) {
+func ParsePackageRef(importStatement []byte) (string, string) {
 	pkgNameVersion := strings.Split(string(importStatement), "/")[1]
 	pkgInfo := strings.Split(pkgNameVersion, ":")
 	return pkgInfo[0], pkgInfo[1]
 }
 
-func extractImportStatements(targetFile []byte) [][]byte {
+func ExtractImportStatements(targetFile []byte) [][]byte {
 	pattern := regexp.MustCompile(`@preview/[a-zA-Z-]*:[0-9]*.[0-9]*.[0-9]*`)
 	return pattern.FindAll(targetFile, -1)
 }
@@ -361,7 +361,7 @@ func UpdateFileContent(content *[]byte, versions map[string]Result) {
 		rawPattern := fmt.Sprintf(`@preview/%s:[0-9]*.[0-9]*.[0-9]*`, key)
 		pattern := regexp.MustCompile(rawPattern)
 
-		namespacePkg := strings.Split(rawPattern, ":")[0]
+		namespacePkg, _, _ := strings.Cut(rawPattern, ":")
 		replacement := fmt.Sprintf("%s:%s", namespacePkg, value.Latest)
 
 		*content = pattern.ReplaceAll(*content, []byte(replacement))
