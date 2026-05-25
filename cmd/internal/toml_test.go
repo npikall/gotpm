@@ -3,7 +3,6 @@ package internal
 import (
 	"bytes"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/BurntSushi/toml"

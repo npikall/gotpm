@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
