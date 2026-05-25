@@ -394,13 +394,21 @@ func BuildDestination(dataDir string, manifest internal.Manifest, namespace stri
 
 func ResolveSourceDir(args []string) (string, error) {
 	numberOfArgs := len(args)
-	if numberOfArgs > 1 {
+	maxArguments := 1
+	switch {
+	case numberOfArgs > maxArguments:
+		return "", ErrTooManyArguments
+	case numberOfArgs == maxArguments:
+		return ResolveProvidedPath(args[0])
+	case numberOfArgs == 0:
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("could not get current working directory: %w", err)
+		}
+		return cwd, nil
+	default:
 		return "", ErrTooManyArguments
 	}
-	if numberOfArgs == 0 {
-		return os.Getwd()
-	}
-	return resolveProvidedPath(args[0])
 }
 
 func ResolveProvidedPath(rawPath string) (string, error) {
