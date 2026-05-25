@@ -8,6 +8,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
