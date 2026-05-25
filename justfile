@@ -50,7 +50,7 @@ format:
 
 # run the linter
 lint:
-    golangci-lint run
+    golangci-lint run --fix
 
 # write the changelog from commit messages (https://git-cliff.org/)
 changelog *args:
