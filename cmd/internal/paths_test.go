@@ -1,10 +1,11 @@
-package internal
+package internal_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
+	. "github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,7 @@ func Test_ResolvePackageDirPath(t *testing.T) {
 		t.Setenv(InstallDirEnvVar, "")
 		cmd := newCmdWithInstallDir(t, "/flag/path")
 		path, overridden, err := ResolvePackageDirPath(cmd)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, overridden)
 		assert.Equal(t, "/flag/path", path)
 	})
@@ -35,7 +36,7 @@ func Test_ResolvePackageDirPath(t *testing.T) {
 		t.Setenv(InstallDirEnvVar, "/env/path")
 		cmd := newCmdWithInstallDir(t, "")
 		path, overridden, err := ResolvePackageDirPath(cmd)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, overridden)
 		assert.Equal(t, "/env/path", path)
 	})
@@ -43,7 +44,7 @@ func Test_ResolvePackageDirPath(t *testing.T) {
 		t.Setenv(InstallDirEnvVar, "/env/path")
 		cmd := newCmdWithInstallDir(t, "/flag/path")
 		path, overridden, err := ResolvePackageDirPath(cmd)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, overridden)
 		assert.Equal(t, "/flag/path", path)
 	})
@@ -51,7 +52,7 @@ func Test_ResolvePackageDirPath(t *testing.T) {
 		t.Setenv(InstallDirEnvVar, "")
 		cmd := newCmdWithInstallDir(t, "")
 		_, overridden, err := ResolvePackageDirPath(cmd)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, overridden)
 	})
 }
@@ -127,7 +128,9 @@ func TestResolveLocalPackageDir(t *testing.T) {
 }
 
 func TestEnsureDir(t *testing.T) {
+	t.Parallel()
 	t.Run("creates nested dirs", func(t *testing.T) {
+		t.Parallel()
 		tmp := t.TempDir()
 		target := filepath.Join(tmp, "a", "b", "c")
 		require.NoError(t, EnsureDir(target))
@@ -136,6 +139,7 @@ func TestEnsureDir(t *testing.T) {
 		assert.True(t, info.IsDir())
 	})
 	t.Run("idempotent on existing dir", func(t *testing.T) {
+		t.Parallel()
 		tmp := t.TempDir()
 		require.NoError(t, EnsureDir(tmp))
 		require.NoError(t, EnsureDir(tmp), "second call must not error")

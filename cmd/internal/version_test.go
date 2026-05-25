@@ -1,13 +1,15 @@
-package internal
+package internal_test
 
 import (
 	"testing"
 
+	. "github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIsSemVer(t *testing.T) {
+	t.Parallel()
 	valid := []string{
 		"0.0.0", "1.0.0", "0.1.0", "0.0.1",
 		"1.2.3", "10.20.30", "999.0.0",
@@ -27,6 +29,7 @@ func TestIsSemVer(t *testing.T) {
 }
 
 func TestParseVersion(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input   string
 		want    Version
@@ -42,6 +45,7 @@ func TestParseVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got, err := ParseVersion(tt.input)
 			if tt.wantErr {
 				assert.ErrorIs(t, err, ErrInvalidVersion)
@@ -54,17 +58,20 @@ func TestParseVersion(t *testing.T) {
 }
 
 func TestNewVersion(t *testing.T) {
+	t.Parallel()
 	v := NewVersion()
 	assert.Equal(t, Version{0, 0, 0}, v)
 }
 
 func TestVersion_String(t *testing.T) {
+	t.Parallel()
 	assert.Equal(t, "1.2.3", Version{1, 2, 3}.String())
 	assert.Equal(t, "0.0.0", Version{0, 0, 0}.String())
 	assert.Equal(t, "10.0.99", Version{10, 0, 99}.String())
 }
 
 func TestVersion_Bump(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		start     Version
@@ -83,10 +90,11 @@ func TestVersion_Bump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			v := tt.start
 			err := v.Bump(tt.increment)
 			if tt.wantErr {
-				assert.ErrorIs(t, err, ErrInvalidIncrement)
+				require.ErrorIs(t, err, ErrInvalidIncrement)
 				assert.Equal(t, tt.start, v, "version must not change on error")
 				return
 			}
@@ -97,6 +105,7 @@ func TestVersion_Bump(t *testing.T) {
 }
 
 func TestCompareVersions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		a, b Version
@@ -113,6 +122,7 @@ func TestCompareVersions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.want, CompareVersions(tt.a, tt.b))
 		})
 	}

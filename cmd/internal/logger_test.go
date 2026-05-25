@@ -1,10 +1,11 @@
-package internal
+package internal_test
 
 import (
 	"strconv"
 	"testing"
 
 	"charm.land/log/v2"
+	. "github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,7 @@ func newCmdWithVerbose(t *testing.T, count int) *cobra.Command {
 }
 
 func TestSetupLogger(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		verbose   int
@@ -33,6 +35,7 @@ func TestSetupLogger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cmd := newCmdWithVerbose(t, tt.verbose)
 			logger := SetupLogger(cmd)
 			assert.Equal(t, tt.wantLevel, logger.GetLevel())
@@ -41,12 +44,14 @@ func TestSetupLogger(t *testing.T) {
 }
 
 func TestSetupLogger_NoVerboseFlag(t *testing.T) {
+	t.Parallel()
 	cmd := &cobra.Command{}
 	logger := SetupLogger(cmd)
 	assert.Equal(t, log.WarnLevel, logger.GetLevel())
 }
 
 func TestMust_ReturnsValue(t *testing.T) {
+	t.Parallel()
 	got := Must("hello", nil)
 	assert.Equal(t, "hello", got)
 

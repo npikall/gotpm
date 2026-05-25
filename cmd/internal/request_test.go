@@ -8,9 +8,11 @@ import (
 
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFetchDataFromGitHub(t *testing.T) {
+	t.Parallel()
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte(`[{"name":"foobar"},{"name":"baz"}]`))
@@ -19,18 +21,20 @@ func TestFetchDataFromGitHub(t *testing.T) {
 		}
 	}))
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		ctx := context.Background()
 		got, err := internal.FetchDataFromGitHub(testServer.URL, ctx)
 		want := []*internal.ResponseModel{
 			{Name: "foobar"},
 			{Name: "baz"},
 		}
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, want, got)
 	})
 }
 
 func TestGetLatestVersion(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		versions []*internal.ResponseModel
@@ -43,6 +47,7 @@ func TestGetLatestVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, gotErr := internal.GetLatestVersion(tt.versions)
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -59,7 +64,9 @@ func TestGetLatestVersion(t *testing.T) {
 }
 
 func TestBuildVersionIndex(t *testing.T) {
+	t.Parallel()
 	t.Run("picks latest version per package", func(t *testing.T) {
+		t.Parallel()
 		entries := []internal.TypstIndexEntry{
 			{Name: "pkg-a", Version: "0.1.0"},
 			{Name: "pkg-a", Version: "0.3.0"},
@@ -71,6 +78,7 @@ func TestBuildVersionIndex(t *testing.T) {
 		assert.Equal(t, "1.0.0", got["pkg-b"])
 	})
 	t.Run("single entry per package", func(t *testing.T) {
+		t.Parallel()
 		entries := []internal.TypstIndexEntry{
 			{Name: "only", Version: "2.0.0"},
 		}
@@ -78,10 +86,12 @@ func TestBuildVersionIndex(t *testing.T) {
 		assert.Equal(t, "2.0.0", got["only"])
 	})
 	t.Run("empty input returns empty map", func(t *testing.T) {
+		t.Parallel()
 		got := internal.BuildVersionIndex(nil)
 		assert.Empty(t, got)
 	})
 	t.Run("invalid version strings skipped gracefully", func(t *testing.T) {
+		t.Parallel()
 		entries := []internal.TypstIndexEntry{
 			{Name: "pkg", Version: "1.0.0"},
 			{Name: "pkg", Version: "not-a-version"},
@@ -92,6 +102,7 @@ func TestBuildVersionIndex(t *testing.T) {
 }
 
 func TestFetchTypstIndex(t *testing.T) {
+	t.Parallel()
 	payload := `[{"name":"foo","version":"0.1.0"},{"name":"bar","version":"2.3.4"}]`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

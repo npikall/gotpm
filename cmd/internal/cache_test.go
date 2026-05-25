@@ -1,4 +1,4 @@
-package internal
+package internal_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,6 +25,7 @@ func redirectCacheToTempDir(t *testing.T) {
 
 // TestIndexCache_IsValid locks the 1-hour TTL boundary.
 func TestIndexCache_IsValid(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		timestamp time.Time
@@ -37,6 +39,7 @@ func TestIndexCache_IsValid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := &IndexCache{Timestamp: tt.timestamp}
 			assert.Equal(t, tt.want, c.IsValid())
 		})
@@ -44,7 +47,7 @@ func TestIndexCache_IsValid(t *testing.T) {
 }
 
 // TestResolveCachePath locks the path structure: ends with gotpm/index-cache.json.
-func TestResolveCachePath(t *testing.T) {
+func TestResolveCachePath(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
@@ -53,51 +56,51 @@ func TestResolveCachePath(t *testing.T) {
 }
 
 // TestLoadIndexCache_Missing locks nil,nil when file does not exist.
-func TestLoadIndexCache_Missing(t *testing.T) {
+func TestLoadIndexCache_Missing(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	cache, err := LoadIndexCache()
-	assert.NoError(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cache)
 }
 
 // TestLoadIndexCache_InvalidJSON locks error on malformed file.
-func TestLoadIndexCache_InvalidJSON(t *testing.T) {
+func TestLoadIndexCache_InvalidJSON(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
+	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), 0o600))
 
 	cache, err := LoadIndexCache()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cache)
 }
 
 // TestLoadIndexCache_Valid locks correct parse of a well-formed cache file.
-func TestLoadIndexCache_Valid(t *testing.T) {
+func TestLoadIndexCache_Valid(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
 
-	ts := time.Now().Truncate(time.Second)
+	timestamp := time.Now().Truncate(time.Second)
 	fixture := IndexCache{
-		Timestamp: ts,
+		Timestamp: timestamp,
 		Index:     map[string]string{"pkg-a": "0.1.0", "pkg-b": "2.3.4"},
 	}
 	data, err := json.Marshal(fixture)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(path, data, 0o644))
+	require.NoError(t, os.WriteFile(path, data, 0o600))
 
 	got, err := LoadIndexCache()
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, ts.UTC(), got.Timestamp.UTC())
+	assert.Equal(t, timestamp.UTC(), got.Timestamp.UTC())
 	assert.Equal(t, fixture.Index, got.Index)
 }
 
 // TestSaveIndexCache locks file creation, dir creation, and written content.
-func TestSaveIndexCache(t *testing.T) {
+func TestSaveIndexCache(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	index := map[string]string{"foo": "1.0.0", "bar": "0.2.1"}
 
@@ -118,7 +121,7 @@ func TestSaveIndexCache(t *testing.T) {
 }
 
 // TestSaveLoadRoundtrip locks that Save then Load returns identical data.
-func TestSaveLoadRoundtrip(t *testing.T) {
+func TestSaveLoadRoundtrip(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	index := map[string]string{"typst-pkg": "3.1.4", "other": "0.0.1"}
 
@@ -132,7 +135,7 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 }
 
 // TestSaveIndexCache_CreatesDir locks that SaveIndexCache creates missing parent dirs.
-func TestSaveIndexCache_CreatesDir(t *testing.T) {
+func TestSaveIndexCache_CreatesDir(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	// Verify parent dir does not exist before save.
 	path, err := ResolveCachePath()

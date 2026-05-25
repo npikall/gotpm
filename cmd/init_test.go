@@ -1,10 +1,11 @@
-package cmd
+package cmd_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
+	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -18,11 +19,11 @@ func newInitCmd(t *testing.T) *cobra.Command {
 	return cmd
 }
 
-func TestInitRunner_NoArgs_UsesBasename(t *testing.T) {
+func TestInitRunner_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
 	// cwd basename becomes the package name
 	dir := t.TempDir()
-	chdirTo(t, dir)
-	require.NoError(t, initRunner(newInitCmd(t), []string{}))
+	t.Chdir(dir)
+	require.NoError(t, InitRunner(newInitCmd(t), []string{}))
 
 	m, err := internal.LoadManifest(dir)
 	require.NoError(t, err)
@@ -34,10 +35,10 @@ func TestInitRunner_NoArgs_UsesBasename(t *testing.T) {
 	assert.FileExists(t, filepath.Join(dir, "lib.typ"))
 }
 
-func TestInitRunner_WithArg_CreatesSubdir(t *testing.T) {
+func TestInitRunner_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
-	chdirTo(t, parent)
-	require.NoError(t, initRunner(newInitCmd(t), []string{"my-pkg"}))
+	t.Chdir(parent)
+	require.NoError(t, InitRunner(newInitCmd(t), []string{"my-pkg"}))
 
 	pkgDir := filepath.Join(parent, "my-pkg")
 	assert.DirExists(t, pkgDir)
@@ -51,31 +52,31 @@ func TestInitRunner_WithArg_CreatesSubdir(t *testing.T) {
 	assert.FileExists(t, filepath.Join(pkgDir, "lib.typ"))
 }
 
-func TestInitRunner_LibFileContent(t *testing.T) {
+func TestInitRunner_LibFileContent(t *testing.T) { //nolint: paralleltest
 	dir := t.TempDir()
-	chdirTo(t, dir)
-	require.NoError(t, initRunner(newInitCmd(t), []string{}))
+	t.Chdir(dir)
+	require.NoError(t, InitRunner(newInitCmd(t), []string{}))
 
 	content, err := os.ReadFile(filepath.Join(dir, "lib.typ"))
 	require.NoError(t, err)
-	assert.Equal(t, string(libFile), string(content))
+	assert.Equal(t, string(LibFile), string(content))
 }
 
-func TestInitRunner_TomlContainsName(t *testing.T) {
+func TestInitRunner_TomlContainsName(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
-	chdirTo(t, parent)
-	require.NoError(t, initRunner(newInitCmd(t), []string{"cool-pkg"}))
+	t.Chdir(parent)
+	require.NoError(t, InitRunner(newInitCmd(t), []string{"cool-pkg"}))
 
 	raw, err := os.ReadFile(filepath.Join(parent, "cool-pkg", "typst.toml"))
 	require.NoError(t, err)
 	assert.Contains(t, string(raw), `"cool-pkg"`)
 }
 
-func TestInitRunner_ExistingDirFails(t *testing.T) {
+func TestInitRunner_ExistingDirFails(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
-	chdirTo(t, parent)
+	t.Chdir(parent)
 	// pre-create the subdir so Mkdir fails
-	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), 0o755))
-	err := initRunner(newInitCmd(t), []string{"dup"})
+	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), 0o750))
+	err := InitRunner(newInitCmd(t), []string{"dup"})
 	assert.Error(t, err)
 }

@@ -1,4 +1,4 @@
-package internal
+package internal_test
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	. "github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +19,11 @@ entrypoint = "old.typ"
 `
 
 func TestConfigurableUpdateToml(t *testing.T) {
+	t.Parallel()
 	newMeta := PackageMeta{Name: "new-name", Version: "1.2.3", Entrypoint: "lib.typ"}
 
 	t.Run("updates all package fields", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		err := ConfigurableUpdateToml(&buf, newMeta, []byte(baseTOML), toml.Unmarshal, false)
 		require.NoError(t, err)
@@ -34,13 +37,15 @@ func TestConfigurableUpdateToml(t *testing.T) {
 	})
 
 	t.Run("missing package section returns ErrInvalidManifest", func(t *testing.T) {
+		t.Parallel()
 		var buf bytes.Buffer
 		err := ConfigurableUpdateToml(&buf, newMeta, []byte("[other]\nkey = \"val\"\n"), toml.Unmarshal, false)
 		assert.ErrorIs(t, err, ErrInvalidManifest)
 	})
 
 	t.Run("custom unmarshal error propagates", func(t *testing.T) {
-		sentinel := errors.New("unmarshal failed")
+		t.Parallel()
+		sentinel := errors.New("unmarshal failed") //nolint: err113
 		failUnmarshal := func(_ []byte, _ any) error { return sentinel }
 		var buf bytes.Buffer
 		err := ConfigurableUpdateToml(&buf, newMeta, []byte(baseTOML), failUnmarshal, false)
@@ -49,6 +54,7 @@ func TestConfigurableUpdateToml(t *testing.T) {
 }
 
 func TestUpdateTOML(t *testing.T) {
+	t.Parallel()
 	meta := PackageMeta{Name: "pkg", Version: "2.0.0", Entrypoint: "main.typ"}
 	var buf bytes.Buffer
 	err := UpdateTOML(&buf, meta, []byte(baseTOML), false)

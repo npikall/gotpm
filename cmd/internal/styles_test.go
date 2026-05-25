@@ -1,12 +1,14 @@
-package internal
+package internal_test
 
 import (
 	"testing"
 
+	. "github.com/npikall/gotpm/cmd/internal"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFormatImportStmt(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		namespace, name, version string
 	}{

@@ -1,10 +1,11 @@
-package cmd
+package cmd_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
+	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/cmd/internal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -22,98 +23,90 @@ func newBumpCmd(t *testing.T) *cobra.Command {
 	return cmd
 }
 
-func chdirTo(t *testing.T, dir string) {
-	t.Helper()
-	prev, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(dir))
-	t.Cleanup(func() { _ = os.Chdir(prev) })
-}
-
 const bumpManifest = `[package]
 name = "my-pkg"
 version = "1.2.3"
 entrypoint = "lib.typ"
 `
 
-func TestBumpRunner_MissingArgument(t *testing.T) {
+func TestBumpRunner_MissingArgument(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
-	err := bumpRunner(newBumpCmd(t), []string{})
+	t.Chdir(dir)
+	err := BumpRunner(newBumpCmd(t), []string{})
 	assert.ErrorIs(t, err, ErrMissingArgument)
 }
 
-func TestBumpRunner_NoManifest(t *testing.T) {
-	chdirTo(t, t.TempDir())
-	err := bumpRunner(newBumpCmd(t), []string{"patch"})
+func TestBumpRunner_NoManifest(t *testing.T) { //nolint: paralleltest
+	t.Chdir(t.TempDir())
+	err := BumpRunner(newBumpCmd(t), []string{"patch"})
 	assert.ErrorIs(t, err, internal.ErrManifestNotFound)
 }
 
-func TestBumpRunner_ShowCurrent(t *testing.T) {
+func TestBumpRunner_ShowCurrent(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
+	t.Chdir(dir)
 	cmd := newBumpCmd(t)
 	check(cmd.Flags().Set("show-current", "true"))
-	err := bumpRunner(cmd, []string{})
-	assert.NoError(t, err)
+	err := BumpRunner(cmd, []string{})
+	require.NoError(t, err)
 	// typst.toml must not be modified
 	content, _ := os.ReadFile(filepath.Join(dir, "typst.toml"))
 	assert.Contains(t, string(content), "1.2.3")
 }
 
-func TestBumpRunner_Patch(t *testing.T) {
+func TestBumpRunner_Patch(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
-	require.NoError(t, bumpRunner(newBumpCmd(t), []string{"patch"}))
+	t.Chdir(dir)
+	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"patch"}))
 
 	m, err := internal.LoadManifest(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "1.2.4", m.Package.Version)
 }
 
-func TestBumpRunner_Minor(t *testing.T) {
+func TestBumpRunner_Minor(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
-	require.NoError(t, bumpRunner(newBumpCmd(t), []string{"minor"}))
+	t.Chdir(dir)
+	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"minor"}))
 
 	m, err := internal.LoadManifest(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "1.3.0", m.Package.Version)
 }
 
-func TestBumpRunner_Major(t *testing.T) {
+func TestBumpRunner_Major(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
-	require.NoError(t, bumpRunner(newBumpCmd(t), []string{"major"}))
+	t.Chdir(dir)
+	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"major"}))
 
 	m, err := internal.LoadManifest(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "2.0.0", m.Package.Version)
 }
 
-func TestBumpRunner_ExactVersion(t *testing.T) {
+func TestBumpRunner_ExactVersion(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
-	require.NoError(t, bumpRunner(newBumpCmd(t), []string{"9.8.7"}))
+	t.Chdir(dir)
+	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"9.8.7"}))
 
 	m, err := internal.LoadManifest(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "9.8.7", m.Package.Version)
 }
 
-func TestBumpRunner_InvalidIncrement(t *testing.T) {
+func TestBumpRunner_InvalidIncrement(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
-	err := bumpRunner(newBumpCmd(t), []string{"bogus"})
+	t.Chdir(dir)
+	err := BumpRunner(newBumpCmd(t), []string{"bogus"})
 	assert.ErrorIs(t, err, internal.ErrInvalidIncrement)
 }
 
-func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) {
+func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
+	t.Chdir(dir)
 	cmd := newBumpCmd(t)
 	check(cmd.Flags().Set("dry-run", "true"))
-	require.NoError(t, bumpRunner(cmd, []string{"patch"}))
+	require.NoError(t, BumpRunner(cmd, []string{"patch"}))
 
 	// File must still contain original version
 	m, err := internal.LoadManifest(dir)
@@ -121,12 +114,12 @@ func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) {
 	assert.Equal(t, "1.2.3", m.Package.Version)
 }
 
-func TestBumpRunner_ShowNext_DoesNotWriteFile(t *testing.T) {
+func TestBumpRunner_ShowNext_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
-	chdirTo(t, dir)
+	t.Chdir(dir)
 	cmd := newBumpCmd(t)
 	check(cmd.Flags().Set("show-next", "true"))
-	require.NoError(t, bumpRunner(cmd, []string{"patch"}))
+	require.NoError(t, BumpRunner(cmd, []string{"patch"}))
 
 	// File must still contain original version
 	m, err := internal.LoadManifest(dir)
