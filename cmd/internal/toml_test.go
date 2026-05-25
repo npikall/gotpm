@@ -56,7 +56,7 @@ func TestUpdateTOML(t *testing.T) {
 	require.NoError(t, err)
 
 	out := buf.String()
-	assert.True(t, strings.Contains(out, "2.0.0"), "output must contain new version")
-	assert.True(t, strings.Contains(out, "pkg"), "output must contain new name")
-	assert.True(t, strings.Contains(out, "main.typ"), "output must contain new entrypoint")
+	assert.Contains(t, out, "2.0.0", "output must contain new version")
+	assert.Contains(t, out, "pkg", "output must contain new name")
+	assert.Contains(t, out, "main.typ", "output must contain new entrypoint")
 }

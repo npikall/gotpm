@@ -95,7 +95,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) == 0 {
-		return fmt.Errorf("no input: provide a file argument or pipe content via stdin")
+		return errors.New("no input: provide a file argument or pipe content via stdin")
 	}
 
 	files, err := collectInputFiles(args, exts, recursive)
@@ -103,7 +103,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if outputPath != "" && len(files) > 1 {
-		return fmt.Errorf("--output cannot be used with multiple files or a directory")
+		return errors.New("--output cannot be used with multiple files or a directory")
 	}
 
 	for _, f := range files {

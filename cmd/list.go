@@ -162,7 +162,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		lipgloss.Println(internal.StyleGreen.Render(fmt.Sprintf("@%s", ns.Name)))
+		lipgloss.Println(internal.StyleGreen.Render("@" + ns.Name))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++

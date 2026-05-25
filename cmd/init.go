@@ -53,10 +53,10 @@ func initRunner(cmd *cobra.Command, args []string) error {
 		path    string
 		content []byte
 	}{
-		{path: filepath.Join(cwd, "typst.toml"), content: []byte(fmt.Sprintf(`[package]
+		{path: filepath.Join(cwd, "typst.toml"), content: fmt.Appendf(nil, `[package]
 name = "%s"
 version = "0.1.0"
-entrypoint = "lib.typ"`, pkgName))},
+entrypoint = "lib.typ"`, pkgName)},
 		{path: filepath.Join(cwd, "lib.typ"), content: libFile},
 	}
 

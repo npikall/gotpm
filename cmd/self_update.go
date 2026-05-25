@@ -34,7 +34,7 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	if gitTag == "dev" {
-		return fmt.Errorf("cannot self-update a development build; install a tagged release first")
+		return errors.New("cannot self-update a development build; install a tagged release first")
 	}
 
 	currentVersion := strings.TrimPrefix(gitTag, "v")

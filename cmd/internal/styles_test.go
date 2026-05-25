@@ -18,7 +18,7 @@ func TestFormatImportStmt(t *testing.T) {
 	for _, tt := range tests {
 		got := FormatImportStmt(tt.namespace, tt.name, tt.version)
 		expected := "@" + tt.namespace + "/" + tt.name + ":" + tt.version
-		assert.True(t, strings.Contains(got, expected),
+		assert.Contains(t, got, expected,
 			"FormatImportStmt(%q, %q, %q) = %q, must contain %q",
 			tt.namespace, tt.name, tt.version, got, expected)
 	}

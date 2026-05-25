@@ -95,7 +95,7 @@ func ResolveLinuxDataDir() (string, error) {
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
+		return "", fmt.Errorf("%w: %w", ErrDataDirNotResolvable, err)
 	}
 	return filepath.Join(home, ".local", "share"), nil
 }
@@ -103,7 +103,7 @@ func ResolveLinuxDataDir() (string, error) {
 func ResolveDarwinDataDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrDataDirNotResolvable, err)
+		return "", fmt.Errorf("%w: %w", ErrDataDirNotResolvable, err)
 	}
 	return filepath.Join(home, "Library", "Application Support"), nil
 }

@@ -353,7 +353,7 @@ func Test_symlinkPackage(t *testing.T) {
 		assert.NoError(t, err)
 		info, err := os.Lstat(dest)
 		assert.NoError(t, err)
-		assert.True(t, info.Mode()&os.ModeSymlink != 0, "dest should be a symlink")
+		assert.NotEqual(t, info.Mode()&os.ModeSymlink, 0, "dest should be a symlink")
 	})
 	t.Run("symlink points to absolute sourceDir", func(t *testing.T) {
 		dest := filepath.Join(t.TempDir(), "local", "my-pkg", "0.1.0")
@@ -611,7 +611,7 @@ func Test_installRunner_force(t *testing.T) {
 
 		info, err := os.Lstat(dest)
 		assert.NoError(t, err)
-		assert.True(t, info.Mode()&os.ModeSymlink != 0)
+		assert.NotEqual(t, info.Mode()&os.ModeSymlink, 0)
 
 		// force re-install as editable
 		cmd = newForceCmd(dest)
@@ -622,7 +622,7 @@ func Test_installRunner_force(t *testing.T) {
 
 		info, err = os.Lstat(dest)
 		assert.NoError(t, err)
-		assert.True(t, info.Mode()&os.ModeSymlink != 0)
+		assert.NotEqual(t, info.Mode()&os.ModeSymlink, 0)
 		target, err := os.Readlink(dest)
 		assert.NoError(t, err)
 		assert.Equal(t, src, target)

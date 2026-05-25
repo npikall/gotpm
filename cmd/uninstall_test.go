@@ -46,7 +46,7 @@ func Test_resolvePackageIdentity(t *testing.T) {
 		name, ver, err := resolvePackageIdentityFromWorkingDir([]string{"foo"}, "", true, "")
 		assert.NoError(t, err)
 		assert.Equal(t, "foo", name)
-		assert.Equal(t, "", ver)
+		assert.Empty(t, ver)
 	})
 	t.Run("no args reads name and version from manifest", func(t *testing.T) {
 		dir := writeManifest(t, `
@@ -142,7 +142,7 @@ func Test_readUninstallFlags(t *testing.T) {
 		flags, err := readUninstallFlags(newCmd())
 		assert.NoError(t, err)
 		assert.Equal(t, "local", flags.namespace)
-		assert.Equal(t, "", flags.version)
+		assert.Empty(t, flags.version)
 		assert.False(t, flags.deleteAll)
 		assert.False(t, flags.isDryRun)
 	})

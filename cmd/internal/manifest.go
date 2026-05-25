@@ -80,7 +80,7 @@ func readManifestFile(path string) ([]byte, error) {
 func parseManifest(data []byte) (Manifest, error) {
 	var m Manifest
 	if err := toml.Unmarshal(data, &m); err != nil {
-		return Manifest{}, fmt.Errorf("%w: %s", ErrInvalidManifest, err)
+		return Manifest{}, fmt.Errorf("%w: %w", ErrInvalidManifest, err)
 	}
 	return m, nil
 }
