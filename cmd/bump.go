@@ -61,7 +61,7 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 
 	showCurrent := internal.Must(cmd.Flags().GetBool("show-current"))
 	if showCurrent {
-		lipgloss.Println(pkg.Version)
+		_, _ = lipgloss.Println(pkg.Version)
 		return nil
 	}
 
@@ -88,7 +88,7 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 
 	showNext := internal.Must(cmd.Flags().GetBool("show-next"))
 	if showNext {
-		lipgloss.Println(pkg.Version)
+		_, _ = lipgloss.Println(pkg.Version)
 		return nil
 	}
 
