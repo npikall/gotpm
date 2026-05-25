@@ -64,18 +64,18 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 	if !found {
-		internal.PrintWarn("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
+		internal.PrintWarnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
 		return nil
 	}
 
 	latestVersion := release.Version()
 	if latestVersion == currentVersion {
-		internal.PrintInfo("already up to date (%s)", gitTag)
+		internal.PrintInfof("already up to date (%s)", gitTag)
 		return nil
 	}
 
 	if checkOnly {
-		internal.PrintInfo("update available: %s → %s",
+		internal.PrintInfof("update available: %s → %s",
 			internal.StyleAccent.Render(gitTag),
 			internal.StyleAccent.Render("v"+latestVersion))
 		return nil
@@ -90,7 +90,7 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("update failed: %w", err)
 	}
 
-	internal.PrintInfo("updated gotpm %s → %s",
+	internal.PrintInfof("updated gotpm %s → %s",
 		internal.StyleAccent.Render(gitTag),
 		internal.StyleAccent.Render("v"+latestVersion))
 	return nil

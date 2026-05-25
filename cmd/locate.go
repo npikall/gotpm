@@ -27,7 +27,7 @@ gotpm locate`,
 			return fmt.Errorf("could not resolve package directory: %w", err)
 		}
 		logger.Debug("resolved", "path", target)
-		internal.PrintInfo("packages located at \"%s\"", internal.StyleAccent.Render(target))
+		internal.PrintInfof("packages located at \"%s\"", internal.StyleAccent.Render(target))
 		return nil
 	},
 }

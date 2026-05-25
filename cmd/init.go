@@ -65,6 +65,6 @@ entrypoint = "lib.typ"`, pkgName)},
 		}
 	}
 
-	internal.PrintInfo("initialize package %q", pkgName)
+	internal.PrintInfof("initialize package %q", pkgName)
 	return nil
 }

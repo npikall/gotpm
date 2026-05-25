@@ -103,7 +103,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	importStmt := formatImportWithWildcard(flags, pkgVersion, pkgName)
-	internal.PrintInfo("uninstalled %s", importStmt)
+	internal.PrintInfof("uninstalled %s", importStmt)
 	return nil
 }
 

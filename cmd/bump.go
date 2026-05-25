@@ -111,7 +111,7 @@ func bumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("write buffer", "file", typstTOML)
 
-	internal.PrintInfo(
+	internal.PrintInfof(
 		"updated version %s -> %s",
 		internal.StyleAccent.Render(previousVersion),
 		internal.StyleAccent.Render(pkg.Version),

@@ -187,7 +187,7 @@ func installEditable(sourceDir string, dest Destination) error {
 	if err := symlinkPackage(sourceDir, dest.Path); err != nil {
 		return err
 	}
-	internal.PrintInfo("installed %s (editable)", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
+	internal.PrintInfof("installed %s (editable)", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
 	return nil
 }
 
@@ -195,7 +195,7 @@ func installCopy(sourceDir string, dest Destination) error {
 	if err := copyPackageFiles(sourceDir, dest.Path); err != nil {
 		return err
 	}
-	internal.PrintInfo("installed %s", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
+	internal.PrintInfof("installed %s", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
 	return nil
 }
 

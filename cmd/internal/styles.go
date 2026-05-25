@@ -32,13 +32,13 @@ var (
 	StyleDescription = lipgloss.NewStyle().Foreground(Magenta)
 )
 
-func PrintInfo(format string, a ...any) {
+func PrintInfof(format string, a ...any) {
 	prefix := StyleBlueBold.Render("info")
 	text := StyleNormal.Render(fmt.Sprintf(format, a...))
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
-func PrintWarn(format string, a ...any) {
+func PrintWarnf(format string, a ...any) {
 	prefix := StyleYellow.Render("warning")
 	text := StyleAccent.Render(fmt.Sprintf(format, a...))
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
