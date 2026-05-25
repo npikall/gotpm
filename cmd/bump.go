@@ -34,7 +34,7 @@ Valid arguments can be:
 	- minor
 	- patch
 	- a valid semantic version (e.g. 0.1.2)`,
-	RunE: bumpRunner,
+	RunE: BumpRunner,
 }
 
 func init() {
@@ -47,7 +47,7 @@ func init() {
 
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
-func bumpRunner(cmd *cobra.Command, args []string) error {
+func BumpRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
 
 	cwd := internal.Must(os.Getwd())
