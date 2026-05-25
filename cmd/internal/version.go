@@ -26,6 +26,11 @@ var (
 	ErrInvalidVersion   = errors.New("not a valid semantic version")
 )
 
+// NewVersion returns a Version with all fields set to zero.
+func NewVersion() Version {
+	return Version{Major: 0, Minor: 0, Patch: 0}
+}
+
 // Bump increments the Version by the given increment (major, minor, patch).
 // Returns ErrInvalidIncrement if an unrecognized increment is used.
 func (v *Version) Bump(increment string) error {
@@ -47,11 +52,6 @@ func (v *Version) Bump(increment string) error {
 
 func (v Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-}
-
-// NewVersion returns a Version with all fields set to zero.
-func NewVersion() Version {
-	return Version{Major: 0, Minor: 0, Patch: 0}
 }
 
 // CompareVersions compares two Version structs. Useful for sorting.
