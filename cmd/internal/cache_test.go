@@ -65,8 +65,8 @@ func TestLoadIndexCache_InvalidJSON(t *testing.T) {
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
-	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), 0o644))
 
 	cache, err := LoadIndexCache()
 	assert.Error(t, err)
@@ -78,7 +78,7 @@ func TestLoadIndexCache_Valid(t *testing.T) {
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 
 	ts := time.Now().Truncate(time.Second)
 	fixture := IndexCache{
@@ -87,7 +87,7 @@ func TestLoadIndexCache_Valid(t *testing.T) {
 	}
 	data, err := json.Marshal(fixture)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(path, data, 0644))
+	require.NoError(t, os.WriteFile(path, data, 0o644))
 
 	got, err := LoadIndexCache()
 	require.NoError(t, err)

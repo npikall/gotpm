@@ -211,10 +211,10 @@ func isStdinPiped() bool {
 
 func writeOutputContent(content []byte, inputFilePath string, outputPath string) error {
 	if outputPath != "" {
-		return os.WriteFile(outputPath, content, 0644)
+		return os.WriteFile(outputPath, content, 0o644)
 	}
 	if inputFilePath != "" {
-		return os.WriteFile(inputFilePath, content, 0644)
+		return os.WriteFile(inputFilePath, content, 0o644)
 	}
 	_, err := os.Stdout.Write(content)
 	return err

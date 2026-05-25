@@ -76,7 +76,7 @@ func Test_validateTargetExists(t *testing.T) {
 	})
 	t.Run("existing file returns no error", func(t *testing.T) {
 		file := filepath.Join(dir, "file.txt")
-		check(os.WriteFile(file, []byte(""), 0644))
+		check(os.WriteFile(file, []byte(""), 0o644))
 		err := validateTargetExists(file)
 		assert.NoError(t, err)
 	})
@@ -98,8 +98,8 @@ func Test_removeTarget(t *testing.T) {
 	t.Run("removes regular directory and its contents", func(t *testing.T) {
 		parent := t.TempDir()
 		target := filepath.Join(parent, "pkg")
-		check(os.MkdirAll(filepath.Join(target, "sub"), 0755))
-		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), 0644))
+		check(os.MkdirAll(filepath.Join(target, "sub"), 0o755))
+		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), 0o644))
 
 		err := removeTarget(target)
 		assert.NoError(t, err)
@@ -107,7 +107,7 @@ func Test_removeTarget(t *testing.T) {
 	})
 	t.Run("removes symlink without deleting the pointed-to directory", func(t *testing.T) {
 		real := t.TempDir()
-		check(os.WriteFile(filepath.Join(real, "lib.typ"), []byte(""), 0644))
+		check(os.WriteFile(filepath.Join(real, "lib.typ"), []byte(""), 0o644))
 		parent := t.TempDir()
 		link := filepath.Join(parent, "link")
 		check(os.Symlink(real, link))

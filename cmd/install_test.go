@@ -19,7 +19,7 @@ func Test_copyPackageFiles(t *testing.T) {
 	writeFile(t, src, "lib.typ", "content")
 	writeFile(t, src, "README.md", "readme")
 	srcSubDir := filepath.Join(src, "utils")
-	os.MkdirAll(srcSubDir, 0755)
+	os.MkdirAll(srcSubDir, 0o755)
 	writeFile(t, srcSubDir, "helper.typ", "helper")
 
 	t.Run("copies all files concurrently", func(t *testing.T) {
@@ -59,7 +59,7 @@ func Test_resolveDefaultDestination(t *testing.T) {
 	})
 	t.Run("already installed returns error", func(t *testing.T) {
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		err := os.MkdirAll(existing, 0755)
+		err := os.MkdirAll(existing, 0o755)
 		assert.NoError(t, err)
 
 		opts := InstallOptions{Namespace: internal.DefaultNamespace}
@@ -68,7 +68,7 @@ func Test_resolveDefaultDestination(t *testing.T) {
 	})
 	t.Run("force skips conflict check", func(t *testing.T) {
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		os.MkdirAll(existing, 0755)
+		os.MkdirAll(existing, 0o755)
 
 		opts := InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
 		_, err := resolveDefaultDestination(dataDir, manifest, opts)
@@ -210,7 +210,7 @@ func Test_validateIsDirectory(t *testing.T) {
 	dir, _ = filepath.EvalSymlinks(dir)
 	notExistingDir := filepath.Join(dir, "subdir")
 	file := filepath.Join(dir, "empty")
-	check(os.WriteFile(file, []byte(""), 0644))
+	check(os.WriteFile(file, []byte(""), 0o644))
 
 	t.Run("file returns error", func(t *testing.T) {
 		err := validateIsDirectory(file)
@@ -230,7 +230,7 @@ func Test_resolveProvidedPath(t *testing.T) {
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
 	subdir := filepath.Join(dir, "subdir")
-	check(os.Mkdir(subdir, 0755))
+	check(os.Mkdir(subdir, 0o755))
 	check(os.Chdir(dir))
 
 	t.Run("absolute path to existing dir returns correct", func(t *testing.T) {
@@ -259,9 +259,9 @@ func Test_resolveSourceDir(t *testing.T) {
 	check(os.Chdir(dir))
 	cwd, _ := os.Getwd()
 	subdir := filepath.Join(dir, "subdir")
-	check(os.Mkdir(subdir, 0755))
+	check(os.Mkdir(subdir, 0o755))
 	file := filepath.Join(dir, "file.txt")
-	check(os.WriteFile(file, []byte(""), 0644))
+	check(os.WriteFile(file, []byte(""), 0o644))
 
 	t.Run("no args returns cwd", func(t *testing.T) {
 		got, gotErr := resolveSourceDir([]string{})
@@ -296,7 +296,7 @@ func writeManifest(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
-	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("writing test manifest: %v", err)
 	}
@@ -330,7 +330,7 @@ func newManifest(name, version, entrypoint string) internal.Manifest {
 func writeFile(t *testing.T, dir, filename, content string) {
 	t.Helper()
 	dir, _ = filepath.EvalSymlinks(dir)
-	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
@@ -388,19 +388,19 @@ func Test_readIgnoreLines(t *testing.T) {
 	})
 	t.Run("returns trimmed non-empty lines", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		os.WriteFile(path, []byte("*.typ\nREADME.md\n"), 0644)
+		os.WriteFile(path, []byte("*.typ\nREADME.md\n"), 0o644)
 		got := readIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
 	t.Run("skips blank lines", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), 0644)
+		os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), 0o644)
 		got := readIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
 	t.Run("strips windows-style CRLF line endings", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), 0644)
+		os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), 0o644)
 		got := readIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
@@ -483,7 +483,7 @@ func Test_collectJobs_ignoredDirectorySkipsContents(t *testing.T) {
 	dst := t.TempDir()
 	writeFile(t, src, "lib.typ", "content")
 	subdir := filepath.Join(src, "dist")
-	os.MkdirAll(subdir, 0755)
+	os.MkdirAll(subdir, 0o755)
 	writeFile(t, subdir, "output.typ", "generated")
 	writeFile(t, src, ".typstignore", "dist/\n")
 
@@ -650,7 +650,7 @@ func Test_copyFile(t *testing.T) {
 	t.Run("copies content to dest", func(t *testing.T) {
 		src := filepath.Join(t.TempDir(), "src.typ")
 		dst := filepath.Join(t.TempDir(), "dst.typ")
-		check(os.WriteFile(src, []byte("hello"), 0644))
+		check(os.WriteFile(src, []byte("hello"), 0o644))
 
 		err := copyFile(src, dst)
 		assert.NoError(t, err)
@@ -661,7 +661,7 @@ func Test_copyFile(t *testing.T) {
 	t.Run("creates parent directories", func(t *testing.T) {
 		src := filepath.Join(t.TempDir(), "src.typ")
 		dst := filepath.Join(t.TempDir(), "a", "b", "c", "dst.typ")
-		check(os.WriteFile(src, []byte("x"), 0644))
+		check(os.WriteFile(src, []byte("x"), 0o644))
 
 		err := copyFile(src, dst)
 		assert.NoError(t, err)
@@ -670,13 +670,13 @@ func Test_copyFile(t *testing.T) {
 	t.Run("preserves file mode", func(t *testing.T) {
 		src := filepath.Join(t.TempDir(), "exec.typ")
 		dst := filepath.Join(t.TempDir(), "exec-dst.typ")
-		check(os.WriteFile(src, []byte("x"), 0755))
+		check(os.WriteFile(src, []byte("x"), 0o755))
 
 		err := copyFile(src, dst)
 		assert.NoError(t, err)
 		info, err := os.Stat(dst)
 		assert.NoError(t, err)
-		assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+		assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
 	})
 	t.Run("missing source returns error", func(t *testing.T) {
 		err := copyFile("/does/not/exist.typ", filepath.Join(t.TempDir(), "dst.typ"))
@@ -688,8 +688,8 @@ func Test_runTransferJobs(t *testing.T) {
 	t.Run("copies all jobs successfully", func(t *testing.T) {
 		srcDir := t.TempDir()
 		dstDir := t.TempDir()
-		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), 0644))
-		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), 0644))
+		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), 0o644))
+		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), 0o644))
 
 		jobs := []transferJob{
 			{src: filepath.Join(srcDir, "a.typ"), dst: filepath.Join(dstDir, "a.typ")},

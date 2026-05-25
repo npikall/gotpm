@@ -21,8 +21,10 @@ const (
 	PATCH string = "patch"
 )
 
-var ErrInvalidIncrement = errors.New("invalid version incrementation, must be one of [major|minor|patch]")
-var ErrInvalidVersion = errors.New("not a valid semantic version")
+var (
+	ErrInvalidIncrement = errors.New("invalid version incrementation, must be one of [major|minor|patch]")
+	ErrInvalidVersion   = errors.New("not a valid semantic version")
+)
 
 // Bump increments the Version by the given increment (major, minor, patch).
 // Returns ErrInvalidIncrement if an unrecognized increment is used.

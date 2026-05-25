@@ -67,5 +67,5 @@ func SaveIndexCache(index map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }

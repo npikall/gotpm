@@ -70,7 +70,7 @@ func ResolveLocalPackageDir() (string, error) {
 
 // EnsureDir creates dir and all necessary parents.
 func EnsureDir(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		return fmt.Errorf("creating directory %q: %w", path, err)
 	}
 	return nil

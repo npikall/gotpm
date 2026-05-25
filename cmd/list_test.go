@@ -137,9 +137,9 @@ func TestScanPackages_EmptyDir(t *testing.T) {
 func TestScanPackages_NonDirInNamespace_Skipped(t *testing.T) {
 	root := t.TempDir()
 	nsDir := filepath.Join(root, "local")
-	require.NoError(t, os.MkdirAll(nsDir, 0755))
+	require.NoError(t, os.MkdirAll(nsDir, 0o755))
 	// plain file in namespace dir — should not be treated as package
-	require.NoError(t, os.WriteFile(filepath.Join(nsDir, "not-a-pkg"), []byte(""), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(nsDir, "not-a-pkg"), []byte(""), 0o644))
 
 	namespaces, err := scanPackages(root)
 	require.NoError(t, err)
@@ -153,8 +153,8 @@ func TestScanPackages_PackageWithNoVersions_Excluded(t *testing.T) {
 	root := t.TempDir()
 	// pkg dir exists but contains only a plain file (no version dirs)
 	pkgDir := filepath.Join(root, "local", "empty-pkg")
-	require.NoError(t, os.MkdirAll(pkgDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(pkgDir, "not-a-version"), []byte(""), 0644))
+	require.NoError(t, os.MkdirAll(pkgDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pkgDir, "not-a-version"), []byte(""), 0o644))
 
 	namespaces, err := scanPackages(root)
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestScanPackages_MultipleNamespacesSortedAlphabetically(t *testing.T) {
 	root := t.TempDir()
 	for _, ns := range []string{"preview", "alpha", "local"} {
 		dir := filepath.Join(root, ns, "pkg", "0.1.0")
-		require.NoError(t, os.MkdirAll(dir, 0755))
+		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
 
 	namespaces, err := scanPackages(root)
@@ -182,7 +182,7 @@ func TestScanPackages_PackagesSortedAlphabetically(t *testing.T) {
 	root := t.TempDir()
 	for _, pkg := range []string{"zoo", "alpha", "middle"} {
 		dir := filepath.Join(root, "local", pkg, "0.1.0")
-		require.NoError(t, os.MkdirAll(dir, 0755))
+		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
 
 	namespaces, err := scanPackages(root)
@@ -199,7 +199,7 @@ func TestScanPackages_VersionsSortedAlphabetically(t *testing.T) {
 	root := t.TempDir()
 	for _, ver := range []string{"0.3.0", "0.1.0", "0.2.0"} {
 		dir := filepath.Join(root, "local", "pkg", ver)
-		require.NoError(t, os.MkdirAll(dir, 0755))
+		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
 
 	namespaces, err := scanPackages(root)
@@ -214,7 +214,7 @@ func TestScanPackages_VersionsSortedAlphabetically(t *testing.T) {
 func TestIsDirPath(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")
-	require.NoError(t, os.WriteFile(file, []byte(""), 0644))
+	require.NoError(t, os.WriteFile(file, []byte(""), 0o644))
 
 	assert.True(t, isDirPath(dir))
 	assert.False(t, isDirPath(file))

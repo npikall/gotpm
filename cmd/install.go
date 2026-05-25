@@ -249,7 +249,7 @@ func runTransferJobs(jobs []transferJob) error {
 }
 
 func copyFile(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("creating parent directories for %q: %w", dest, err)
 	}
 

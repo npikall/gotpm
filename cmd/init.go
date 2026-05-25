@@ -38,7 +38,7 @@ func initRunner(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		pkgName = args[0]
 		cwd = filepath.Join(cwd, pkgName)
-		err := os.Mkdir(cwd, 0755)
+		err := os.Mkdir(cwd, 0o755)
 		if err != nil {
 			return err
 		}
@@ -61,7 +61,7 @@ entrypoint = "lib.typ"`, pkgName))},
 	}
 
 	for _, boot := range bootstrap {
-		err := os.WriteFile(boot.path, []byte(boot.content), 0644)
+		err := os.WriteFile(boot.path, []byte(boot.content), 0o644)
 		if err != nil {
 			return err
 		}

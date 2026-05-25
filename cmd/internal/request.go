@@ -9,8 +9,10 @@ import (
 	"charm.land/log/v2"
 )
 
-const TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
-const TypstPackageIndexURL string = "https://packages.typst.org/preview/index.json"
+const (
+	TypstPackageEndpoint string = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
+	TypstPackageIndexURL string = "https://packages.typst.org/preview/index.json"
+)
 
 type ResponseModel struct {
 	Name string `json:"name" validate:"semver"`

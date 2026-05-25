@@ -12,7 +12,7 @@ import (
 func writeManifest(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), 0o644))
 	return dir
 }
 
