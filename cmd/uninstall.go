@@ -53,23 +53,23 @@ func init() {
 
 var ErrInsufficientPackage = errors.New("both package and version must be specified")
 
-type uninstallFlags struct {
-	namespace string
-	version   string
-	deleteAll bool
-	isDryRun  bool
+type UninstallFlags struct {
+	Namespace string
+	Version   string
+	DeleteAll bool
+	IsDryRun  bool
 }
 
 func uninstallRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
 
-	flags, err := readUninstallFlags(cmd)
+	flags, err := ReadUninstallFlags(cmd)
 	if err != nil {
 		return err
 	}
-	logger.Debug("run flags", "namespace", flags.namespace, "all", flags.deleteAll, "dry-run", flags.isDryRun)
+	logger.Debug("run flags", "namespace", flags.Namespace, "all", flags.DeleteAll, "dry-run", flags.IsDryRun)
 
-	pkgName, pkgVersion, err := resolvePackageIdentity(args, flags)
+	pkgName, pkgVersion, err := ResolvePackageIdentity(args, flags)
 	if err != nil {
 		return err
 	}
@@ -86,20 +86,20 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	if overridden {
 		target = localPkgDir
 	} else {
-		target = resolveUninstallTarget(localPkgDir, flags.namespace, pkgName, pkgVersion, flags.deleteAll)
+		target = ResolveUninstallTarget(localPkgDir, flags.Namespace, pkgName, pkgVersion, flags.DeleteAll)
 	}
 	logger.Debug("uninstalling from", "path", target)
 
-	if err := validateTargetExists(target); err != nil {
+	if err := ValidateTargetExists(target); err != nil {
 		return err
 	}
 
-	if flags.isDryRun {
-		internal.PrintWarn("dryrun would delete %q", target)
+	if flags.IsDryRun {
+		internal.PrintWarnf("dryrun would delete %q", target)
 		return nil
 	}
 
-	if err := removeTarget(target); err != nil {
+	if err := RemoveTarget(target); err != nil {
 		return err
 	}
 	importStmt := formatImportWithWildcard(flags, pkgVersion, pkgName)
@@ -107,23 +107,23 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func formatImportWithWildcard(flags uninstallFlags, pkgVersion string, pkgName string) string {
-	if flags.deleteAll {
+func formatImportWithWildcard(flags UninstallFlags, pkgVersion string, pkgName string) string {
+	if flags.DeleteAll {
 		pkgVersion = "*.*.*"
 	}
-	importStmt := internal.FormatImportStmt(flags.namespace, pkgName, pkgVersion)
+	importStmt := internal.FormatImportStmt(flags.Namespace, pkgName, pkgVersion)
 	return importStmt
 }
 
-func resolvePackageIdentity(args []string, flags uninstallFlags) (string, string, error) {
+func ResolvePackageIdentity(args []string, flags UninstallFlags) (string, string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "", "", fmt.Errorf("could not get current working directory: %w", err)
 	}
-	return resolvePackageIdentityFromWorkingDir(args, flags.version, flags.deleteAll, cwd)
+	return ResolvePackageIdentityFromWorkingDir(args, flags.Version, flags.DeleteAll, cwd)
 }
 
-func readUninstallFlags(cmd *cobra.Command) (uninstallFlags, error) {
+func ReadUninstallFlags(cmd *cobra.Command) (UninstallFlags, error) {
 	deleteAll, err := cmd.Flags().GetBool("all")
 	if err != nil {
 		return UninstallFlags{}, fmt.Errorf("could not get flag '--all': %w", err)
@@ -140,27 +140,27 @@ func readUninstallFlags(cmd *cobra.Command) (uninstallFlags, error) {
 	if err != nil {
 		return UninstallFlags{}, fmt.Errorf("could not get flag '--dry-run': %w", err)
 	}
-	return uninstallFlags{
-		namespace: namespace,
-		version:   version,
-		deleteAll: deleteAll,
-		isDryRun:  isDryRun,
+	return UninstallFlags{
+		Namespace: namespace,
+		Version:   version,
+		DeleteAll: deleteAll,
+		IsDryRun:  isDryRun,
 	}, nil
 }
 
-// resolveUninstallTarget builds the path of the directory to remove.
+// ResolveUninstallTarget builds the path of the directory to remove.
 // When deleteAll is true and no version is given, the package directory
 // (all versions) is targeted; otherwise a specific version directory is used.
-func resolveUninstallTarget(pkgDir, namespace, name, version string, deleteAll bool) string {
+func ResolveUninstallTarget(pkgDir, namespace, name, version string, deleteAll bool) string {
 	if deleteAll && version == "" {
 		return filepath.Join(pkgDir, namespace, name)
 	}
 	return filepath.Join(pkgDir, namespace, name, version)
 }
 
-// validateTargetExists returns an error when there is nothing at target to remove.
+// ValidateTargetExists returns an error when there is nothing at target to remove.
 // Uses Lstat so a dangling symlink still counts as "present".
-func validateTargetExists(target string) error {
+func ValidateTargetExists(target string) error {
 	if _, err := os.Lstat(target); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("path does not exist %q: %w", target, err)
@@ -170,10 +170,10 @@ func validateTargetExists(target string) error {
 	return nil
 }
 
-// removeTarget removes target from disk.
+// RemoveTarget removes target from disk.
 // When target is a symlink, only the link is removed, not the directory it points to.
 // When target is a regular file or directory, it is removed with all its contents.
-func removeTarget(target string) error {
+func RemoveTarget(target string) error {
 	info, err := os.Lstat(target)
 	if err != nil {
 		return fmt.Errorf("checking target %q: %w", target, err)
@@ -190,10 +190,10 @@ func removeTarget(target string) error {
 	return nil
 }
 
-// resolvePackageIdentityFromWorkingDir returns the package name and version to uninstall.
+// ResolvePackageIdentityFromWorkingDir returns the package name and version to uninstall.
 // When a name is provided as an argument it is taken from CLI args; otherwise
 // both are read from the typst.toml in dir.
-func resolvePackageIdentityFromWorkingDir(args []string, version string, deleteAll bool, dir string) (name, ver string, err error) {
+func ResolvePackageIdentityFromWorkingDir(args []string, version string, deleteAll bool, dir string) (string, string, error) {
 	if len(args) > 0 {
 		if version == "" && !deleteAll {
 			return "", "", ErrInsufficientPackage
