@@ -113,7 +113,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, file := range files {
-		str := lipgloss.Sprintln(internal.StyleYellow.Render("Updating"), fmt.Sprintf("imports in %q", file))
+		str := lipgloss.Sprintln(internal.StyleANSIGreen.Render("Updating"), fmt.Sprintf("%q", file))
 		_, _ = lipgloss.Fprint(os.Stderr, str)
 		content, err := os.ReadFile(file) //nolint: gosec
 		if err != nil {
@@ -174,7 +174,7 @@ func printUpdateSummary(updates map[string]Result) {
 		return
 	}
 	for pkg, res := range updates {
-		str := lipgloss.Sprintln(internal.StyleGreen.Render("  Updated"), pkg, res.Current, "->", res.Latest)
+		str := lipgloss.Sprintln(internal.StyleGreen.Render(" ", pkg), res.Current, "->", res.Latest)
 		_, _ = lipgloss.Fprint(os.Stderr, str)
 	}
 }
