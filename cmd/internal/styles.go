@@ -11,7 +11,7 @@ var (
 	Blue      = charmtone.Malibu
 	Green     = charmtone.Bok
 	Yellow    = charmtone.Zest
-	Red       = charmtone.Coral
+	Red       = lipgloss.Red
 	Violet    = charmtone.Charple
 	Magenta   = charmtone.Cheeky
 	Normal    = lipgloss.White
@@ -27,6 +27,7 @@ var (
 	StyleANSIGreen   = lipgloss.NewStyle().Foreground(ANSIGreen).Bold(true)
 	StyleYellow      = lipgloss.NewStyle().Foreground(Yellow).Bold(true)
 	StyleRed         = lipgloss.NewStyle().Foreground(Red)
+	StyleRedBold     = lipgloss.NewStyle().Foreground(Red).Bold(true)
 	StyleNormal      = lipgloss.NewStyle().Foreground(Normal)
 	StyleMuted       = lipgloss.NewStyle().Foreground(Muted)
 	StyleAccent      = lipgloss.NewStyle().Foreground(Accent).Bold(true)
