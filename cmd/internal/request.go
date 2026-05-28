@@ -14,7 +14,7 @@ import (
 const (
 	TypstPackageEndpoint string        = "https://api.github.com/repos/typst/packages/contents/packages/preview/"
 	TypstPackageIndexURL string        = "https://packages.typst.org/preview/index.json"
-	Timeout              time.Duration = 5
+	Timeout              time.Duration = 5 * time.Second
 )
 
 var ErrHTTPFailedRequest = errors.New("http request failed")
@@ -29,7 +29,7 @@ type TypstIndexEntry struct {
 }
 
 func FetchDataFromGitHub(url string, ctx context.Context) ([]*ResponseModel, error) {
-	client := &http.Client{Timeout: Timeout * time.Second}
+	client := &http.Client{Timeout: Timeout}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create new request: %w", err)
@@ -80,7 +80,7 @@ func closeResponse(resp *http.Response) {
 
 // FetchTypstIndex fetches the full package index from packages.typst.org.
 func FetchTypstIndex(ctx context.Context) ([]TypstIndexEntry, error) {
-	client := &http.Client{Timeout: Timeout * time.Second}
+	client := &http.Client{Timeout: Timeout}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, TypstPackageIndexURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request: %w", err)
