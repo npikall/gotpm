@@ -8,21 +8,23 @@ import (
 )
 
 var (
-	Blue    = charmtone.Malibu
-	Green   = charmtone.Bok
-	Yellow  = charmtone.Zest
-	Red     = charmtone.Coral
-	Violet  = charmtone.Charple
-	Magenta = charmtone.Cheeky
-	Normal  = lipgloss.White
-	Muted   = charmtone.Squid
-	Accent  = charmtone.Ash
+	Blue      = charmtone.Malibu
+	Green     = charmtone.Bok
+	Yellow    = charmtone.Zest
+	Red       = charmtone.Coral
+	Violet    = charmtone.Charple
+	Magenta   = charmtone.Cheeky
+	Normal    = lipgloss.White
+	Muted     = charmtone.Squid
+	Accent    = charmtone.Ash
+	ANSIGreen = lipgloss.Green
 )
 
 var (
 	StyleBlueBold    = lipgloss.NewStyle().Foreground(Blue).Bold(true)
 	StyleBlue        = lipgloss.NewStyle().Foreground(Blue)
 	StyleGreen       = lipgloss.NewStyle().Foreground(Green)
+	StyleANSIGreen   = lipgloss.NewStyle().Foreground(ANSIGreen).Bold(true)
 	StyleYellow      = lipgloss.NewStyle().Foreground(Yellow).Bold(true)
 	StyleRed         = lipgloss.NewStyle().Foreground(Red)
 	StyleNormal      = lipgloss.NewStyle().Foreground(Normal)
