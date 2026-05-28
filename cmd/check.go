@@ -54,7 +54,7 @@ type ImportIssue struct {
 	Err    error
 }
 
-func (i ImportIssue) Print()        { PrintMissingf("%s: %v", i.Import, i.Err) }
+func (i ImportIssue) Print()        { PrintMissingf("%q: %v", i.Import, i.Err) }
 func (i ImportIssue) IsError() bool { return true }
 
 // VersionWarning is a soft warning — import found but a newer version exists.
@@ -84,16 +84,6 @@ func (r *CheckResult) HasIssues() bool {
 		}
 	}
 	return false
-}
-
-func (r *CheckResult) ErrorCount() int {
-	n := 0
-	for _, item := range r.Items {
-		if item.IsError() {
-			n++
-		}
-	}
-	return n
 }
 
 func (r *CheckResult) Print() {
@@ -132,7 +122,12 @@ func CheckRunner(cmd *cobra.Command, args []string) error {
 
 func CheckImports(linesCh <-chan string, resultCh chan<- *CheckResult) {
 	r := &CheckResult{}
+	seen := make(map[string]struct{})
 	for line := range linesCh {
+		if _, dup := seen[line]; dup {
+			continue
+		}
+		seen[line] = struct{}{}
 		if err := CheckImportStatement(line, r); err != nil {
 			r.Add(ImportIssue{Import: line, Err: err})
 		}
@@ -175,7 +170,7 @@ func CheckPackageExistsLocally(namespace, pkg, version string) error {
 	pkgPath := filepath.Join(dir, namespace, pkg, version)
 	if _, err := os.Stat(pkgPath); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("%w: @%s/%s:%s ", err, namespace, pkg, version)
+			return ErrPackageNotFound
 		}
 		return fmt.Errorf("could not stat package path %q: %w", pkgPath, err)
 	}
@@ -201,7 +196,7 @@ func CheckPackageInTypstUniverse(pkg, version string, result *CheckResult) error
 
 	latest, found := index[pkg]
 	if !found {
-		return fmt.Errorf("%w: %q", ErrPackageNotInIndex, pkg)
+		return ErrPackageNotInIndex
 	}
 	if latest != version {
 		result.Add(VersionWarning{Package: pkg, Requested: version, Latest: latest})
