@@ -96,6 +96,8 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("could not read from stdin: %w", err)
 		}
+		str := lipgloss.Sprintln(internal.StyleANSIGreen.Render("Updating"), "\"stdin\"")
+		_, _ = lipgloss.Fprint(os.Stderr, str)
 		content = runUpdate(ctx, logger, content, noCache)
 		return WriteOutputContent(content, "", outputPath)
 	}
