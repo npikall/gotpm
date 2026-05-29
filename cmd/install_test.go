@@ -35,12 +35,10 @@ func Test_copyPackageFiles(t *testing.T) {
 	})
 }
 
-func Test_resolveDefaultDestination(t *testing.T) {
-	t.Parallel()
+func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
-	t.Run("default namespace builds correct path", func(t *testing.T) {
-		t.Parallel()
+	t.Run("default namespace builds correct path", func(t *testing.T) { //nolint: paralleltest
 		opts := InstallOptions{Namespace: internal.DefaultNamespace}
 		got, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		require.NoError(t, err)
@@ -50,8 +48,7 @@ func Test_resolveDefaultDestination(t *testing.T) {
 		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
-	t.Run("custom namespace builds correct path", func(t *testing.T) {
-		t.Parallel()
+	t.Run("custom namespace builds correct path", func(t *testing.T) { //nolint: paralleltest
 		opts := InstallOptions{Namespace: "preview"}
 		got, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		require.NoError(t, err)
@@ -59,14 +56,12 @@ func Test_resolveDefaultDestination(t *testing.T) {
 		wantPath := filepath.Join(dataDir, "preview", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
-	t.Run("empty namespace returns error", func(t *testing.T) {
-		t.Parallel()
+	t.Run("empty namespace returns error", func(t *testing.T) { //nolint: paralleltest
 		opts := InstallOptions{Namespace: ""}
 		_, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrEmptyNamespace)
 	})
-	t.Run("already installed returns error", func(t *testing.T) {
-		t.Parallel()
+	t.Run("already installed returns error", func(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		err := os.MkdirAll(existing, 0o750)
 		require.NoError(t, err)
@@ -75,8 +70,7 @@ func Test_resolveDefaultDestination(t *testing.T) {
 		_, err = ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
-	t.Run("force skips conflict check", func(t *testing.T) {
-		t.Parallel()
+	t.Run("force skips conflict check", func(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		check(os.MkdirAll(existing, 0o750))
 
