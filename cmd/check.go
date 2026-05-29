@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
@@ -137,7 +136,7 @@ func resolveIndex(ctx context.Context) (map[string]string, error) {
 func CheckImports(linesCh <-chan string, resultCh chan<- *CheckResult) {
 	r := &CheckResult{}
 
-	ctx, cancel := context.WithTimeout(context.Background(), internal.Timeout*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), internal.Timeout)
 	defer cancel()
 	index, indexErr := resolveIndex(ctx)
 
