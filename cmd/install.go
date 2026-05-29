@@ -16,7 +16,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/internal"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )

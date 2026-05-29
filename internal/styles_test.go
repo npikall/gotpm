@@ -3,7 +3,7 @@ package internal_test
 import (
 	"testing"
 
-	. "github.com/npikall/gotpm/cmd/internal"
+	. "github.com/npikall/gotpm/internal"
 	"github.com/stretchr/testify/assert"
 )
 

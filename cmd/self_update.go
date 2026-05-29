@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/creativeprojects/go-selfupdate"
-	"github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/internal"
 	"github.com/spf13/cobra"
 )
 

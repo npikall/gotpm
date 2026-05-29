@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/internal"
 	"github.com/spf13/cobra"
 )
 

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/npikall/gotpm/cmd/internal"
+	. "github.com/npikall/gotpm/internal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

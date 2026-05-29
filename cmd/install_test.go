@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
-	"github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/internal"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

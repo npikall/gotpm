@@ -7,7 +7,7 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"github.com/npikall/gotpm/cmd/internal"
+	"github.com/npikall/gotpm/internal"
 	"github.com/spf13/cobra"
 )
 
