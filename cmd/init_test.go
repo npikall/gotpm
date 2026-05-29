@@ -76,7 +76,7 @@ func TestInitRunner_ExistingDirFails(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
 	// pre-create the subdir so Mkdir fails
-	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), 0o750))
+	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), internal.DirPerm))
 	err := InitRunner(newInitCmd(t), []string{"dup"})
 	assert.Error(t, err)
 }

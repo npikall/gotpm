@@ -250,7 +250,7 @@ func RunTransferJobs(jobs []TransferJob) error {
 }
 
 func CopyFile(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil { //nolint: mnd
+	if err := os.MkdirAll(filepath.Dir(dest), internal.DirPerm); err != nil {
 		return fmt.Errorf("creating parent directories for %q: %w", dest, err)
 	}
 

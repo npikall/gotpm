@@ -106,8 +106,8 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("write edited toml to buffer")
 
-	if err := os.WriteFile(typstTOML, buf.Bytes(), 0o600); err != nil { //nolint: mnd
-		return fmt.Errorf("could not write typst.toml: %w", err)
+	if err := internal.WriteFile(typstTOML, buf.Bytes()); err != nil {
+		return err
 	}
 	logger.Debug("write buffer", "file", typstTOML)
 

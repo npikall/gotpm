@@ -92,7 +92,7 @@ func Test_validateTargetExists(t *testing.T) {
 	t.Run("existing file returns no error", func(t *testing.T) {
 		t.Parallel()
 		file := filepath.Join(dir, "file.txt")
-		check(os.WriteFile(file, []byte(""), 0o644))
+		check(os.WriteFile(file, []byte(""), internal.FilePerm))
 		err := ValidateTargetExists(file)
 		assert.NoError(t, err)
 	})
@@ -118,8 +118,8 @@ func Test_removeTarget(t *testing.T) {
 		t.Parallel()
 		parent := t.TempDir()
 		target := filepath.Join(parent, "pkg")
-		check(os.MkdirAll(filepath.Join(target, "sub"), 0o755))
-		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), 0o644))
+		check(os.MkdirAll(filepath.Join(target, "sub"), internal.DirPerm))
+		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), internal.FilePerm))
 
 		err := RemoveTarget(target)
 		require.NoError(t, err)
@@ -128,7 +128,7 @@ func Test_removeTarget(t *testing.T) {
 	t.Run("removes symlink without deleting the pointed-to directory", func(t *testing.T) {
 		t.Parallel()
 		actual := t.TempDir()
-		check(os.WriteFile(filepath.Join(actual, "lib.typ"), []byte(""), 0o644))
+		check(os.WriteFile(filepath.Join(actual, "lib.typ"), []byte(""), internal.FilePerm))
 		parent := t.TempDir()
 		link := filepath.Join(parent, "link")
 		check(os.Symlink(actual, link))

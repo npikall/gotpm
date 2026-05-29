@@ -68,9 +68,5 @@ func SaveIndexCache(index map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("could not marshal index: %w", err)
 	}
-	err = os.WriteFile(path, data, 0o600) //nolint: mnd
-	if err != nil {
-		return fmt.Errorf("could not write cache: %w", err)
-	}
-	return nil
+	return WriteFile(path, data)
 }

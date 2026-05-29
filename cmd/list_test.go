@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
+	"github.com/npikall/gotpm/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func buildPackageDir(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, "@ns", "pkg", "0.1.0")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, internal.DirPerm); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -58,13 +59,13 @@ func TestScanPackages_Regular(t *testing.T) {
 func TestScanPackages_Editable(t *testing.T) {
 	t.Parallel()
 	srcDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(srcDir, "main.typ"), []byte(""), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(srcDir, "main.typ"), []byte(""), internal.FilePerm); err != nil {
 		t.Fatal(err)
 	}
 
 	root := t.TempDir()
 	pkgDir := filepath.Join(root, "@local", "mypkg")
-	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+	if err := os.MkdirAll(pkgDir, internal.DirPerm); err != nil {
 		t.Fatal(err)
 	}
 
@@ -101,7 +102,7 @@ func TestScanPackages_MixedVersions(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := filepath.Join(root, "@ns", "pkg")
 
-	if err := os.MkdirAll(filepath.Join(pkgDir, "0.1.0"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(pkgDir, "0.1.0"), internal.DirPerm); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(srcDir, filepath.Join(pkgDir, "0.2.0")); err != nil {
@@ -143,9 +144,9 @@ func TestScanPackages_NonDirInNamespace_Skipped(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	nsDir := filepath.Join(root, "local")
-	require.NoError(t, os.MkdirAll(nsDir, 0o755))
+	require.NoError(t, os.MkdirAll(nsDir, internal.DirPerm))
 	// plain file in namespace dir — should not be treated as package
-	require.NoError(t, os.WriteFile(filepath.Join(nsDir, "not-a-pkg"), []byte(""), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(nsDir, "not-a-pkg"), []byte(""), internal.FilePerm))
 
 	namespaces, err := ScanPackages(root)
 	require.NoError(t, err)
@@ -160,8 +161,8 @@ func TestScanPackages_PackageWithNoVersions_Excluded(t *testing.T) {
 	root := t.TempDir()
 	// pkg dir exists but contains only a plain file (no version dirs)
 	pkgDir := filepath.Join(root, "local", "empty-pkg")
-	require.NoError(t, os.MkdirAll(pkgDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(pkgDir, "not-a-version"), []byte(""), 0o644))
+	require.NoError(t, os.MkdirAll(pkgDir, internal.DirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(pkgDir, "not-a-version"), []byte(""), internal.FilePerm))
 
 	namespaces, err := ScanPackages(root)
 	require.NoError(t, err)
@@ -175,7 +176,7 @@ func TestScanPackages_MultipleNamespacesSortedAlphabetically(t *testing.T) {
 	root := t.TempDir()
 	for _, ns := range []string{"preview", "alpha", "local"} {
 		dir := filepath.Join(root, ns, "pkg", "0.1.0")
-		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.MkdirAll(dir, internal.DirPerm))
 	}
 
 	namespaces, err := ScanPackages(root)
@@ -191,7 +192,7 @@ func TestScanPackages_PackagesSortedAlphabetically(t *testing.T) {
 	root := t.TempDir()
 	for _, pkg := range []string{"zoo", "alpha", "middle"} {
 		dir := filepath.Join(root, "local", pkg, "0.1.0")
-		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.MkdirAll(dir, internal.DirPerm))
 	}
 
 	namespaces, err := ScanPackages(root)
@@ -209,7 +210,7 @@ func TestScanPackages_VersionsSortedAlphabetically(t *testing.T) {
 	root := t.TempDir()
 	for _, ver := range []string{"0.3.0", "0.1.0", "0.2.0"} {
 		dir := filepath.Join(root, "local", "pkg", ver)
-		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.MkdirAll(dir, internal.DirPerm))
 	}
 
 	namespaces, err := ScanPackages(root)
@@ -225,7 +226,7 @@ func TestIsDirPath(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")
-	require.NoError(t, os.WriteFile(file, []byte(""), 0o644))
+	require.NoError(t, os.WriteFile(file, []byte(""), internal.FilePerm))
 
 	assert.True(t, IsDirPath(dir))
 	assert.False(t, IsDirPath(file))

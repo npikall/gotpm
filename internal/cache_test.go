@@ -68,8 +68,8 @@ func TestLoadIndexCache_InvalidJSON(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
-	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), DirPerm))
+	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), FilePerm))
 
 	cache, err := LoadIndexCache()
 	require.Error(t, err)
@@ -81,7 +81,7 @@ func TestLoadIndexCache_Valid(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), DirPerm))
 
 	timestamp := time.Now().Truncate(time.Second)
 	fixture := IndexCache{
@@ -90,7 +90,7 @@ func TestLoadIndexCache_Valid(t *testing.T) { //nolint: paralleltest
 	}
 	data, err := json.Marshal(fixture)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(path, data, 0o600))
+	require.NoError(t, os.WriteFile(path, data, FilePerm))
 
 	got, err := LoadIndexCache()
 	require.NoError(t, err)

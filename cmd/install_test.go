@@ -22,7 +22,7 @@ func Test_copyPackageFiles(t *testing.T) {
 	writeFile(t, src, "lib.typ", "content")
 	writeFile(t, src, "README.md", "readme")
 	srcSubDir := filepath.Join(src, "utils")
-	check(os.MkdirAll(srcSubDir, 0o750))
+	check(os.MkdirAll(srcSubDir, internal.DirPerm))
 	writeFile(t, srcSubDir, "helper.typ", "helper")
 
 	t.Run("copies all files concurrently", func(t *testing.T) {
@@ -63,7 +63,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 	})
 	t.Run("already installed returns error", func(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		err := os.MkdirAll(existing, 0o750)
+		err := os.MkdirAll(existing, internal.DirPerm)
 		require.NoError(t, err)
 
 		opts := InstallOptions{Namespace: internal.DefaultNamespace}
@@ -72,7 +72,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 	})
 	t.Run("force skips conflict check", func(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		check(os.MkdirAll(existing, 0o750))
+		check(os.MkdirAll(existing, internal.DirPerm))
 
 		opts := InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
 		_, err := ResolveDefaultDestination(dataDir, manifest, opts)
@@ -228,7 +228,7 @@ func Test_validateIsDirectory(t *testing.T) {
 	dir, _ = filepath.EvalSymlinks(dir)
 	notExistingDir := filepath.Join(dir, "subdir")
 	file := filepath.Join(dir, "empty")
-	check(os.WriteFile(file, []byte(""), 0o600))
+	check(os.WriteFile(file, []byte(""), internal.FilePerm))
 
 	t.Run("file returns error", func(t *testing.T) {
 		t.Parallel()
@@ -251,7 +251,7 @@ func Test_resolveProvidedPath(t *testing.T) { //nolint: paralleltest
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
 	subdir := filepath.Join(dir, "subdir")
-	check(os.Mkdir(subdir, 0o750))
+	check(os.Mkdir(subdir, internal.DirPerm))
 	t.Chdir(dir)
 
 	t.Run("absolute path to existing dir returns correct", func(t *testing.T) { //nolint: paralleltest
@@ -280,9 +280,9 @@ func Test_resolveSourceDir(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	cwd, _ := os.Getwd()
 	subdir := filepath.Join(dir, "subdir")
-	check(os.Mkdir(subdir, 0o750))
+	check(os.Mkdir(subdir, internal.DirPerm))
 	file := filepath.Join(dir, "file.txt")
-	check(os.WriteFile(file, []byte(""), 0o600))
+	check(os.WriteFile(file, []byte(""), internal.FilePerm))
 
 	t.Run("no args returns cwd", func(t *testing.T) { //nolint: paralleltest
 		got, gotErr := ResolveSourceDir([]string{})
@@ -317,7 +317,7 @@ func writeManifest(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
-	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), 0o600)
+	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), internal.FilePerm)
 	if err != nil {
 		t.Fatalf("writing test manifest: %v", err)
 	}
@@ -351,7 +351,7 @@ func newManifest(name, version, entrypoint string) internal.Manifest {
 func writeFile(t *testing.T, dir, filename, content string) {
 	t.Helper()
 	dir, _ = filepath.EvalSymlinks(dir)
-	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o600)
+	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), internal.FilePerm)
 	if err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
@@ -417,21 +417,21 @@ func Test_readIgnoreLines(t *testing.T) {
 	t.Run("returns trimmed non-empty lines", func(t *testing.T) {
 		t.Parallel()
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		check(os.WriteFile(path, []byte("*.typ\nREADME.md\n"), 0o600))
+		check(os.WriteFile(path, []byte("*.typ\nREADME.md\n"), internal.FilePerm))
 		got := ReadIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
 	t.Run("skips blank lines", func(t *testing.T) {
 		t.Parallel()
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		check(os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), 0o600))
+		check(os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), internal.FilePerm))
 		got := ReadIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
 	t.Run("strips windows-style CRLF line endings", func(t *testing.T) {
 		t.Parallel()
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		check(os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), 0o600))
+		check(os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), internal.FilePerm))
 		got := ReadIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
@@ -523,7 +523,7 @@ func Test_collectJobs_ignoredDirectorySkipsContents(t *testing.T) {
 	dst := t.TempDir()
 	writeFile(t, src, "lib.typ", "content")
 	subdir := filepath.Join(src, "dist")
-	check(os.MkdirAll(subdir, 0o755))
+	check(os.MkdirAll(subdir, internal.DirPerm))
 	writeFile(t, subdir, "output.typ", "generated")
 	writeFile(t, src, ".typstignore", "dist/\n")
 
@@ -703,7 +703,7 @@ func Test_copyFile(t *testing.T) {
 		t.Parallel()
 		src := filepath.Join(t.TempDir(), "src.typ")
 		dst := filepath.Join(t.TempDir(), "dst.typ")
-		check(os.WriteFile(src, []byte("hello"), 0o600))
+		check(os.WriteFile(src, []byte("hello"), internal.FilePerm))
 
 		err := CopyFile(src, dst)
 		require.NoError(t, err)
@@ -715,7 +715,7 @@ func Test_copyFile(t *testing.T) {
 		t.Parallel()
 		src := filepath.Join(t.TempDir(), "src.typ")
 		dst := filepath.Join(t.TempDir(), "a", "b", "c", "dst.typ")
-		check(os.WriteFile(src, []byte("x"), 0o600))
+		check(os.WriteFile(src, []byte("x"), internal.FilePerm))
 
 		err := CopyFile(src, dst)
 		require.NoError(t, err)
@@ -725,13 +725,13 @@ func Test_copyFile(t *testing.T) {
 		t.Parallel()
 		src := filepath.Join(t.TempDir(), "exec.typ")
 		dst := filepath.Join(t.TempDir(), "exec-dst.typ")
-		check(os.WriteFile(src, []byte("x"), 0o755))
+		check(os.WriteFile(src, []byte("x"), internal.DirPerm))
 
 		err := CopyFile(src, dst)
 		require.NoError(t, err)
 		info, err := os.Stat(dst)
 		require.NoError(t, err)
-		assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
+		assert.Equal(t, os.FileMode(internal.DirPerm), info.Mode().Perm())
 	})
 	t.Run("missing source returns error", func(t *testing.T) {
 		t.Parallel()
@@ -746,8 +746,8 @@ func Test_runTransferJobs(t *testing.T) {
 		t.Parallel()
 		srcDir := t.TempDir()
 		dstDir := t.TempDir()
-		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), 0o600))
-		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), 0o600))
+		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), internal.FilePerm))
+		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), internal.FilePerm))
 
 		jobs := []TransferJob{
 			{Src: filepath.Join(srcDir, "a.typ"), Dst: filepath.Join(dstDir, "a.typ")},
