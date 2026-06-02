@@ -40,6 +40,7 @@ var (
 	gitCommit string = "00000000"
 	buildOS   string = "NOOS"
 	buildARCH string = "NOARCH"
+	installer string = "source"
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
