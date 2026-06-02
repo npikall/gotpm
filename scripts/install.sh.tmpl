@@ -98,6 +98,15 @@ __install_gotpm() {
 
     echo "Installed to ${target}"
 
+    # Install man page
+    case "$install_dir" in
+        /usr/*) man_dir="/usr/local/share/man/man1" ;;
+        *)      man_dir="${HOME}/.local/share/man/man1" ;;
+    esac
+    mkdir -p "$man_dir"
+    "$target" man > "${man_dir}/gotpm.1"
+    echo "Installed man page to ${man_dir}/gotpm.1"
+
     # Check if install_dir is in PATH
     case ":$PATH:" in
         *":${install_dir}:"*) ;;
