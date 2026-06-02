@@ -12,6 +12,7 @@ LATEST_TAG := `git describe --tags --dirty --always --abbrev=0`
 COMMIT_HASH := `git rev-parse --short HEAD`
 BUILD_OS := `go env GOOS`
 BUILD_ARCH := `go env GOARCH`
+INSTALLER := env("INSTALLER", "source")
 
 # Generic variables
 
@@ -24,7 +25,8 @@ LDFLAGS := f"-s -w \
 -X {{GO_URL}}/cmd.gitTag={{LATEST_TAG}} \
 -X {{GO_URL}}/cmd.gitCommit={{COMMIT_HASH}} \
 -X {{GO_URL}}/cmd.buildOS={{BUILD_OS}} \
--X {{GO_URL}}/cmd.buildARCH={{BUILD_ARCH}} "
+-X {{GO_URL}}/cmd.buildARCH={{BUILD_ARCH}} \
+-X {{GO_URL}}/cmd.installer={{INSTALLER}} "
 
 # show version information
 info:

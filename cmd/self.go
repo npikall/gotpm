@@ -21,7 +21,7 @@ var selfVersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print build information for the gotpm binary",
 	Run: func(cmd *cobra.Command, args []string) {
-		internal.PrintInfof("gotpm version=%s hash=%s os=%s arch=%s", gitTag, gitCommit, buildOS, buildARCH)
+		internal.PrintInfof("gotpm version=%s hash=%s os=%s arch=%s installer=%s", gitTag, gitCommit, buildOS, buildARCH, installer)
 	},
 }
 
