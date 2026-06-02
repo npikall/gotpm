@@ -79,8 +79,8 @@ jobs:
 
       - name: Generate install scripts
         run: |
-          sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.sh.tmpl > artifacts/install.sh
-          sed 's/{{VERSION}}/${{ github.ref_name }}/g' install.ps1.tmpl > artifacts/install.ps1
+          sed 's/{{VERSION}}/${{ github.ref_name }}/g' scripts/install.sh.tmpl > artifacts/install.sh
+          sed 's/{{VERSION}}/${{ github.ref_name }}/g' scripts/install.ps1.tmpl > artifacts/install.ps1
 
       - name: Generate checksums
         run: |
