@@ -67,13 +67,18 @@ _commit_and_tag version:
     git commit -m "chore(release): bump version to {{ version }}"
     git tag -a "v{{ version }}"
 
-# update template dependencies and GitHub Actions to their latest versions
-update-gh:
-    uv run scripts/update_github_actions.py
+# run CI checks: format, lint, vulns, vendor sync, test
+ci:
+    @files=$(gofmt -l . | grep -v '^vendor/'); if [ -n "$files" ]; then echo "unformatted files:"; echo "$files"; exit 1; fi
+    golangci-lint fmt --diff
+    golangci-lint run
+    govulncheck ./...
+    go mod vendor
+    git diff --exit-code vendor/
+    go test ./...
 
 # make a new release (e.g. semver=0.1.2)
-release semver:
-    @just _ensure_clean
+release semver: _ensure_clean ci
     @just changelog --tag {{ semver }}
     @just _commit_and_tag {{ semver }}
     @echo "{{ GREEN }}Release complete. Run 'git push && git push --tags'.{{ NORMAL }}"
