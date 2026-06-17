@@ -5,6 +5,87 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.13] - 2026-06-17
+
+### 🚀 Features
+
+- *(dev-check)* add initial skeleton for check command
+- add check file command
+- add print info to stdin reader
+- *(installer-powershell)* add powershell script via vibes
+- add installer variable
+- add man page creation to shell install script
+- error in self-update when installed via homebrew
+
+### 🐛 Bug Fixes
+
+- remove unused imports
+- import errors package
+- check http status after requests
+- remove nil,nil return comment
+- add argument to useage doc
+- remove duplicate printing
+- load index only once
+- remove extra multiplication with seconds
+- *(installer-powershell)* add checksums in shell installer
+- *(installer-powershell)* add checksums on release
+
+### 📚 Documentation
+
+- add install instructions to readme
+
+### 🚜 Refactor
+
+- extract functions and reduce complexity
+- wrap errors from external packages
+- use f directive in print statements
+- use single timeout setting
+- explicitly ignore lipgloss errors
+- use switch instead of if blocks
+- remove named returns
+- place newversion before bump method
+- change error message
+- add ansi green
+- use ansi green to print update info
+- make default timeout 5 seconds
+- change the red color and add bold red style
+- move internal package into root
+- centralize setting file and dir permissions
+
+### 🧪 Testing
+
+- move test into dedicated test packages
+- fix parallel test error
+
+### ◀️ Revert
+
+- remove github action update script
+
+### 💼 Other
+
+- run gofumpt
+- run linters with auto-fix
+- add extensive linter and formatter config
+- expose functions and variables in update
+- expose functions and variables in uninstall
+- expose functions and variables in list
+- expose functions and variables of install
+- expose functions and varaiables of init
+- expose functions and variables of bump
+- add nolint directives
+- add linter and formatter to just
+- add goimports to formatter
+- add fix flag to linter
+- vendor all dependencies
+- update dependencies in module
+- update vendor
+- move install templates into scripts
+- resolve linter issues
+- run formatter
+- add ci recipe
+- pin versions
+- add semver validation
+
 ## [0.3.12] - 2026-05-18
 
 ### 🚀 Features
@@ -476,7 +557,8 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
-[0.3.12]: https://github.com/npikall/gotpm/compare/v0.3.11..0.3.12
+[0.3.13]: https://github.com/npikall/gotpm/compare/v0.3.12..0.3.13
+[0.3.12]: https://github.com/npikall/gotpm/compare/v0.3.11..v0.3.12
 [0.3.11]: https://github.com/npikall/gotpm/compare/v0.3.10..v0.3.11
 [0.3.10]: https://github.com/npikall/gotpm/compare/v0.3.9..v0.3.10
 [0.3.9]: https://github.com/npikall/gotpm/compare/v0.3.8..v0.3.9
