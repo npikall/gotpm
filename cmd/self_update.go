@@ -30,8 +30,10 @@ func init() {
 	selfUpdateCmd.Flags().Bool("check", false, "check for an update without installing it")
 }
 
-var ErrUpdateDevelopmentBuild = errors.New("cannot self-update a development build; install a tagged release first")
-var ErrUpdateBrewBuild = errors.New("gotpm was installed via Homebrew; update with: brew upgrade gotpm")
+var (
+	ErrUpdateDevelopmentBuild = errors.New("cannot self-update a development build; install a tagged release first")
+	ErrUpdateBrewBuild        = errors.New("gotpm was installed via Homebrew; update with: brew upgrade gotpm")
+)
 
 func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 	checkOnly, _ := cmd.Flags().GetBool("check")
