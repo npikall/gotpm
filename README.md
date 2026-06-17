@@ -23,10 +23,34 @@ and use it.
 
 # Installation
 
-## Quick Install
+## macOS
+
+**Homebrew:**
+
+```bash
+# Short form
+brew install npikall/tap/gotpm
+
+# Long form
+brew tap npikall/tap && brew install gotpm
+```
+
+**Shell:**
 
 ```bash
 curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
+```
+
+## Linux
+
+```bash
+curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
+```
+
+## Windows
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/npikall/gotpm/releases/latest/download/install.ps1 | iex"
 ```
 
 ## Install with Go
