@@ -58,6 +58,9 @@ lint:
 changelog *args:
     git-cliff -o {{ args }}
 
+_validate_semver version:
+    @{{ if version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' { "true" } else { error("invalid semver: '" + version + "' — expected major.minor.patch") } }}
+
 _ensure_clean:
     @git diff --quiet
     @git diff --cached --quiet
@@ -78,7 +81,7 @@ ci:
     go test ./...
 
 # make a new release (e.g. semver=0.1.2)
-release semver: _ensure_clean ci
+release semver: (_validate_semver semver) _ensure_clean ci
     @just changelog --tag {{ semver }}
     @just _commit_and_tag {{ semver }}
     @echo "{{ GREEN }}Release complete. Run 'git push && git push --tags'.{{ NORMAL }}"
