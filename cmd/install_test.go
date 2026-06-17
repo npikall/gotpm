@@ -731,7 +731,7 @@ func Test_copyFile(t *testing.T) {
 		require.NoError(t, err)
 		info, err := os.Stat(dst)
 		require.NoError(t, err)
-		assert.Equal(t, os.FileMode(internal.DirPerm), info.Mode().Perm())
+		assert.Equal(t, internal.DirPerm, info.Mode().Perm())
 	})
 	t.Run("missing source returns error", func(t *testing.T) {
 		t.Parallel()
