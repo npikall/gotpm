@@ -31,6 +31,7 @@ func init() {
 }
 
 var ErrUpdateDevelopmentBuild = errors.New("cannot self-update a development build; install a tagged release first")
+var ErrUpdateBrewBuild = errors.New("gotpm was installed via Homebrew; update with: brew upgrade gotpm")
 
 func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 	checkOnly, _ := cmd.Flags().GetBool("check")
@@ -79,6 +80,10 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 			internal.StyleAccent.Render(gitTag),
 			internal.StyleAccent.Render("v"+latestVersion))
 		return nil
+	}
+
+	if installer == "brew" {
+		return ErrUpdateBrewBuild
 	}
 
 	s.Suffix = internal.StyleMuted.Render(" Downloading update...")
