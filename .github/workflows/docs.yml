@@ -1,4 +1,5 @@
 name: Documentation
+
 on:
   workflow_dispatch:
   push:
@@ -10,19 +11,29 @@ on:
       - "zensical.toml"
       - "CHANGELOG.md"
       - "README.md"
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    name: Deploy Documentation
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write # required to deploy to GitHub Pages
+      id-token: write # required for OIDC authentication with Pages deployment
     steps:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: 3.x
