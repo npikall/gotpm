@@ -45,6 +45,11 @@ install:
 test:
     go test ./...
 
+# run the tests and inspect the code coverage
+cover *args="./...":
+    go test -coverprofile=c.out {{ args }}
+    go tool cover -html=c.out
+
 # run the go formatter
 format:
     go fmt ./...
