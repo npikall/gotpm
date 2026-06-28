@@ -1,0 +1,197 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  BIN_NAME: gotpm
+  GO_URL:
+    sh: go list -m
+  BUILD_OS:
+    sh: go env GOOS
+  BUILD_ARCH:
+    sh: go env GOARCH
+  LATEST_TAG:
+    sh: git describe --tags --dirty --always --abbrev=0
+  COMMIT_HASH:
+    sh: git rev-parse --short HEAD
+  INSTALLER:
+    sh: echo "${INSTALLER:-source}"
+  LDFLAGS: >-
+    -s -w
+    -X {{.GO_URL}}/cmd.gitTag={{.LATEST_TAG}}
+    -X {{.GO_URL}}/cmd.gitCommit={{.COMMIT_HASH}}
+    -X {{.GO_URL}}/cmd.buildOS={{.BUILD_OS}}
+    -X {{.GO_URL}}/cmd.buildARCH={{.BUILD_ARCH}}
+    -X {{.GO_URL}}/cmd.installer={{.INSTALLER}}
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  info:
+    desc: Show version information
+    cmds:
+      - 'echo "Latest git tag: {{.LATEST_TAG}}"'
+      - 'echo "Latest commit hash: {{.COMMIT_HASH}}"'
+    silent: true
+
+  setup:
+    desc: Install dependencies
+    cmds:
+      - go mod tidy
+
+  build:
+    desc: Build the binary
+    aliases: [b]
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    generates:
+      - gotpm
+    cmds:
+      - go build -ldflags="{{.LDFLAGS}}" -o {{.BIN_NAME}}
+
+  install:
+    desc: Install the binary locally
+    cmds:
+      - go install -ldflags="{{.LDFLAGS}}"
+
+  test:
+    desc: Run the test suite
+    aliases: [t]
+    vars:
+      TEST_OPTIONS: '{{default "" .TEST_OPTIONS}}'
+      SOURCE_FILES: '{{default "./..." .SOURCE_FILES}}'
+      TEST_PATTERN: '{{default "." .TEST_PATTERN}}'
+      RACE: '{{if eq (default "true" .RACE) "true"}}-race{{end}}'
+    cmds:
+      - go test {{.TEST_OPTIONS}} -failfast {{.RACE}} {{.SOURCE_FILES}} -run {{.TEST_PATTERN}} -timeout=5m
+
+  cover:
+    desc: Generate coverage profile
+    generates:
+      - c.out
+    cmds:
+      - go test -coverprofile=c.out ./...
+
+  cover:html:
+    desc: Open coverage report in browser
+    deps: [cover]
+    cmds:
+      - go tool cover -html=c.out
+
+  format:
+    desc: Run the Go formatter
+    aliases: [fmt]
+    cmds:
+      - golangci-lint fmt
+
+  lint:
+    desc: Run the linter
+    cmds:
+      - golangci-lint run --fix --timeout 10m
+
+  vuln:
+    desc: Check for known vulnerabilities (may flag transitive/unexploited vulns)
+    cmds:
+      - govulncheck ./...
+
+  licenses:check:
+    desc: Check all dependencies use permitted licenses
+    cmds:
+      - |
+        go run github.com/google/go-licenses/v2@latest check \
+          --allowed_licenses=MIT,Apache-2.0,BSD-3-Clause,BSD-2-Clause,ISC,MPL-2.0 \
+          ./...
+
+  clean:
+    desc: Remove all generated files
+    cmds:
+      - rm -f {{.BIN_NAME}} c.out
+
+  update:
+    desc: Update all dependencies and sync vendor
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+      - go mod vendor
+
+  update:major:
+    desc: Bump dependencies to latest major versions (requires gomajor)
+    cmds:
+      - gomajor list
+      - gomajor get all
+      - go mod tidy
+      - go mod vendor
+
+  ci:
+    desc: Run CI checks (format, lint, vendor sync, test)
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    cmds:
+      - task: setup
+      - task: _format-check
+      - golangci-lint run --timeout 10m
+      - task: _vendor-check
+      - go test ./...
+
+  release:dry-run:
+    desc: Preview release without committing (TYPE=patch|minor|major, default patch)
+    vars:
+      TYPE: '{{.TYPE | default "patch"}}'
+      SEMVER:
+        sh: svu {{.TYPE}}
+    prompt: Dry Run Release {{.SEMVER}}?
+    cmds:
+      - task: ci
+      - echo "=== changelog preview for {{.SEMVER}} ==="
+      - git-cliff --tag {{.SEMVER}} --unreleased --strip header
+    silent: true
+
+  release:notes:
+    desc: Preview changelog for next version (TYPE=patch|minor|major, default patch)
+    vars:
+      TYPE: '{{.TYPE | default "patch"}}'
+      SEMVER:
+        sh: svu {{.TYPE}}
+    cmds:
+      - echo "=== release notes for {{.SEMVER}} ==="
+      - git-cliff --tag {{.SEMVER}} --unreleased --strip header
+    silent: true
+
+  release:
+    desc: Create a new release (TYPE=patch|minor|major, default patch)
+    vars:
+      TYPE: '{{.TYPE | default "patch"}}'
+      SEMVER:
+        sh: svu {{.TYPE}}
+    prompt: Release {{.SEMVER}}?
+    preconditions:
+      - sh: '[ "$(git symbolic-ref --short HEAD)" = "main" ]'
+        msg: Not on main branch
+      - sh: '[ "$(git status --porcelain=2 | wc -l)" = "0" ]'
+        msg: Git is dirty
+    cmds:
+      - task: ci
+      - git-cliff --tag {{.SEMVER}} --unreleased --strip header
+      - git-cliff -o CHANGELOG.md --tag {{.SEMVER}}
+      - git add CHANGELOG.md
+      - 'git commit -m "chore(release): bump version to {{.SEMVER}}"'
+      - git tag -a "{{.SEMVER}}" -m "{{.SEMVER}}"
+      - 'echo "Tag {{.SEMVER}} created. Push with: git push origin --tags"'
+
+  _format-check:
+    internal: true
+    cmds:
+      - golangci-lint fmt --diff
+
+  _vendor-check:
+    internal: true
+    cmds:
+      - go mod vendor
+      - git diff --exit-code vendor/
