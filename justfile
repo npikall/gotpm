@@ -63,17 +63,9 @@ lint:
 changelog *args:
     git-cliff -o {{ args }}
 
-_validate_semver version:
-    @{{ if version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' { "true" } else { error("invalid semver: '" + version + "' — expected major.minor.patch") } }}
-
 _ensure_clean:
     @git diff --quiet
     @git diff --cached --quiet
-
-_commit_and_tag version:
-    git add CHANGELOG.md
-    git commit -m "chore(release): bump version to {{ version }}"
-    git tag -a "v{{ version }}"
 
 # run CI checks: format, lint, vulns, vendor sync, test
 ci:
@@ -85,8 +77,13 @@ ci:
     git diff --exit-code vendor/
     go test ./...
 
-# make a new release (e.g. semver=0.1.2)
-release semver: (_validate_semver semver) _ensure_clean ci
-    @just changelog --tag {{ semver }}
-    @just _commit_and_tag {{ semver }}
-    @echo "{{ GREEN }}Release complete. Run 'git push && git push --tags'.{{ NORMAL }}"
+# make a new release (bump: next, patch, minor, major)
+release bump="next": _ensure_clean ci
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version=$(svu {{ bump }})
+    git-cliff -o --tag "$version"
+    git add CHANGELOG.md
+    git commit -m "chore(release): bump version to $version"
+    git tag -a "$version" -m "$version"
+    echo "{{ GREEN }}Release complete. Run 'git push && git push --tags'.{{ NORMAL }}"
