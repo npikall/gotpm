@@ -69,6 +69,7 @@ function Install-Gotpm {
         }
 
         Move-Item -Force $tmp $target
+        Unblock-File -Path $target
         Write-Host "Installed to $target"
 
         $user_path = [System.Environment]::GetEnvironmentVariable("PATH", "User")
