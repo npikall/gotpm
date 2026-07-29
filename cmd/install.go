@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/remote"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
@@ -51,6 +52,7 @@ func init() {
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
 	installCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
 	_ = installCmd.Flags().MarkHidden(internal.InstallDirFlag)
+	installCmd.Flags().StringP("remote", "r", "", "The remote repository which should be installed.")
 }
 
 func InstallRunner(cmd *cobra.Command, args []string) error {
@@ -61,7 +63,7 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sourceDir, err := ResolveSourceDir(args)
+	sourceDir, err := ResolveSourceDir(args, opts.Remote)
 	if err != nil {
 		return err
 	}
@@ -98,6 +100,7 @@ type InstallOptions struct {
 	Force     bool
 	Editable  bool
 	Namespace string
+	Remote    string
 }
 
 func ReadInstallOptions(cmd *cobra.Command) (InstallOptions, error) {
@@ -113,7 +116,16 @@ func ReadInstallOptions(cmd *cobra.Command) (InstallOptions, error) {
 	if err != nil {
 		return InstallOptions{}, fmt.Errorf("could not read flag '--namespace': %w", err)
 	}
-	return InstallOptions{Force: force, Editable: editable, Namespace: namespace}, nil
+	remote, err := cmd.Flags().GetString("remote")
+	if err != nil {
+		return InstallOptions{}, fmt.Errorf("could not read flag '--remote': %w", err)
+	}
+	return InstallOptions{
+		Force:     force,
+		Editable:  editable,
+		Namespace: namespace,
+		Remote:    remote,
+	}, nil
 }
 
 // resolveInstallDestination routes to the appropriate destination resolver based
@@ -390,6 +402,36 @@ func BuildDestination(dataDir string, manifest internal.Manifest, namespace stri
 		Version:   manifest.Package.Version,
 		Path:      path,
 	}
+}
+
+func ResolveSourceDir(args []string, remoteURL string) (string, error) {
+	if remoteURL != "" {
+		return CloneRepoIntoDataDir(remoteURL)
+	}
+	return ResolveLocalSourceDir(args)
+}
+
+func CloneRepoIntoDataDir(url string) (string, error) {
+	dataDir, err := internal.ResolveDataDir()
+	if err != nil {
+		return "", err //nolint: wrapcheck
+	}
+	repoName, err := remote.RepoNameFromURL(url)
+	if err != nil {
+		return "", err //nolint: wrapcheck
+	}
+	appDataDir := filepath.Join(dataDir, "gotpm", "remotes", repoName)
+
+	if isDir := internal.IsDir(appDataDir); isDir {
+		return appDataDir, nil
+	}
+
+	internal.PrintInfof("Cloning %q", url)
+	err = remote.CloneRepo(url, appDataDir)
+	if err != nil {
+		return "", err //nolint: wrapcheck
+	}
+	return appDataDir, nil
 }
 
 func ResolveLocalSourceDir(args []string) (string, error) {
