@@ -9,6 +9,7 @@ require (
 	github.com/briandowns/spinner v1.23.2
 	github.com/charmbracelet/x/exp/charmtone v0.0.0-20260527151214-009e6338d40d
 	github.com/creativeprojects/go-selfupdate v1.5.2
+	github.com/go-git/go-git/v6 v6.0.0-alpha.4
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -18,15 +19,26 @@ require (
 	code.gitea.io/sdk/gitea v0.25.1 // indirect
 	github.com/42wim/httpsig v1.2.4 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/ProtonMail/go-crypto v1.4.1 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
+	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
+	github.com/go-git/gcfg/v2 v2.0.2 // indirect
+	github.com/go-git/go-billy/v6 v6.0.0-alpha.1 // indirect
 	github.com/google/go-github/v74 v74.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
+	github.com/kevinburke/ssh_config v1.6.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/pjbgf/sha1cd v0.6.0 // indirect
+	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	gitlab.com/gitlab-org/api/client-go v1.46.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
