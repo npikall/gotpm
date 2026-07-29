@@ -24,7 +24,7 @@ func (c *IndexCache) IsValid() bool {
 }
 
 func ResolveCachePath() (string, error) {
-	base, err := resolveDataDir()
+	base, err := ResolveDataDir()
 	if err != nil {
 		return "", err
 	}

@@ -285,30 +285,30 @@ func Test_resolveSourceDir(t *testing.T) { //nolint: paralleltest
 	check(os.WriteFile(file, []byte(""), internal.FilePerm))
 
 	t.Run("no args returns cwd", func(t *testing.T) { //nolint: paralleltest
-		got, gotErr := ResolveSourceDir([]string{})
+		got, gotErr := ResolveLocalSourceDir([]string{})
 		assert.Equal(t, cwd, got)
 		assert.NoError(t, gotErr)
 	})
 	t.Run("too many args returns error", func(t *testing.T) { //nolint: paralleltest
-		_, gotErr := ResolveSourceDir([]string{"a", "b"})
+		_, gotErr := ResolveLocalSourceDir([]string{"a", "b"})
 		assert.ErrorIs(t, gotErr, ErrTooManyArguments)
 	})
 	t.Run("valid dir returns absPath", func(t *testing.T) { //nolint: paralleltest
-		got, gotErr := ResolveSourceDir([]string{dir})
+		got, gotErr := ResolveLocalSourceDir([]string{dir})
 		assert.Equal(t, cwd, got)
 		assert.NoError(t, gotErr)
 	})
 	t.Run("relative path resolves to absolute", func(t *testing.T) { //nolint: paralleltest
-		got, gotErr := ResolveSourceDir([]string{"subdir"})
+		got, gotErr := ResolveLocalSourceDir([]string{"subdir"})
 		assert.Equal(t, subdir, got)
 		assert.NoError(t, gotErr)
 	})
 	t.Run("non-existing path returns error", func(t *testing.T) { //nolint: paralleltest
-		_, gotErr := ResolveSourceDir([]string{"path/does/not/exist"})
+		_, gotErr := ResolveLocalSourceDir([]string{"path/does/not/exist"})
 		assert.ErrorContains(t, gotErr, "directory does not exist")
 	})
 	t.Run("filepath returns error", func(t *testing.T) { //nolint: paralleltest
-		_, gotErr := ResolveSourceDir([]string{"file.txt"})
+		_, gotErr := ResolveLocalSourceDir([]string{"file.txt"})
 		assert.ErrorContains(t, gotErr, "path is not a directory")
 	})
 }

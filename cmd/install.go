@@ -392,7 +392,7 @@ func BuildDestination(dataDir string, manifest internal.Manifest, namespace stri
 	}
 }
 
-func ResolveSourceDir(args []string) (string, error) {
+func ResolveLocalSourceDir(args []string) (string, error) {
 	numberOfArgs := len(args)
 	maxArguments := 1
 	switch {
