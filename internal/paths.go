@@ -28,7 +28,7 @@ func ResolveLocalPackageDirPath() (string, error) {
 	if override := os.Getenv("TYPST_PACKAGE_PATH"); override != "" {
 		return override, nil
 	}
-	base, err := resolveDataDir()
+	base, err := ResolveDataDir()
 	if err != nil {
 		return "", err
 	}
@@ -76,7 +76,7 @@ func EnsureDir(path string) error {
 	return nil
 }
 
-func resolveDataDir() (string, error) {
+func ResolveDataDir() (string, error) {
 	switch runtime.GOOS {
 	case "linux":
 		return ResolveLinuxDataDir()
