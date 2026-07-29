@@ -76,6 +76,14 @@ func EnsureDir(path string) error {
 	return nil
 }
 
+func IsDir(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
 func ResolveDataDir() (string, error) {
 	switch runtime.GOOS {
 	case "linux":
