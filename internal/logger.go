@@ -40,7 +40,8 @@ func SetupSpinner() *spinner.Spinner {
 // Must returns t, or exits the process with a fatal log entry if err is non-nil.
 func Must[T any](t T, err error) T { //nolint: ireturn
 	if err != nil {
-		log.Fatal(err)
+		PrintError(err)
+		os.Exit(1)
 	}
 	return t
 }
