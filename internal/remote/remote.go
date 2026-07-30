@@ -9,15 +9,32 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
 )
 
 var ErrParseRepoName = errors.New("could not parse repository name")
 
-func CloneRepo(remote, dest string) error {
+func CloneRepo(remote, dest, rev string) error {
 	url := resolveCloneURL(remote)
-	_, err := git.PlainClone(dest, &git.CloneOptions{URL: url, Progress: os.Stderr})
+	repo, err := git.PlainClone(dest, &git.CloneOptions{URL: url, Progress: os.Stderr, Tags: git.AllTags})
 	if err != nil {
 		return fmt.Errorf("cloning %q into %q: %w", remote, dest, err)
+	}
+	defer repo.Close() //nolint: errcheck
+
+	hash, err := repo.ResolveRevision(plumbing.Revision(rev))
+	if err != nil {
+		return err //nolint: wrapcheck
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return err //nolint: wrapcheck
+	}
+
+	err = wt.Checkout(&git.CheckoutOptions{Hash: *hash})
+	if err != nil {
+		return err //nolint: wrapcheck
 	}
 	return nil
 }
@@ -37,6 +54,7 @@ func resolveCloneURL(path string) string {
 	if hasScheme(path) {
 		return path
 	}
+	// TODO: this currently only supports https but not ssh
 	return "https://" + strings.TrimSuffix(path, ".git")
 }
 
