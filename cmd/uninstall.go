@@ -75,7 +75,8 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	logger.Debug("resolved package", "name", pkgName, "version", pkgVersion)
 
 	// Intentionally does not create the directory if it doesn't exist yet.
-	localPkgDir, overridden, err := internal.ResolvePackageDirPath(cmd)
+	installDir := internal.Must(cmd.Flags().GetString(internal.InstallDirFlag))
+	localPkgDir, overridden, err := internal.ResolvePackageDirPath(installDir)
 	if err != nil {
 		return fmt.Errorf("could not resolve local package directory: %w", err)
 	}
