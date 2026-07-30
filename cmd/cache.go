@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -35,8 +36,10 @@ func cacheClearRunner(cmd *cobra.Command, args []string) error {
 	}
 	appDataDir := filepath.Join(dataDir, "gotpm")
 
+	dirSize := DirSizeMB(appDataDir)
+
 	if isDryRun := internal.Must(cmd.Flags().GetBool("dry-run")); isDryRun {
-		internal.PrintWarnf("dry-run, would clear cache at %q", appDataDir)
+		internal.PrintWarnf("dry-run, would clear %s of cached data at %q", dirSize, appDataDir)
 		return nil
 	}
 
@@ -44,6 +47,29 @@ func cacheClearRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	internal.PrintInfof("Clear cache at %q", appDataDir)
+	internal.PrintInfof("Clear %s cached data at %q", dirSize, appDataDir)
 	return nil
+}
+
+func DirSizeMB(path string) string {
+	size, err := DirSize(path)
+	if err != nil {
+		return "?"
+	}
+	sizeMB := float64(size) / 1024.0 / 1024.0
+	return fmt.Sprintf("%.1fMB", sizeMB)
+}
+
+func DirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
 }
