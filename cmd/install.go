@@ -52,13 +52,14 @@ func init() {
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
 	installCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
 	installCmd.Flags().StringP("remote", "r", "", "The remote repository which should be installed.")
+	installCmd.Flags().StringP("rev", "t", "HEAD", "The revision (hash or tag) that should be checked out.")
 }
 
 func InstallRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
 	opts := ReadInstallOptions(cmd)
 
-	sourceDir, err := ResolveSourceDir(args, opts.Remote)
+	sourceDir, err := ResolveSourceDir(args, opts)
 	if err != nil {
 		return err
 	}
@@ -97,9 +98,11 @@ type InstallOptions struct {
 	Namespace  string
 	Remote     string
 	InstallDir string
+	Revision   string
 }
 
 func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
+	rev := internal.Must(cmd.Flags().GetString("rev"))
 	force := internal.Must(cmd.Flags().GetBool("force"))
 	remote := internal.Must(cmd.Flags().GetString("remote"))
 	editable := internal.Must(cmd.Flags().GetBool("editable"))
@@ -111,6 +114,7 @@ func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
 		Namespace:  namespace,
 		Remote:     remote,
 		InstallDir: installDir,
+		Revision:   rev,
 	}
 }
 
@@ -390,14 +394,15 @@ func BuildDestination(dataDir string, manifest internal.Manifest, namespace stri
 	}
 }
 
-func ResolveSourceDir(args []string, remoteURL string) (string, error) {
-	if remoteURL != "" {
-		return CloneRepoIntoDataDir(remoteURL)
+func ResolveSourceDir(args []string, opts *InstallOptions) (string, error) {
+	if opts.Remote != "" {
+		return CloneRepoIntoDataDir(opts)
 	}
 	return ResolveLocalSourceDir(args)
 }
 
-func CloneRepoIntoDataDir(url string) (string, error) {
+func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
+	url := opts.Remote
 	dataDir, err := internal.ResolveDataDir()
 	if err != nil {
 		return "", err //nolint: wrapcheck
@@ -413,7 +418,7 @@ func CloneRepoIntoDataDir(url string) (string, error) {
 	}
 
 	internal.PrintInfof("Cloning %q", url)
-	err = remote.CloneRepo(url, appDataDir)
+	err = remote.CloneRepo(url, appDataDir, opts.Revision)
 	if err != nil {
 		return "", err //nolint: wrapcheck
 	}
