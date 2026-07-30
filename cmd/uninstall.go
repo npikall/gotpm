@@ -48,7 +48,6 @@ func init() {
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
 	uninstallCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
-	_ = uninstallCmd.Flags().MarkHidden(internal.InstallDirFlag)
 }
 
 var ErrInsufficientPackage = errors.New("both package and version must be specified")

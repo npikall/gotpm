@@ -51,7 +51,6 @@ func init() {
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
 	installCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
-	_ = installCmd.Flags().MarkHidden(internal.InstallDirFlag)
 	installCmd.Flags().StringP("remote", "r", "", "The remote repository which should be installed.")
 }
 
