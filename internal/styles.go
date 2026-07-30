@@ -47,6 +47,12 @@ func PrintWarnf(format string, a ...any) {
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
+func PrintError(err error) {
+	prefix := StyleRedBold.Render("error")
+	text := StyleNormal.Render(err.Error())
+	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
+}
+
 func FormatImportStmt(namespace, name, version string) string {
 	return StyleAccent.Render(fmt.Sprintf("@%s/%s:%s", namespace, name, version))
 }
