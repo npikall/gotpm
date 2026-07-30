@@ -56,11 +56,7 @@ func init() {
 
 func InstallRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
-
-	opts, err := ReadInstallOptions(cmd)
-	if err != nil {
-		return err
-	}
+	opts := ReadInstallOptions(cmd)
 
 	sourceDir, err := ResolveSourceDir(args, opts.Remote)
 	if err != nil {
@@ -96,35 +92,26 @@ var (
 
 // InstallOptions holds the resolved install flags.
 type InstallOptions struct {
-	Force     bool
-	Editable  bool
-	Namespace string
-	Remote    string
+	Force      bool
+	Editable   bool
+	Namespace  string
+	Remote     string
+	InstallDir string
 }
 
-func ReadInstallOptions(cmd *cobra.Command) (InstallOptions, error) {
-	force, err := cmd.Flags().GetBool("force")
-	if err != nil {
-		return InstallOptions{}, fmt.Errorf("could not read flag '--force': %w", err)
+func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
+	force := internal.Must(cmd.Flags().GetBool("force"))
+	remote := internal.Must(cmd.Flags().GetString("remote"))
+	editable := internal.Must(cmd.Flags().GetBool("editable"))
+	namespace := internal.Must(cmd.Flags().GetString("namespace"))
+	installDir := internal.Must(cmd.Flags().GetString(internal.InstallDirFlag))
+	return &InstallOptions{
+		Force:      force,
+		Editable:   editable,
+		Namespace:  namespace,
+		Remote:     remote,
+		InstallDir: installDir,
 	}
-	editable, err := cmd.Flags().GetBool("editable")
-	if err != nil {
-		return InstallOptions{}, fmt.Errorf("could not read flag '--editable': %w", err)
-	}
-	namespace, err := cmd.Flags().GetString("namespace")
-	if err != nil {
-		return InstallOptions{}, fmt.Errorf("could not read flag '--namespace': %w", err)
-	}
-	remote, err := cmd.Flags().GetString("remote")
-	if err != nil {
-		return InstallOptions{}, fmt.Errorf("could not read flag '--remote': %w", err)
-	}
-	return InstallOptions{
-		Force:     force,
-		Editable:  editable,
-		Namespace: namespace,
-		Remote:    remote,
-	}, nil
 }
 
 // resolveInstallDestination routes to the appropriate destination resolver based
@@ -142,7 +129,7 @@ func resolveInstallDestination(cmd *cobra.Command, manifest internal.Manifest, o
 
 // ResolveOverriddenDestination is used when --install-dir or $GOTPM_INSTALL_DIR is set.
 // dataDir is used as the final install path without appending namespace/name/version.
-func ResolveOverriddenDestination(dataDir string, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
+func ResolveOverriddenDestination(dataDir string, manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
 	if !opts.Force {
 		if err := ValidateDestinationConflict(dataDir); err != nil {
 			return Destination{}, err
@@ -158,7 +145,7 @@ func ResolveOverriddenDestination(dataDir string, manifest internal.Manifest, op
 
 // ResolveDefaultDestination is used for the standard install path.
 // It appends namespace/name/version sub-directories to dataDir.
-func ResolveDefaultDestination(dataDir string, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
+func ResolveDefaultDestination(dataDir string, manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
 	if err := internal.EnsureDir(dataDir); err != nil {
 		return Destination{}, fmt.Errorf("could not ensure directory %q: %w", dataDir, err)
 	}
@@ -187,7 +174,7 @@ func prepareDestination(path string, force bool) error {
 }
 
 // performInstall dispatches to the appropriate install mode.
-func performInstall(sourceDir string, dest Destination, opts InstallOptions) error {
+func performInstall(sourceDir string, dest Destination, opts *InstallOptions) error {
 	if opts.Editable {
 		return installEditable(sourceDir, dest)
 	}
