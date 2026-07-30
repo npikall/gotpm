@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -40,13 +38,9 @@ func ResolveLocalPackageDirPath() (string, error) {
 // Resolution order: --install-dir flag > $GOTPM_INSTALL_DIR env > OS default.
 // When overridden, the returned path is the final destination — callers must not
 // append namespace/name/version sub-directories.
-func ResolvePackageDirPath(cmd *cobra.Command) (string, bool, error) {
-	dir, err := cmd.Flags().GetString(InstallDirFlag)
-	if err != nil {
-		return "", false, fmt.Errorf("could not parse flag: %w", err)
-	}
-	if dir != "" {
-		return dir, true, nil
+func ResolvePackageDirPath(installDir string) (string, bool, error) {
+	if installDir != "" {
+		return installDir, true, nil
 	}
 	if env := os.Getenv(InstallDirEnvVar); env != "" {
 		return env, true, nil

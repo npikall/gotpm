@@ -70,7 +70,7 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
 
-	dest, err := resolveInstallDestination(cmd, manifest, opts)
+	dest, err := resolveInstallDestination(manifest, opts)
 	if err != nil {
 		return err
 	}
@@ -116,8 +116,8 @@ func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
 
 // resolveInstallDestination routes to the appropriate destination resolver based
 // on whether an install-dir override was provided.
-func resolveInstallDestination(cmd *cobra.Command, manifest internal.Manifest, opts InstallOptions) (Destination, error) {
-	dataDir, overridden, err := internal.ResolvePackageDirPath(cmd)
+func resolveInstallDestination(manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
+	dataDir, overridden, err := internal.ResolvePackageDirPath(opts.InstallDir)
 	if err != nil {
 		return Destination{}, fmt.Errorf("could not resolve package directory: %w", err)
 	}
