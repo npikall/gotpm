@@ -21,7 +21,14 @@ func CloneRepo(remote, dest, rev string) error {
 	}
 	defer repo.Close() //nolint: errcheck
 
-	hash, err := repo.ResolveRevision(plumbing.Revision(rev))
+	if err := CheckoutRevision(repo, rev); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CheckoutRevision(repo *git.Repository, revision string) error {
+	hash, err := repo.ResolveRevision(plumbing.Revision(revision))
 	if err != nil {
 		return err //nolint: wrapcheck
 	}
