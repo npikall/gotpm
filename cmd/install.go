@@ -418,7 +418,8 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	}
 
 	internal.PrintInfof("Cloning %q", url)
-	err = remote.CloneRepo(url, appDataDir, opts.Revision)
+	cleanedURL := remote.DefaultHTTPCloneURL(url)
+	err = remote.CloneRepo(cleanedURL, appDataDir, opts.Revision)
 	if err != nil {
 		return "", err //nolint: wrapcheck
 	}
