@@ -26,7 +26,7 @@ LDFLAGS := f"-s -w \
 -X {{GO_URL}}/cmd.gitCommit={{COMMIT_HASH}} \
 -X {{GO_URL}}/cmd.buildOS={{BUILD_OS}} \
 -X {{GO_URL}}/cmd.buildARCH={{BUILD_ARCH}} \
--X {{GO_URL}}/cmd.installer={{INSTALLER}} "
+-X {{GO_URL}}/cmd.installer={{INSTALLER}}"
 
 # show version information
 info:
@@ -42,8 +42,8 @@ install:
     go install -ldflags="{{ LDFLAGS }}"
 
 # run the test suite
-test:
-    go test ./...
+test *args:
+    go test ./... {{ args }}
 
 # run the tests and inspect the code coverage
 cover *args="./...":
