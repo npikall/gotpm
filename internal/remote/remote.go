@@ -15,8 +15,7 @@ import (
 var ErrParseRepoName = errors.New("could not parse repository name")
 
 func CloneRepo(remote, dest, rev string) error {
-	url := resolveCloneURL(remote)
-	repo, err := git.PlainClone(dest, &git.CloneOptions{URL: url, Progress: os.Stderr, Tags: git.AllTags})
+	repo, err := git.PlainClone(dest, &git.CloneOptions{URL: remote, Progress: os.Stderr, Tags: git.AllTags})
 	if err != nil {
 		return fmt.Errorf("cloning %q into %q: %w", remote, dest, err)
 	}
@@ -50,11 +49,10 @@ func RepoNameFromURL(remoteURL string) (string, error) {
 	return "", ErrParseRepoName
 }
 
-func resolveCloneURL(path string) string {
+func DefaultHTTPCloneURL(path string) string {
 	if hasScheme(path) {
 		return path
 	}
-	// TODO: this currently only supports https but not ssh
 	return "https://" + strings.TrimSuffix(path, ".git")
 }
 
