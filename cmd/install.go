@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/remote"
 	ignore "github.com/sabhiram/go-gitignore"
@@ -411,19 +412,31 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	if err != nil {
 		return "", err //nolint: wrapcheck
 	}
-	appDataDir := filepath.Join(dataDir, "gotpm", "remotes", repoName)
+	repoDir := filepath.Join(dataDir, "gotpm", "remotes", repoName)
 
-	if isDir := internal.IsDir(appDataDir); isDir {
-		return appDataDir, nil
+	isDir := internal.IsDir(repoDir)
+	if isDir && opts.Revision != "" {
+		repo, err := git.PlainOpen(repoDir)
+		if err != nil {
+			return "", err
+		}
+		_ = repo.Fetch(&git.FetchOptions{})
+		if err = remote.CheckoutRevision(repo, opts.Revision); err != nil {
+			return "", err
+		}
+		return repoDir, nil
+	}
+	if isDir {
+		return repoDir, nil
 	}
 
 	internal.PrintInfof("Cloning %q", url)
 	cleanedURL := remote.DefaultHTTPCloneURL(url)
-	err = remote.CloneRepo(cleanedURL, appDataDir, opts.Revision)
+	err = remote.CloneRepo(cleanedURL, repoDir, opts.Revision)
 	if err != nil {
 		return "", err //nolint: wrapcheck
 	}
-	return appDataDir, nil
+	return repoDir, nil
 }
 
 func ResolveLocalSourceDir(args []string) (string, error) {
