@@ -34,14 +34,11 @@ the machine's operating system.
 The destination directory can be overridden via the --install-dir flag
 or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
 `,
-	Example: `# install Package located in the CWD
-gotpm install
-gotpm install --editable
-gotpm install --namespace preview
-
-# install a Package not in the CWD
-gotpm install path/to/package/dir
-gotpm install path/to/package/dir -n preview
+	Example: `gotpm install
+gotpm install . -e
+gotpm install -n preview
+gotpm install -r github.com/user/repo -t v0.1.2
+gotpm install path/to/package -n preview
 `,
 	RunE: InstallRunner,
 }
