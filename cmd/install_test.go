@@ -39,7 +39,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 	t.Run("default namespace builds correct path", func(t *testing.T) { //nolint: paralleltest
-		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
 		got, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, "my-package", got.Name)
@@ -49,7 +49,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("custom namespace builds correct path", func(t *testing.T) { //nolint: paralleltest
-		opts := InstallOptions{Namespace: "preview"}
+		opts := &InstallOptions{Namespace: "preview"}
 		got, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, "preview", got.Namespace)
@@ -57,7 +57,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 		assert.Equal(t, wantPath, got.Path)
 	})
 	t.Run("empty namespace returns error", func(t *testing.T) { //nolint: paralleltest
-		opts := InstallOptions{Namespace: ""}
+		opts := &InstallOptions{Namespace: ""}
 		_, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrEmptyNamespace)
 	})
@@ -66,7 +66,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 		err := os.MkdirAll(existing, internal.DirPerm)
 		require.NoError(t, err)
 
-		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
 		_, err = ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
@@ -74,7 +74,7 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		check(os.MkdirAll(existing, internal.DirPerm))
 
-		opts := InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
+		opts := &InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
 		_, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.NoError(t, err)
 	})
@@ -574,7 +574,7 @@ func Test_resolveOverriddenDestination(t *testing.T) {
 		t.Parallel()
 		base := t.TempDir()
 		dest := filepath.Join(base, "custom-dest")
-		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
 		got, err := ResolveOverriddenDestination(dest, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, dest, got.Path)
@@ -585,14 +585,14 @@ func Test_resolveOverriddenDestination(t *testing.T) {
 	t.Run("conflict returns error when path exists", func(t *testing.T) {
 		t.Parallel()
 		existing := t.TempDir()
-		opts := InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
 		_, err := ResolveOverriddenDestination(existing, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
 	t.Run("force skips conflict check", func(t *testing.T) {
 		t.Parallel()
 		existing := t.TempDir()
-		opts := InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
+		opts := &InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
 		got, err := ResolveOverriddenDestination(existing, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, existing, got.Path)
@@ -609,6 +609,8 @@ func Test_installRunner_force(t *testing.T) {
 		cmd.Flags().BoolP("editable", "e", false, "")
 		cmd.Flags().BoolP("force", "f", false, "")
 		cmd.Flags().String(internal.InstallDirFlag, installDir, "")
+		cmd.Flags().StringP("remote", "r", "", "")
+		cmd.Flags().StringP("rev", "t", "HEAD", "")
 		return cmd
 	}
 
@@ -783,14 +785,16 @@ func Test_readInstallOptions(t *testing.T) {
 		cmd.Flags().BoolP("force", "f", false, "")
 		cmd.Flags().BoolP("editable", "e", false, "")
 		cmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "")
+		cmd.Flags().String(internal.InstallDirFlag, "", "")
+		cmd.Flags().StringP("remote", "r", "", "")
+		cmd.Flags().StringP("rev", "t", "HEAD", "")
 		return cmd
 	}
 
 	t.Run("defaults", func(t *testing.T) {
 		t.Parallel()
 		cmd := newCmd()
-		opts, err := ReadInstallOptions(cmd)
-		require.NoError(t, err)
+		opts := ReadInstallOptions(cmd)
 		assert.False(t, opts.Force)
 		assert.False(t, opts.Editable)
 		assert.Equal(t, internal.DefaultNamespace, opts.Namespace)
@@ -799,24 +803,21 @@ func Test_readInstallOptions(t *testing.T) {
 		t.Parallel()
 		cmd := newCmd()
 		check(cmd.Flags().Set("force", "true"))
-		opts, err := ReadInstallOptions(cmd)
-		require.NoError(t, err)
+		opts := ReadInstallOptions(cmd)
 		assert.True(t, opts.Force)
 	})
 	t.Run("editable flag", func(t *testing.T) {
 		t.Parallel()
 		cmd := newCmd()
 		check(cmd.Flags().Set("editable", "true"))
-		opts, err := ReadInstallOptions(cmd)
-		require.NoError(t, err)
+		opts := ReadInstallOptions(cmd)
 		assert.True(t, opts.Editable)
 	})
 	t.Run("custom namespace", func(t *testing.T) {
 		t.Parallel()
 		cmd := newCmd()
 		check(cmd.Flags().Set("namespace", "preview"))
-		opts, err := ReadInstallOptions(cmd)
-		require.NoError(t, err)
+		opts := ReadInstallOptions(cmd)
 		assert.Equal(t, "preview", opts.Namespace)
 	})
 }
