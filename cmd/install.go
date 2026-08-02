@@ -401,7 +401,7 @@ func ResolveSourceDir(args []string, opts *InstallOptions) (string, error) {
 
 func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	url := opts.Remote
-	dataDir, err := internal.ResolveDataDir()
+	remotesDir, err := internal.ResolveRemotesDir()
 	if err != nil {
 		return "", err //nolint: wrapcheck
 	}
@@ -409,7 +409,7 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	if err != nil {
 		return "", err //nolint: wrapcheck
 	}
-	repoDir := filepath.Join(dataDir, "gotpm", "remotes", repoName)
+	repoDir := filepath.Join(remotesDir, repoName)
 
 	isDir := internal.IsDir(repoDir)
 	if isDir && opts.Revision != "" {

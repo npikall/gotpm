@@ -19,7 +19,7 @@ var cacheCmd = &cobra.Command{
 var cacheClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear the Cache",
-	RunE:  cacheClearRunner,
+	RunE:  CacheClearRunner,
 }
 
 func init() {
@@ -29,34 +29,43 @@ func init() {
 	cacheClearCmd.Flags().Bool("dry-run", false, "Dry run to see which data will be deleted")
 }
 
-func cacheClearRunner(cmd *cobra.Command, args []string) error {
-	dataDir, err := internal.ResolveDataDir()
+func CacheClearRunner(cmd *cobra.Command, args []string) error {
+	remotesDir, err := internal.ResolveRemotesDir()
 	if err != nil {
-		return err
+		return err //nolint: wrapcheck
 	}
-	appDataDir := filepath.Join(dataDir, "gotpm")
+	cachePath, err := internal.ResolveCachePath()
+	if err != nil {
+		return err //nolint: wrapcheck
+	}
 
-	dirSize := DirSizeMB(appDataDir)
+	size := cacheClearSizeMB(remotesDir, cachePath)
 
 	if isDryRun := internal.Must(cmd.Flags().GetBool("dry-run")); isDryRun {
-		internal.PrintWarnf("dry-run, would clear %s of cached data at %q", dirSize, appDataDir)
+		internal.PrintWarnf("dry-run, would clear %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
 		return nil
 	}
 
-	if err = os.RemoveAll(appDataDir); err != nil {
-		return err
+	if err = os.RemoveAll(remotesDir); err != nil {
+		return err //nolint: wrapcheck
+	}
+	if err = os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
+		return err //nolint: wrapcheck
 	}
 
-	internal.PrintInfof("Clear %s cached data at %q", dirSize, appDataDir)
+	internal.PrintInfof("Cleared %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
 	return nil
 }
 
-func DirSizeMB(path string) string {
-	size, err := DirSize(path)
+func cacheClearSizeMB(remotesDir, cachePath string) string {
+	size, err := DirSize(remotesDir)
 	if err != nil {
 		return "?"
 	}
-	sizeMB := float64(size) / 1024.0 / 1024.0
+	if info, err := os.Stat(cachePath); err == nil {
+		size += info.Size()
+	}
+	sizeMB := float64(size) / 1024.0 / 1024.0 //nolint: mnd
 	return fmt.Sprintf("%.1fMB", sizeMB)
 }
 
@@ -71,5 +80,5 @@ func DirSize(path string) (int64, error) {
 		}
 		return err
 	})
-	return size, err
+	return size, err //nolint: wrapcheck
 }

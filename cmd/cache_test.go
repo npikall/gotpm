@@ -1,0 +1,90 @@
+package cmd_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	. "github.com/npikall/gotpm/cmd"
+	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/config"
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// isolateCacheDir points HOME and, critically, forces XDG_CONFIG_HOME and
+// XDG_DATA_HOME to the same tree so config.toml and the cache/remotes dir
+// collide the way they do by default on darwin and windows (both resolve to
+// the OS "app support" dir there). This reproduces the bug scenario
+// regardless of the OS actually running the test.
+func isolateCacheDir(t *testing.T) {
+	t.Helper()
+	tmp := t.TempDir()
+	shared := filepath.Join(tmp, "shared")
+	t.Setenv("HOME", tmp)
+	t.Setenv("XDG_CONFIG_HOME", shared)
+	t.Setenv("XDG_DATA_HOME", shared)
+	t.Setenv("APPDATA", shared)
+}
+
+func newCacheClearCmd(t *testing.T, dryRun bool) *cobra.Command {
+	t.Helper()
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("dry-run", dryRun, "")
+	return cmd
+}
+
+func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) {
+	t.Helper()
+
+	remotesDir, err := internal.ResolveRemotesDir()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(remotesDir, "example.com", "repo"), internal.DirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(remotesDir, "example.com", "repo", "file.txt"), []byte("data"), internal.FilePerm))
+
+	require.NoError(t, internal.SaveIndexCache(map[string]string{"pkg": "1.0.0"}))
+	cachePath, err = internal.ResolveCachePath()
+	require.NoError(t, err)
+
+	cfg := &config.Config{}
+	require.NoError(t, cfg.Set("fork.path", "/tmp/my-fork"))
+	require.NoError(t, config.Save(cfg))
+	configPath, err = config.Path()
+	require.NoError(t, err)
+
+	return remotesDir, cachePath, configPath
+}
+
+func TestCacheClearRunner_PreservesConfig(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	remotesDir, cachePath, configPath := seedCacheState(t)
+
+	require.NoError(t, CacheClearRunner(newCacheClearCmd(t, false), nil))
+
+	assert.NoDirExists(t, remotesDir, "remotes dir must be removed")
+	assert.NoFileExists(t, cachePath, "index cache must be removed")
+	assert.FileExists(t, configPath, "config.toml must survive cache clear")
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/my-fork", cfg.Fork.Path, "config content must be intact")
+}
+
+func TestCacheClearRunner_MissingFilesNoOp(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+
+	err := CacheClearRunner(newCacheClearCmd(t, false), nil)
+	require.NoError(t, err, "clearing an already-empty cache must not error")
+}
+
+func TestCacheClearRunner_DryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	remotesDir, cachePath, configPath := seedCacheState(t)
+
+	require.NoError(t, CacheClearRunner(newCacheClearCmd(t, true), nil))
+
+	assert.DirExists(t, remotesDir, "dry-run must not remove remotes dir")
+	assert.FileExists(t, cachePath, "dry-run must not remove index cache")
+	assert.FileExists(t, configPath, "dry-run must not touch config.toml")
+}

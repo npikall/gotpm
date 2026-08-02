@@ -12,6 +12,7 @@ const (
 	CacheTTL      = time.Hour
 	cacheAppDir   = "gotpm"
 	cacheFileName = "index-cache.json"
+	remotesDir    = "remotes"
 )
 
 type IndexCache struct {
@@ -29,6 +30,16 @@ func ResolveCachePath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(base, cacheAppDir, cacheFileName), nil
+}
+
+// ResolveRemotesDir returns the path to the directory holding cloned remote
+// repos, without creating it.
+func ResolveRemotesDir() (string, error) {
+	base, err := ResolveDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, cacheAppDir, remotesDir), nil
 }
 
 // LoadIndexCache reads the on-disk cache.
