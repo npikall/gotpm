@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	ErrNotSettablePath = errors.New("not a settable path")
-	ErrUnknownKey      = errors.New("unknown config key")
+	ErrNotSettablePath  = errors.New("not a settable path")
+	ErrUnknownKey       = errors.New("unknown config key")
+	ErrUnsupportedField = errors.New("unsupported field type")
 )
 
 type Config struct {
@@ -143,7 +144,7 @@ func fieldByTOMLPath(cfg any, key string) (reflect.Value, error) {
 }
 
 func assign(field reflect.Value, value string) error {
-	switch field.Kind() {
+	switch field.Kind() { //nolint: exhaustive
 	case reflect.String:
 		field.SetString(value)
 	case reflect.Bool:
@@ -159,7 +160,7 @@ func assign(field reflect.Value, value string) error {
 		}
 		field.SetInt(n)
 	default:
-		return fmt.Errorf("unsupported field type %s", field.Kind())
+		return fmt.Errorf("%w: %s", ErrUnsupportedField, field.Kind())
 	}
 	return nil
 }

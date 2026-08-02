@@ -35,7 +35,7 @@ func newCacheClearCmd(t *testing.T, dryRun bool) *cobra.Command {
 	return cmd
 }
 
-func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) {
+func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) { //nolint: nonamedreturns
 	t.Helper()
 
 	remotesDir, err := internal.ResolveRemotesDir()

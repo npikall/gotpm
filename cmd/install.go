@@ -415,11 +415,11 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	if isDir && opts.Revision != "" {
 		repo, err := git.PlainOpen(repoDir)
 		if err != nil {
-			return "", err
+			return "", err //nolint: wrapcheck
 		}
 		_ = repo.Fetch(&git.FetchOptions{})
 		if err = remote.CheckoutRevision(repo, opts.Revision); err != nil {
-			return "", err
+			return "", err //nolint: wrapcheck
 		}
 		return repoDir, nil
 	}
