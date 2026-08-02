@@ -115,7 +115,7 @@ func ConfigListRunner(cmd *cobra.Command, args []string) error {
 	}
 	configPath, err := config.Path()
 	if err != nil {
-		return err
+		return err //nolint: wrapcheck
 	}
 	internal.PrintInfof("current config at %s\n", configPath)
 	for _, kv := range cfg.Entries() {
