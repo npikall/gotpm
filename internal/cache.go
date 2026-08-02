@@ -25,21 +25,29 @@ func (c *IndexCache) IsValid() bool {
 }
 
 func ResolveCachePath() (string, error) {
-	base, err := ResolveDataDir()
+	base, err := ResolveAppDataDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, cacheAppDir, cacheFileName), nil
+	return filepath.Join(base, cacheFileName), nil
 }
 
 // ResolveRemotesDir returns the path to the directory holding cloned remote
 // repos, without creating it.
 func ResolveRemotesDir() (string, error) {
+	base, err := ResolveAppDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, remotesDir), nil
+}
+
+func ResolveAppDataDir() (string, error) {
 	base, err := ResolveDataDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, cacheAppDir, remotesDir), nil
+	return filepath.Join(base, cacheAppDir), nil
 }
 
 // LoadIndexCache reads the on-disk cache.
