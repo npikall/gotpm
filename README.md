@@ -23,7 +23,7 @@ and use it.
 
 # Installation
 
-## macOS
+## Unix
 
 **Homebrew:**
 
@@ -36,12 +36,6 @@ brew tap npikall/tap && brew install gotpm
 ```
 
 **Shell:**
-
-```bash
-curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
-```
-
-## Linux
 
 ```bash
 curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
