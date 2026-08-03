@@ -119,6 +119,35 @@ easy to remember. utpm groups commands under `prj`/`pkg` subcommands (e.g.
 `utpm prj bump`, `utpm pkg unlink`), which might add some mental overhead in recalling
 which group a given command lives under.
 
+## Benchmarks
+
+[`scripts/bench.sh`](scripts/bench.sh) uses [hyperfine] to compare gotpm and
+utpm on install, uninstall, list, bump, and update/sync. Requires `hyperfine`,
+`jq`, `git`, `gotpm`, and `utpm` on `$PATH`. Everything runs against sandboxed
+temp directories — it never touches your real Typst package directory.
+
+```bash
+./scripts/bench.sh
+```
+
+<!-- BENCH:RESULTS:START -->
+| Command | gotpm | utpm | Result |
+| --- | --- | --- | --- |
+| Install (local) | 2 ms | 2 ms | gotpm 1.1x faster |
+| Install (remote git) | 632 ms | 710 ms | gotpm 1.1x faster |
+| Uninstall | 2 ms | 2 ms | gotpm 1.1x faster |
+| List | 2 ms | 2 ms | utpm 1.0x faster |
+| Bump (patch) | 2 ms | 7 ms | gotpm 3.7x faster |
+| Update (18 imports) | 166 ms | 6.80 s | gotpm 41.0x faster |
+
+*Benchmarked 2026-08-03 on Linux 6.8.0-136-generic x86_64 with gotpm v0.3.13 and utpm 0.3.0.
+Results vary by machine and network conditions - run `scripts/bench.sh`
+yourself to reproduce. Whichever tool is faster for a given command is
+reported as-is.*
+<!-- BENCH:RESULTS:END -->
+
+[hyperfine]: https://github.com/sharkdp/hyperfine
+
 ![Gopher](https://raw.githubusercontent.com/egonelbre/gophers/master/.thumb/vector/projects/network-side.png)
 
 [Typst]: https://typst.app
