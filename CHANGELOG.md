@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-03
+
+### 🚀 Features
+
+- *(internal)* add remote module
+- *(internal)* add isdir function to internal module
+- *(cmd)* add remote install option
+- *(cmd)* add cache clearing command
+- add directory size to cache clearing
+- add revision flag to remote installation
+- support checking out revisions for remote installs
+- add config package
+- add set, unset and get subcommands to config command
+- add initial publish command
+- *(internal)* add gitcli package
+
+### 🐛 Bug Fixes
+
+- powershell install script install issue
+- scope fork checkout to gitcli instead of go-git
+
+### 📚 Documentation
+
+- update install examples
+- remove duplicated install instructions
+- add tool comparison table
+- fix readme headers
+- run bench script and report findings
+
+### 🚜 Refactor
+
+- *(cmd)* rename functions
+- print error when calling must function
+- apply must pattern to options resolving
+- remove cobra command as argument to resolepackagedirpath
+- move adding scheme out of clone function
+- cache clear does not remove config.toml inside datadir
+- linting errors
+
+### 🧪 Testing
+
+- fix compiler errors and add missing install option flags
+- add repo cloning and helper functions
+- guard sparse checkout scope for unpublished packages
+
+### ◀️ Revert
+
+- mark install-dir flags hidden
+- remove vulncheck from ci recipe
+
+### 💼 Other
+
+- harden test workflow
+- harden release workflow
+- update checkout action
+- pin install actions for just and git-cliff
+- harden docs workflow
+- update checkout action
+- pin taiki-e/install-action and install all tools at once
+- add test coverage recipe
+- add coverage file to gitignore
+- *(just)* use svu to bump the version in recipe
+- add go-git as a dependency
+- add optional args to test recipe
+- add bench scripts
+- add bench-results to gitignore
+- add recipes for vuln check and module update
+- explicitly use git-cliff bin and set permissions
+
 ## [0.3.13] - 2026-06-17
 
 ### 🚀 Features
@@ -557,7 +626,8 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
-[0.3.13]: https://github.com/npikall/gotpm/compare/v0.3.12..0.3.13
+[0.4.0]: https://github.com/npikall/gotpm/compare/v0.3.13..v0.4.0
+[0.3.13]: https://github.com/npikall/gotpm/compare/v0.3.12..v0.3.13
 [0.3.12]: https://github.com/npikall/gotpm/compare/v0.3.11..v0.3.12
 [0.3.11]: https://github.com/npikall/gotpm/compare/v0.3.10..v0.3.11
 [0.3.10]: https://github.com/npikall/gotpm/compare/v0.3.9..v0.3.10
