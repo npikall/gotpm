@@ -21,9 +21,9 @@ and use it.
 
 <img class="shadow" src="https://github.com/npikall/gotpm/raw/main/docs/assets/casette.gif">
 
-# Installation
+## Installation
 
-## Unix
+### Unix
 
 **Homebrew:**
 
@@ -41,23 +41,23 @@ brew tap npikall/tap && brew install gotpm
 curl -sSfL https://github.com/npikall/gotpm/releases/latest/download/install.sh | sh
 ```
 
-## Windows
+### Windows
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://github.com/npikall/gotpm/releases/latest/download/install.ps1 | iex"
 ```
 
-## Install with Go
+### Install with Go
 
 ```bash
 go install github.com/npikall/gotpm@latest
 ```
 
-## Download Binary
+### Download Binary
 
 Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it in your `$PATH`
 
-## Build from Source
+### Build from Source
 
 ```bash
 git clone https://github.com/npikall/gotpm.git
