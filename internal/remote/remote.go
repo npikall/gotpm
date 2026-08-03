@@ -27,29 +27,6 @@ func CloneRepo(remote, dest, rev string) error {
 	return nil
 }
 
-// CloneSparseCheckout clones remote into dest without materializing any files.
-// Callers must Checkout with SparseCheckoutDirectories set to write the
-// subset of the tree they need to the worktree.
-//
-// A server-side partial-clone Filter is deliberately not used here: go-git
-// cannot lazily fetch objects it excluded via a filter when a later Checkout
-// or Reset needs them, so combining a filter with a sparse checkout fails
-// with "object not found" for any path go-git didn't already have. Depth
-// alone still avoids pulling the repository's full history.
-func CloneSparseCheckout(remote, dest string) (*git.Repository, error) {
-	opts := &git.CloneOptions{
-		URL:        remote,
-		Progress:   os.Stderr,
-		NoCheckout: true,
-		Depth:      1,
-	}
-	repo, err := git.PlainClone(dest, opts)
-	if err != nil {
-		return nil, err //nolint: wrapcheck
-	}
-	return repo, nil
-}
-
 func CheckoutRevision(repo *git.Repository, revision string) error {
 	hash, err := repo.ResolveRevision(plumbing.Revision(revision))
 	if err != nil {
