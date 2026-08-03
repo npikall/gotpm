@@ -59,6 +59,15 @@ format:
 lint:
     golangci-lint run --fix
 
+# run the vuln checker
+vuln *args:
+    govulncheck {{ args }} ./...
+
+# update all dependencies to their latest minor/patch versions and tidy go.mod
+update:
+    go get -u -t ./...
+    go mod tidy
+
 # write the changelog from commit messages (https://git-cliff.org/)
 changelog *args:
     git-cliff -o {{ args }}
