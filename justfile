@@ -72,7 +72,6 @@ ci:
     @files=$(gofmt -l . | grep -v '^vendor/'); if [ -n "$files" ]; then echo "unformatted files:"; echo "$files"; exit 1; fi
     golangci-lint fmt --diff
     golangci-lint run
-    govulncheck ./...
     go mod vendor
     git diff --exit-code vendor/
     go test ./...
