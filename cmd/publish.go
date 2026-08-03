@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"charm.land/log/v2"
 	git "github.com/go-git/go-git/v6"
-	gitconfig "github.com/go-git/go-git/v6/config"
-	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/spf13/cobra"
 )
@@ -48,6 +48,7 @@ func init() {
 
 func publishRunner(cmd *cobra.Command, _ []string) error {
 	local := internal.Must(cmd.Flags().GetBool("local"))
+	logger := internal.SetupLogger(cmd)
 
 	forkURL, forkPath, err := resolvePublishTarget()
 	if err != nil {
@@ -59,16 +60,15 @@ func publishRunner(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not get current working directory: %w", err)
 	}
 
-	repo, branchName, manifest, err := publishToFork(cmd, sourceDir, forkURL, forkPath)
+	branchName, manifest, err := publishToFork(logger, sourceDir, forkURL, forkPath)
 	if err != nil {
 		return err
 	}
-	defer repo.Close()
 
 	if local {
 		return nil
 	}
-	return pushAndSuggestPR(repo, forkURL, forkPath, branchName, manifest)
+	return pushAndSuggestPR(logger, forkURL, forkPath, branchName, manifest)
 }
 
 // resolvePublishTarget loads the fork configuration, erroring if fork.url is
@@ -95,43 +95,42 @@ func resolvePublishTarget() (string, string, error) {
 // publishToFork loads the package manifest, checks out its branch in the
 // fork clone, copies the package files in, and commits them.
 func publishToFork(
-	cmd *cobra.Command, sourceDir, forkURL, forkPath string,
-) (*git.Repository, string, internal.Manifest, error) {
-	logger := internal.SetupLogger(cmd)
-
+	logger *log.Logger, sourceDir, forkURL, forkPath string,
+) (string, internal.Manifest, error) {
 	manifest, err := internal.LoadManifest(sourceDir)
 	if err != nil {
-		return nil, "", internal.Manifest{}, fmt.Errorf("could not load manifest: %w", err)
+		return "", internal.Manifest{}, fmt.Errorf("could not load manifest: %w", err)
 	}
 	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
 
 	pkgDir := path.Join("packages", previewNamespace, manifest.Package.Name)
 	branchName := manifest.Package.Name + "-" + manifest.Package.Version
 
-	repo, err := ensureForkRepo(forkURL, forkPath)
-	if err != nil {
-		return nil, "", internal.Manifest{}, err
+	if err := ensureForkRepo(logger, forkURL, forkPath); err != nil {
+		return "", internal.Manifest{}, err
 	}
-	branchExisted, err := checkoutPackageBranch(repo, branchName, pkgDir)
+	branchExisted, err := CheckoutPackageBranch(logger, forkPath, branchName, pkgDir)
 	if err != nil {
-		return nil, "", internal.Manifest{}, err
+		return "", internal.Manifest{}, err
 	}
 
 	relDestDir := filepath.Join(filepath.FromSlash(pkgDir), manifest.Package.Version)
 	destDir := filepath.Join(forkPath, relDestDir)
 	if err := RemoveTarget(destDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, "", internal.Manifest{}, fmt.Errorf("clearing previous version directory: %w", err)
+		return "", internal.Manifest{}, fmt.Errorf("clearing previous version directory: %w", err)
 	}
+	logger.Debug("copying package files", "src", sourceDir, "dest", destDir)
 	if err := CopyPackageFiles(sourceDir, destDir); err != nil {
-		return nil, "", internal.Manifest{}, err
+		return "", internal.Manifest{}, err
 	}
+	logger.Debug("copied package files")
 
 	msg := commitMessage(sourceDir, manifest, branchExisted)
-	if err := commitFork(repo, relDestDir, msg); err != nil {
-		return nil, "", internal.Manifest{}, err
+	if err := commitFork(logger, forkPath, relDestDir, msg); err != nil {
+		return "", internal.Manifest{}, err
 	}
 	internal.PrintInfof("committed %q on branch %s", msg, branchName)
-	return repo, branchName, manifest, nil
+	return branchName, manifest, nil
 }
 
 // resolveForkPath returns the configured fork.path, defaulting to
@@ -151,87 +150,87 @@ func resolveForkPath(cfg *config.Config) (string, error) {
 	return filepath.Join(dataDir, "fork"), nil
 }
 
-// ensureForkRepo opens an already-cloned fork and fetches it, or performs a
-// fresh sparse clone if forkPath does not yet hold a repository.
-func ensureForkRepo(forkURL, forkPath string) (*git.Repository, error) {
+// ensureForkRepo clones forkURL into forkPath if it isn't already a clone.
+//
+// The clone is blobless (--filter=blob:none) and checkout-less: only commits
+// and trees are fetched up front, and git's promisor-remote support lazily
+// fetches the blobs for whatever pkgDir CheckoutPackageBranch later sparse-
+// checks out, rather than the ~1000 packages/preview/* directories the fork
+// actually holds. go-git cannot do this - it has no mechanism to lazily fetch
+// objects excluded by a server-side filter, so any later Checkout/Reset needing
+// a filtered-out blob fails outright - hence shelling out to git itself.
+//
+// A fork clone is never fetched after its initial clone: gotpm is the only
+// writer of its own branches (fix-up publishes reuse the local branch tip
+// as-is), and new branches are cut from local origin/main, which staying
+// pinned to clone time is fine since publishing only ever adds a new
+// packages/preview/<name>/<version> directory. Deleting forkPath and letting
+// the next publish re-clone is how to pick up a manually-synced fork main.
+//
+// A forkPath whose clone was interrupted (e.g. killed mid-clone) leaves a
+// .git directory behind with no origin/main ref ever written. Such a clone is
+// detected here and wiped and redone rather than failing deep inside
+// CheckoutPackageBranch with a confusing "origin/main not found".
+func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	if internal.IsDir(filepath.Join(forkPath, ".git")) {
-		repo, err := git.PlainOpen(forkPath)
-		if err != nil {
-			return nil, fmt.Errorf("opening fork at %q: %w", forkPath, err)
+		logger.Debug("using existing fork clone as-is (not fetching)", "path", forkPath)
+		if gitcli.HasMain(forkPath) {
+			return nil
 		}
-		err = repo.Fetch(&git.FetchOptions{RemoteName: "origin"})
-		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-			return nil, fmt.Errorf("fetching fork: %w", err)
+		logger.Debug("fork clone is incomplete (no origin/main), re-cloning", "path", forkPath)
+		if err := RemoveTarget(forkPath); err != nil {
+			return fmt.Errorf("removing incomplete fork clone at %q: %w", forkPath, err)
 		}
-		return repo, nil
 	}
 	if err := internal.EnsureDir(filepath.Dir(forkPath)); err != nil {
-		return nil, err //nolint: wrapcheck
+		return err //nolint: wrapcheck
 	}
-	repo, err := remote.CloneSparseCheckout(forkURL, forkPath)
+	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)
+	spin := internal.SetupSpinner()
+	spin.Suffix = " Cloning fork (first publish, this can take a while)..."
+	spin.Start()
+	err := gitcli.Clone(forkURL, forkPath)
+	spin.Stop()
 	if err != nil {
-		return nil, fmt.Errorf("cloning fork %q: %w", forkURL, err)
+		return fmt.Errorf("cloning fork %q: %w", forkURL, err)
 	}
-	return repo, nil
+	logger.Debug("cloned fork")
+	return nil
 }
 
-// checkoutPackageBranch checks out branchName, scoped to pkgDir via sparse
+// CheckoutPackageBranch checks out branchName, scoped to pkgDir via sparse
 // checkout, creating it from origin/main's tip if it does not already exist.
 // It reports whether the branch already existed before this call.
 //
-// Checkout's sparse-checkout validation requires the sparse directory to
-// already exist in the target tree, which fails for a package that has never
-// been published before (its directory doesn't exist in the fork yet). When
-// that's the case, this widens the sparse scope to pkgDir's parent (the
-// "preview" namespace directory, which always exists) instead. A manual
-// Storer/Reset-based bypass of that validation was tried first but corrupts
-// the worktree/index when switching away from a previously sparse-checked-out
-// branch, since Reset's cleanup diff depends on HEAD not having moved yet.
-func checkoutPackageBranch(repo *git.Repository, branchName, pkgDir string) (bool, error) {
-	wt, err := repo.Worktree()
-	if err != nil {
-		return false, fmt.Errorf("opening fork worktree: %w", err)
-	}
-	branchRef := plumbing.NewBranchReferenceName(branchName)
-	existingRef, refErr := repo.Reference(branchRef, true)
-	branchExisted := refErr == nil
+// Unlike go-git's sparse checkout, git's own sparse-checkout has no
+// requirement that pkgDir already exist in the target tree, so a brand-new
+// package (never published before) scopes down to just pkgDir like any other,
+// rather than widening out to the whole packages/preview namespace.
+func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir string) (bool, error) {
+	branchExisted := gitcli.BranchExists(forkPath, branchName)
+	logger.Debug("resolved package branch", "branch", branchName, "existed", branchExisted)
 
-	opts := &git.CheckoutOptions{Branch: branchRef, Force: true}
-	var baseHash plumbing.Hash
+	spin := internal.SetupSpinner()
+	spin.Suffix = " Checking out package branch..."
+	spin.Start()
+	defer spin.Stop()
+
+	if err := gitcli.SparseCheckoutSet(forkPath, pkgDir); err != nil {
+		return false, fmt.Errorf("setting sparse-checkout scope %q: %w", pkgDir, err)
+	}
+
 	if branchExisted {
-		baseHash = existingRef.Hash()
-	} else {
-		mainRef, err := repo.Reference(plumbing.NewRemoteReferenceName("origin", "main"), true)
-		if err != nil {
-			return false, fmt.Errorf("resolving origin/main on fork: %w", err)
+		if err := gitcli.CheckoutBranch(forkPath, branchName); err != nil {
+			return false, fmt.Errorf("checking out %q: %w", branchName, err)
 		}
-		baseHash = mainRef.Hash()
-		opts.Create = true
-		opts.Hash = baseHash
+	} else {
+		logger.Debug("creating new branch from origin/main", "branch", branchName)
+		if err := gitcli.CheckoutNewBranch(forkPath, branchName, "origin/main"); err != nil {
+			return false, fmt.Errorf("checking out %q: %w", branchName, err)
+		}
 	}
-	opts.SparseCheckoutDirectories = []string{sparseScopeFor(repo, baseHash, pkgDir)}
-
-	if err := wt.Checkout(opts); err != nil {
-		return false, fmt.Errorf("checking out %q: %w", branchName, err)
-	}
+	logger.Debug("checked out branch", "branch", branchName)
 	return branchExisted, nil
-}
-
-// sparseScopeFor returns pkgDir if it already exists in hash's tree, or its
-// parent directory otherwise.
-func sparseScopeFor(repo *git.Repository, hash plumbing.Hash, pkgDir string) string {
-	commit, err := repo.CommitObject(hash)
-	if err != nil {
-		return path.Dir(pkgDir)
-	}
-	tree, err := commit.Tree()
-	if err != nil {
-		return path.Dir(pkgDir)
-	}
-	if _, err := tree.FindEntry(pkgDir); err != nil {
-		return path.Dir(pkgDir)
-	}
-	return pkgDir
 }
 
 // commitMessage returns "release: name version" for a fresh branch. For a
@@ -263,23 +262,21 @@ func commitMessage(sourceDir string, manifest internal.Manifest, branchExisted b
 }
 
 // commitFork stages relDestDir and commits it. Staging is deliberately scoped
-// to relDestDir rather than the whole worktree (AddOptions.All): when
-// checkoutPackageBranch creates a new branch, go-git's Checkout leaves stale
-// files from whatever was previously sparse-checked-out sitting on disk (see
-// checkoutPackageBranch's doc comment) without indexing them. An All-staged
-// Add would sweep those back in; scoping to the one directory we actually
-// wrote keeps the commit limited to this version's files.
-func commitFork(repo *git.Repository, relDestDir, msg string) error {
-	wt, err := repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("opening fork worktree: %w", err)
-	}
-	if err := wt.AddWithOptions(&git.AddOptions{Path: relDestDir}); err != nil {
+// to relDestDir rather than the whole worktree, keeping the commit limited to
+// this version's files regardless of whatever else is present in the sparse
+// checkout. Signing is left to the caller's own git config as-is: real git,
+// unlike go-git, natively supports whatever signing method (gpg, ssh, ...) the
+// user has configured.
+func commitFork(logger *log.Logger, forkPath, relDestDir, msg string) error {
+	logger.Debug("staging package files", "path", relDestDir)
+	if err := gitcli.Add(forkPath, relDestDir); err != nil {
 		return fmt.Errorf("staging package files: %w", err)
 	}
-	if _, err := wt.Commit(msg, &git.CommitOptions{}); err != nil {
+	logger.Debug("committing to fork")
+	if err := gitcli.Commit(forkPath, msg); err != nil {
 		return fmt.Errorf("committing to fork: %w", err)
 	}
+	logger.Debug("committed to fork")
 	return nil
 }
 
@@ -287,17 +284,15 @@ func commitFork(repo *git.Repository, relDestDir, msg string) error {
 // it returns an error containing the equivalent manual git push command. On
 // success it prints a ready-to-run `gh pr create` suggestion; gotpm never
 // talks to GitHub itself.
-func pushAndSuggestPR(repo *git.Repository, forkURL, forkPath, branchName string, manifest internal.Manifest) error {
-	branchRef := plumbing.NewBranchReferenceName(branchName)
-	refSpec := gitconfig.RefSpec(fmt.Sprintf("%s:%s", branchRef, branchRef))
-	err := repo.Push(&git.PushOptions{
-		RemoteName: "origin",
-		RefSpecs:   []gitconfig.RefSpec{refSpec},
-	})
-	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+func pushAndSuggestPR(
+	logger *log.Logger, forkURL, forkPath, branchName string, manifest internal.Manifest,
+) error {
+	logger.Debug("pushing branch to origin", "branch", branchName)
+	if err := gitcli.Push(forkPath, branchName); err != nil {
 		manual := fmt.Sprintf("git -C %s push origin %s", forkPath, branchName)
 		return fmt.Errorf("%w: %w\nRun manually: %s", ErrPushFailed, err, manual)
 	}
+	logger.Debug("pushed branch to origin", "branch", branchName)
 
 	owner, err := remote.OwnerFromURL(forkURL)
 	if err != nil {
