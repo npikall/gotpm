@@ -7,14 +7,10 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 
-	"charm.land/lipgloss/v2"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/cmds/bump"
+	"github.com/npikall/gotpm/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +31,7 @@ Valid arguments can be:
 	- patch
 	- a valid semantic version (e.g. 0.1.2)`,
 	RunE: BumpRunner,
+	Args: cobra.ExactArgs(1),
 }
 
 func init() {
@@ -48,73 +45,11 @@ func init() {
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
 func BumpRunner(cmd *cobra.Command, args []string) error {
-	logger := internal.SetupLogger(cmd)
-
-	cwd := internal.Must(os.Getwd())
-	logger.Debug("running in", "cwd", cwd)
-
-	manifest, err := internal.LoadManifest(cwd)
+	logLevel, err := cmd.Flags().GetCount("verbose")
 	if err != nil {
-		return fmt.Errorf("could not load manifest: %w", err)
+		return err
 	}
-	pkg := manifest.Package
-
-	showCurrent := internal.Must(cmd.Flags().GetBool("show-current"))
-	if showCurrent {
-		_, _ = lipgloss.Println(pkg.Version)
-		return nil
-	}
-
-	previousVersion := pkg.Version
-	logger.Debug("from 'typst.toml'", "version", previousVersion)
-
-	if len(args) == 0 {
-		return ErrMissingArgument
-	}
-	bumpArg := args[0]
-
-	dryRun := internal.Must(cmd.Flags().GetBool("dry-run"))
-
-	if err := pkg.Bump(bumpArg); err != nil {
-		return fmt.Errorf("could not bump version: %w", err)
-	}
-	logger.Debug("setting toml", "version", pkg.Version)
-
-	if dryRun {
-		logger.Warn("performing dry-run")
-		logger.Infof("updated version %s -> %s", previousVersion, pkg.Version)
-		return nil
-	}
-
-	showNext := internal.Must(cmd.Flags().GetBool("show-next"))
-	if showNext {
-		_, _ = lipgloss.Println(pkg.Version)
-		return nil
-	}
-
-	typstTOML := filepath.Join(cwd, "typst.toml")
-	typstTOMLContent, err := os.ReadFile(typstTOML) //nolint: gosec
-	if err != nil {
-		return fmt.Errorf("could not read typst.toml: %w", err)
-	}
-	logger.Debug("editing", "file", typstTOML)
-
-	indent := internal.Must(cmd.Flags().GetBool("indent"))
-	var buf bytes.Buffer
-	if err := internal.UpdateTOML(&buf, pkg, typstTOMLContent, indent); err != nil {
-		return fmt.Errorf("could not update typst.toml: %w", err)
-	}
-	logger.Debug("write edited toml to buffer")
-
-	if err := internal.WriteFile(typstTOML, buf.Bytes()); err != nil {
-		return err //nolint: wrapcheck
-	}
-	logger.Debug("write buffer", "file", typstTOML)
-
-	internal.PrintInfof(
-		"updated version %s -> %s",
-		internal.StyleAccent.Render(previousVersion),
-		internal.StyleAccent.Render(pkg.Version),
-	)
-	return nil
+	log := logger.Setup(logLevel)
+	opts := bump.GetOptions(cmd)
+	return bump.Run(args[0], opts, log)
 }
