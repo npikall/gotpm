@@ -78,6 +78,11 @@ linters:
           - gocyclo
           - errcheck
           - gosec
+  settings:
+    wrapcheck:
+      ignore-package-globs:
+        - 'github.com/npikall/gotpm/*'
+        - 'github.com/spf13/*'
 formatters:
   enable:
     - goimports
