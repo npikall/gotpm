@@ -66,13 +66,13 @@ func ConfigSetRunner(cmd *cobra.Command, args []string) error {
 	key, value := args[0], args[1]
 	cfg, err := config.Load()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	if err := cfg.Set(key, value); err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	if err := config.Save(cfg); err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	internal.PrintInfof("%s = %s", key, value)
 	return nil
@@ -82,11 +82,11 @@ func ConfigGetRunner(cmd *cobra.Command, args []string) error {
 	key := args[0]
 	cfg, err := config.Load()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	value, err := cfg.Get(key)
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	internal.PrintInfof("%s = %s", key, value)
 	return nil
@@ -96,13 +96,13 @@ func ConfigUnsetRunner(cmd *cobra.Command, args []string) error {
 	key := args[0]
 	cfg, err := config.Load()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	if err := cfg.Unset(key); err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	if err := config.Save(cfg); err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	internal.PrintInfof("%s = ", key)
 	return nil
@@ -111,11 +111,11 @@ func ConfigUnsetRunner(cmd *cobra.Command, args []string) error {
 func ConfigListRunner(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	configPath, err := config.Path()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	internal.PrintInfof("current config at %s\n", configPath)
 	for _, kv := range cfg.Entries() {

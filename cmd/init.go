@@ -61,7 +61,7 @@ entrypoint = "lib.typ"`, pkgName)},
 
 	for _, boot := range bootstrap {
 		if err := internal.WriteFile(boot.path, boot.content); err != nil {
-			return err //nolint: wrapcheck
+			return err
 		}
 	}
 

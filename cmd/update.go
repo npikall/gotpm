@@ -222,10 +222,10 @@ func isStdinPiped() bool {
 
 func WriteOutputContent(content []byte, inputFilePath string, outputPath string) error {
 	if outputPath != "" {
-		return internal.WriteFile(outputPath, content) //nolint: wrapcheck
+		return internal.WriteFile(outputPath, content)
 	}
 	if inputFilePath != "" {
-		return internal.WriteFile(inputFilePath, content) //nolint: wrapcheck
+		return internal.WriteFile(inputFilePath, content)
 	}
 	_, err := os.Stdout.Write(content)
 	if err != nil {

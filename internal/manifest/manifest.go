@@ -97,7 +97,7 @@ func Update(file string, manifest *Manifest, indent bool) error {
 	}
 
 	if err := internal.WriteFile(file, buf.Bytes()); err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	return nil
 }

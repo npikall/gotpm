@@ -403,11 +403,11 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	url := opts.Remote
 	remotesDir, err := internal.ResolveRemotesDir()
 	if err != nil {
-		return "", err //nolint: wrapcheck
+		return "", err
 	}
 	repoName, err := remote.RepoNameFromURL(url)
 	if err != nil {
-		return "", err //nolint: wrapcheck
+		return "", err
 	}
 	repoDir := filepath.Join(remotesDir, repoName)
 
@@ -419,7 +419,7 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 		}
 		_ = repo.Fetch(&git.FetchOptions{})
 		if err = remote.CheckoutRevision(repo, opts.Revision); err != nil {
-			return "", err //nolint: wrapcheck
+			return "", err
 		}
 		return repoDir, nil
 	}
@@ -431,7 +431,7 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	cleanedURL := remote.DefaultHTTPCloneURL(url)
 	err = remote.CloneRepo(cleanedURL, repoDir, opts.Revision)
 	if err != nil {
-		return "", err //nolint: wrapcheck
+		return "", err
 	}
 	return repoDir, nil
 }

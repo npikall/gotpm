@@ -32,11 +32,11 @@ func init() {
 func CacheClearRunner(cmd *cobra.Command, args []string) error {
 	remotesDir, err := internal.ResolveRemotesDir()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	cachePath, err := internal.ResolveCachePath()
 	if err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 
 	size := cacheClearSizeMB(remotesDir, cachePath)

@@ -76,11 +76,11 @@ func publishRunner(cmd *cobra.Command, _ []string) error {
 func resolvePublishTarget() (string, string, error) {
 	cfg, err := config.Load()
 	if err != nil {
-		return "", "", err //nolint: wrapcheck
+		return "", "", err
 	}
 	forkURL, err := cfg.Get("fork.url")
 	if err != nil {
-		return "", "", err //nolint: wrapcheck
+		return "", "", err
 	}
 	if forkURL == "" {
 		return "", "", fmt.Errorf("%w\nRun: `gotpm config set fork.url <repo>`", ErrMissingForkURL)
@@ -138,14 +138,14 @@ func publishToFork(
 func resolveForkPath(cfg *config.Config) (string, error) {
 	forkPath, err := cfg.Get("fork.path")
 	if err != nil {
-		return "", err //nolint: wrapcheck
+		return "", err
 	}
 	if forkPath != "" {
 		return forkPath, nil
 	}
 	dataDir, err := internal.ResolveAppDataDir()
 	if err != nil {
-		return "", err //nolint: wrapcheck
+		return "", err
 	}
 	return filepath.Join(dataDir, "fork"), nil
 }
@@ -183,7 +183,7 @@ func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 		}
 	}
 	if err := internal.EnsureDir(filepath.Dir(forkPath)); err != nil {
-		return err //nolint: wrapcheck
+		return err
 	}
 	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)
 	spin := internal.SetupSpinner()
