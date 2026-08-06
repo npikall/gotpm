@@ -5,8 +5,11 @@ package store
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
@@ -112,6 +115,113 @@ func (s Store) Remove(ref pkg.Ref) error {
 // package is not an error.
 func (s Store) RemovePackage(namespace, name string) error {
 	return remove(s.PackageDir(namespace, name))
+}
+
+// Namespace is one namespace of a store and the packages installed under it.
+type Namespace struct {
+	Name     string
+	Packages []Package
+}
+
+// Package is one installed package and the versions of it that are present.
+type Package struct {
+	Name     string
+	Versions []Version
+}
+
+// Version is one installed version of a package. Its name is the directory as
+// found on disk, which is not necessarily valid semver.
+type Version struct {
+	Name     string
+	Editable bool
+}
+
+// Exists reports whether the store directory is present.
+func (s Store) Exists() bool {
+	return isDir(s.root)
+}
+
+// Scan reports everything installed in the store, sorted by name. It is
+// deliberately lenient: a version directory is listed under the name it has on
+// disk, whether or not that name is valid semver.
+func (s Store) Scan() ([]Namespace, error) {
+	entries, err := os.ReadDir(s.root)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("could not read typst packages: %w", err)
+	}
+
+	var namespaces []Namespace
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		packages := scanPackages(filepath.Join(s.root, entry.Name()))
+		if len(packages) == 0 {
+			continue
+		}
+		namespaces = append(namespaces, Namespace{Name: entry.Name(), Packages: packages})
+	}
+	slices.SortFunc(namespaces, func(a, b Namespace) int { return strings.Compare(a.Name, b.Name) })
+	return namespaces, nil
+}
+
+// scanPackages lists the packages of one namespace directory. Packages without
+// any version directory are left out.
+func scanPackages(namespaceDir string) []Package {
+	entries, err := os.ReadDir(namespaceDir)
+	if err != nil {
+		return nil
+	}
+
+	var packages []Package
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		versions := scanVersions(filepath.Join(namespaceDir, entry.Name()))
+		if len(versions) == 0 {
+			continue
+		}
+		packages = append(packages, Package{Name: entry.Name(), Versions: versions})
+	}
+	slices.SortFunc(packages, func(a, b Package) int { return strings.Compare(a.Name, b.Name) })
+	return packages
+}
+
+// scanVersions lists the versions of one package directory. A version that is
+// a symlink was installed as editable.
+func scanVersions(packageDir string) []Version {
+	entries, err := os.ReadDir(packageDir)
+	if err != nil {
+		return nil
+	}
+
+	var versions []Version
+	for _, entry := range entries {
+		// Follows symlinks, so an editable install still counts as a version.
+		if !isDirFollowingLinks(filepath.Join(packageDir, entry.Name())) {
+			continue
+		}
+		versions = append(versions, Version{
+			Name:     entry.Name(),
+			Editable: entry.Type()&fs.ModeSymlink != 0,
+		})
+	}
+	slices.SortFunc(versions, func(a, b Version) int { return strings.Compare(a.Name, b.Name) })
+	return versions
+}
+
+func isDir(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.IsDir()
+}
+
+func isDirFollowingLinks(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // exists reports whether path is present, counting a symlink whose target is
