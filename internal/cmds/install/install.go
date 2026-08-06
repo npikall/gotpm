@@ -67,7 +67,7 @@ func Run(path string, opts *Options, log *log.Logger) error {
 		if err := s.Link(ref, sourceDir); err != nil {
 			return err
 		}
-		ui.Infof("installed %s (editable)", ui.AccentBold.Render(ref.String()))
+		ui.Infof("installed %s (editable)", ui.Package(ref.String()))
 		return nil
 	}
 
@@ -78,7 +78,7 @@ func Run(path string, opts *Options, log *log.Logger) error {
 	if err != nil {
 		return err
 	}
-	ui.Infof("installed %s", ui.AccentBold.Render(ref.String()))
+	ui.Infof("installed %s", ui.Package(ref.String()))
 	return nil
 }
 

@@ -24,7 +24,7 @@ func Error(err error) {
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
-// Import renders a typst import statement, e.g. "@preview/my-pkg:0.1.0".
-func Import(namespace, name, version string) string {
-	return AccentBold.Render(fmt.Sprintf("@%s/%s:%s", namespace, name, version))
+// Package highlights a package reference, e.g. "@preview/my-pkg:0.1.0".
+func Package(ref string) string {
+	return AccentBold.Render(ref)
 }

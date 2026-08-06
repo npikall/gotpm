@@ -7,21 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestImport(t *testing.T) {
+func TestPackage(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		namespace, name, version string
-	}{
-		{"preview", "my-pkg", "0.1.0"},
-		{"local", "foo", "1.2.3"},
-		{"preview", "bar", "0.0.1"},
-	}
-	for _, tt := range tests {
-		got := ui.Import(tt.namespace, tt.name, tt.version)
-		expected := "@" + tt.namespace + "/" + tt.name + ":" + tt.version
-		assert.Contains(t, got, expected,
-			"Import(%q, %q, %q) = %q, must contain %q",
-			tt.namespace, tt.name, tt.version, got, expected)
+	for _, ref := range []string{"@preview/my-pkg:0.1.0", "@local/foo:1.2.3", "@preview/bar:*.*.*"} {
+		assert.Contains(t, ui.Package(ref), ref, "Package(%q) must contain the reference", ref)
 	}
 }
 

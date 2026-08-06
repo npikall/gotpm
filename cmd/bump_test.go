@@ -7,11 +7,20 @@ import (
 
 	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/semver"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// writeManifest creates a package directory holding bumpManifest.
+func writeManifest(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(bumpManifest), paths.FilePerm))
+	return dir
+}
 
 func newBumpCmd(t *testing.T) *cobra.Command {
 	t.Helper()
@@ -31,7 +40,7 @@ entrypoint = "lib.typ"
 `
 
 func TestBumpRunner_MissingArgument(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	err := BumpRunner(newBumpCmd(t), []string{})
 	assert.ErrorIs(t, err, ErrMissingArgument)
@@ -44,7 +53,7 @@ func TestBumpRunner_NoManifest(t *testing.T) { //nolint: paralleltest
 }
 
 func TestBumpRunner_ShowCurrent(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	cmd := newBumpCmd(t)
 	check(cmd.Flags().Set("show-current", "true"))
@@ -56,7 +65,7 @@ func TestBumpRunner_ShowCurrent(t *testing.T) { //nolint: paralleltest
 }
 
 func TestBumpRunner_Patch(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"patch"}))
 
@@ -66,7 +75,7 @@ func TestBumpRunner_Patch(t *testing.T) { //nolint: paralleltest
 }
 
 func TestBumpRunner_Minor(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"minor"}))
 
@@ -76,7 +85,7 @@ func TestBumpRunner_Minor(t *testing.T) { //nolint: paralleltest
 }
 
 func TestBumpRunner_Major(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"major"}))
 
@@ -86,7 +95,7 @@ func TestBumpRunner_Major(t *testing.T) { //nolint: paralleltest
 }
 
 func TestBumpRunner_ExactVersion(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"9.8.7"}))
 
@@ -96,14 +105,14 @@ func TestBumpRunner_ExactVersion(t *testing.T) { //nolint: paralleltest
 }
 
 func TestBumpRunner_InvalidIncrement(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	err := BumpRunner(newBumpCmd(t), []string{"bogus"})
 	assert.ErrorIs(t, err, semver.ErrInvalidIncrement)
 }
 
 func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	cmd := newBumpCmd(t)
 	check(cmd.Flags().Set("dry-run", "true"))
@@ -116,7 +125,7 @@ func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: parallelte
 }
 
 func TestBumpRunner_ShowNext_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
-	dir := writeManifest(t, bumpManifest)
+	dir := writeManifest(t)
 	t.Chdir(dir)
 	cmd := newBumpCmd(t)
 	check(cmd.Flags().Set("show-next", "true"))

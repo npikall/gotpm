@@ -13,7 +13,10 @@ import (
 	"github.com/npikall/gotpm/internal/pkgfiles"
 )
 
-var ErrAlreadyInstalled = errors.New("package already installed at destination")
+var (
+	ErrAlreadyInstalled = errors.New("package already installed at destination")
+	ErrNotInstalled     = errors.New("package not installed")
+)
 
 // Store is a directory holding installed packages.
 //
@@ -54,11 +57,23 @@ func (s Store) Dir(ref pkg.Ref) string {
 	return ref.Dir(s.root)
 }
 
+// PackageDir returns the directory holding every version of a package.
+func (s Store) PackageDir(namespace, name string) string {
+	if s.flat {
+		return s.root
+	}
+	return filepath.Join(s.root, namespace, name)
+}
+
 // Has reports whether something is already installed at the package's
 // destination. A symlink counts as installed even when its target is gone.
 func (s Store) Has(ref pkg.Ref) bool {
-	_, err := os.Lstat(s.Dir(ref))
-	return err == nil
+	return exists(s.Dir(ref))
+}
+
+// HasPackage reports whether any version of a package is installed.
+func (s Store) HasPackage(namespace, name string) bool {
+	return exists(s.PackageDir(namespace, name))
 }
 
 // Install copies a package from srcDir into the store.
@@ -90,7 +105,24 @@ func (s Store) Link(ref pkg.Ref, srcDir string) error {
 // Remove deletes an installed package version. A missing package is not an
 // error.
 func (s Store) Remove(ref pkg.Ref) error {
-	if err := paths.Remove(s.Dir(ref)); err != nil && !errors.Is(err, os.ErrNotExist) {
+	return remove(s.Dir(ref))
+}
+
+// RemovePackage deletes every installed version of a package. A missing
+// package is not an error.
+func (s Store) RemovePackage(namespace, name string) error {
+	return remove(s.PackageDir(namespace, name))
+}
+
+// exists reports whether path is present, counting a symlink whose target is
+// gone as present.
+func exists(path string) bool {
+	_, err := os.Lstat(path)
+	return err == nil
+}
+
+func remove(path string) error {
+	if err := paths.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil
