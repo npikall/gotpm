@@ -1,4 +1,4 @@
-package cmd_test
+package publish_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"charm.land/log/v2"
-	. "github.com/npikall/gotpm/cmd"
+	"github.com/npikall/gotpm/internal/cmds/publish"
 	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +34,7 @@ func TestCheckoutPackageBranchSparseScope(t *testing.T) {
 	require.NoError(t, gitcli.Clone(origin, forkPath))
 
 	logger := log.New(io.Discard)
-	branchExisted, err := CheckoutPackageBranch(logger, forkPath, "new-pkg-0.1.0", "packages/preview/new-pkg")
+	branchExisted, err := publish.CheckoutPackageBranch(logger, forkPath, "new-pkg-0.1.0", "packages/preview/new-pkg")
 	require.NoError(t, err)
 	assert.False(t, branchExisted)
 
