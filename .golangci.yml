@@ -3,6 +3,7 @@ linters:
   default: none
   enable:
     - bodyclose
+    - depguard
     - canonicalheader
     - contextcheck
     - copyloopvar
@@ -78,6 +79,33 @@ linters:
           - gocyclo
           - errcheck
           - gosec
+  settings:
+    # Keeps the layering honest: cobra lives in cmd/, terminal output lives in
+    # internal/ui, and the domain packages under internal/ do neither.
+    depguard:
+      rules:
+        domain:
+          files:
+            - '**/internal/**'
+            - '!**/internal/cmds/**'
+            - '!**/internal/ui/**'
+          deny:
+            - pkg: github.com/spf13/cobra
+              desc: flags are read in cmd/; internal packages take plain values
+            - pkg: charm.land/lipgloss/v2
+              desc: terminal output belongs in internal/ui
+            - pkg: github.com/briandowns/spinner
+              desc: terminal output belongs in internal/ui
+        cmds:
+          files:
+            - '**/internal/cmds/**'
+          deny:
+            - pkg: github.com/spf13/cobra
+              desc: flags are read in cmd/; a command package takes an Options value
+    wrapcheck:
+      ignore-package-globs:
+        - 'github.com/npikall/gotpm/*'
+        - 'github.com/spf13/*'
 formatters:
   enable:
     - goimports

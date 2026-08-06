@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/npikall/gotpm/internal"
-	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/cmds/config"
 	"github.com/spf13/cobra"
 )
 
@@ -62,64 +59,18 @@ func init() {
 	configCmd.AddCommand(configListCmd)
 }
 
-func ConfigSetRunner(cmd *cobra.Command, args []string) error {
-	key, value := args[0], args[1]
-	cfg, err := config.Load()
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	if err := cfg.Set(key, value); err != nil {
-		return err //nolint: wrapcheck
-	}
-	if err := config.Save(cfg); err != nil {
-		return err //nolint: wrapcheck
-	}
-	internal.PrintInfof("%s = %s", key, value)
-	return nil
+func ConfigSetRunner(_ *cobra.Command, args []string) error {
+	return config.Set(args[0], args[1])
 }
 
-func ConfigGetRunner(cmd *cobra.Command, args []string) error {
-	key := args[0]
-	cfg, err := config.Load()
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	value, err := cfg.Get(key)
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	internal.PrintInfof("%s = %s", key, value)
-	return nil
+func ConfigGetRunner(_ *cobra.Command, args []string) error {
+	return config.Get(args[0])
 }
 
-func ConfigUnsetRunner(cmd *cobra.Command, args []string) error {
-	key := args[0]
-	cfg, err := config.Load()
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	if err := cfg.Unset(key); err != nil {
-		return err //nolint: wrapcheck
-	}
-	if err := config.Save(cfg); err != nil {
-		return err //nolint: wrapcheck
-	}
-	internal.PrintInfof("%s = ", key)
-	return nil
+func ConfigUnsetRunner(_ *cobra.Command, args []string) error {
+	return config.Unset(args[0])
 }
 
-func ConfigListRunner(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	configPath, err := config.Path()
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	internal.PrintInfof("current config at %s\n", configPath)
-	for _, kv := range cfg.Entries() {
-		fmt.Printf("%s = %s\n", kv.Key, kv.Value)
-	}
-	return nil
+func ConfigListRunner(_ *cobra.Command, _ []string) error {
+	return config.List()
 }

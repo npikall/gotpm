@@ -7,7 +7,7 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/cmds/self"
 	"github.com/spf13/cobra"
 )
 
@@ -20,12 +20,24 @@ var selfCmd = &cobra.Command{
 var selfVersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print build information for the gotpm binary",
-	Run: func(cmd *cobra.Command, args []string) {
-		internal.PrintInfof("gotpm version=%s hash=%s os=%s arch=%s installer=%s", gitTag, gitCommit, buildOS, buildARCH, installer)
+	Args:  cobra.NoArgs,
+	Run: func(_ *cobra.Command, _ []string) {
+		self.Version(buildInfo())
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(selfCmd)
 	selfCmd.AddCommand(selfVersionCmd)
+}
+
+// buildInfo collects the values stamped into this package at build time.
+func buildInfo() self.BuildInfo {
+	return self.BuildInfo{
+		Version:   gitTag,
+		Commit:    gitCommit,
+		OS:        buildOS,
+		Arch:      buildARCH,
+		Installer: installer,
+	}
 }
