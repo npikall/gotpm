@@ -17,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/go-git/go-git/v6"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
@@ -409,7 +408,7 @@ func ResolveSourceDir(args []string, opts *InstallOptions) (string, error) {
 
 func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	url := opts.Remote
-	remotesDir, err := internal.ResolveRemotesDir()
+	remotesDir, err := remote.CacheDir()
 	if err != nil {
 		return "", err
 	}

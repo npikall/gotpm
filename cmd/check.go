@@ -17,7 +17,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/index"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -121,26 +121,12 @@ func CheckRunner(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func resolveIndex(ctx context.Context) (map[string]string, error) {
-	cache, err := internal.LoadIndexCache()
-	if err != nil || !cache.IsValid() {
-		entries, fetchErr := internal.FetchTypstIndex(ctx)
-		if fetchErr != nil {
-			return nil, fmt.Errorf("could not fetch typst index: %w", fetchErr)
-		}
-		index := internal.BuildVersionIndex(entries)
-		_ = internal.SaveIndexCache(index)
-		return index, nil
-	}
-	return cache.Index, nil
-}
-
 func CheckImports(linesCh <-chan string, resultCh chan<- *CheckResult) {
 	r := &CheckResult{}
 
-	ctx, cancel := context.WithTimeout(context.Background(), internal.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), index.Timeout)
 	defer cancel()
-	index, indexErr := resolveIndex(ctx)
+	idx, indexErr := index.Load(ctx, index.Opts{})
 
 	seen := make(map[string]struct{})
 	for line := range linesCh {
@@ -148,23 +134,23 @@ func CheckImports(linesCh <-chan string, resultCh chan<- *CheckResult) {
 			continue
 		}
 		seen[line] = struct{}{}
-		if err := CheckImportStatement(line, r, index, indexErr); err != nil {
+		if err := CheckImportStatement(line, r, idx, indexErr); err != nil {
 			r.Add(ImportIssue{Import: line, Err: err})
 		}
 	}
 	resultCh <- r
 }
 
-func CheckImportStatement(imp string, result *CheckResult, index map[string]string, indexErr error) error {
+func CheckImportStatement(imp string, result *CheckResult, idx index.Index, indexErr error) error {
 	switch {
 	case strings.HasPrefix(imp, "@"):
-		return CheckPackageExists(imp, result, index, indexErr)
+		return CheckPackageExists(imp, result, idx, indexErr)
 	default:
 		return CheckFileExists(imp)
 	}
 }
 
-func CheckPackageExists(imp string, result *CheckResult, index map[string]string, indexErr error) error {
+func CheckPackageExists(imp string, result *CheckResult, idx index.Index, indexErr error) error {
 	namespace, identifier, found := strings.Cut(imp[len(`@`):], "/")
 	if !found {
 		return ErrBadImport
@@ -176,7 +162,7 @@ func CheckPackageExists(imp string, result *CheckResult, index map[string]string
 
 	switch {
 	case strings.HasPrefix(namespace, "preview"):
-		return CheckPackageInTypstUniverse(pkg, version, result, index, indexErr)
+		return CheckPackageInTypstUniverse(pkg, version, result, idx, indexErr)
 	default:
 		return CheckPackageExistsLocally(namespace, pkg, version)
 	}
@@ -197,11 +183,11 @@ func CheckPackageExistsLocally(namespace, pkg, version string) error {
 	return nil
 }
 
-func CheckPackageInTypstUniverse(pkg, version string, result *CheckResult, index map[string]string, indexErr error) error {
+func CheckPackageInTypstUniverse(pkg, version string, result *CheckResult, idx index.Index, indexErr error) error {
 	if indexErr != nil {
 		return indexErr
 	}
-	latest, found := index[pkg]
+	latest, found := idx.Latest(pkg)
 	if !found {
 		return ErrPackageNotInIndex
 	}

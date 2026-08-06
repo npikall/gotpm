@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,7 +20,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/index"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -237,7 +236,7 @@ func WriteOutputContent(content []byte, inputFilePath string, outputPath string)
 }
 
 func fetchLatestVersions(ctx context.Context, imports [][]byte, noCache bool) (map[string]Result, []logEvent) {
-	index, _ := fetchTypstVersionIndex(ctx, noCache)
+	idx, _ := index.Load(ctx, index.Opts{NoCache: noCache})
 
 	resultCh := make(chan Result, len(imports))
 	logCh := make(chan logEvent, len(imports))
@@ -245,7 +244,7 @@ func fetchLatestVersions(ctx context.Context, imports [][]byte, noCache bool) (m
 	var wg sync.WaitGroup //nolint: varnamelen
 	for _, importStatement := range imports {
 		wg.Go(func() {
-			processImport(ctx, importStatement, index, resultCh, logCh)
+			processImport(ctx, importStatement, idx, resultCh, logCh)
 		})
 	}
 	wg.Wait()
@@ -258,35 +257,18 @@ func fetchLatestVersions(ctx context.Context, imports [][]byte, noCache bool) (m
 // LookupVersion queries the Typst package index first and falls back to the
 // GitHub API for missing packages or when the index is unavailable.
 // Returns the version, its source ("index" or "github"), and any error.
-func LookupVersion(ctx context.Context, index map[string]string, pkgName string) (string, string, error) {
-	if version, ok := index[pkgName]; ok {
+func LookupVersion(ctx context.Context, idx index.Index, pkgName string) (string, string, error) {
+	if version, ok := idx.Latest(pkgName); ok {
 		return version, "index", nil
 	}
-	version, err := lookupVersionFromGitHub(ctx, pkgName)
+	version, err := index.LatestOnGitHub(ctx, pkgName)
 	return version, "github", err
 }
 
-func fetchTypstVersionIndex(ctx context.Context, noCache bool) (map[string]string, error) {
-	if !noCache {
-		if cache, err := internal.LoadIndexCache(); err == nil && cache.IsValid() {
-			return cache.Index, nil
-		}
-	}
-	entries, err := internal.FetchTypstIndex(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch the typst index: %w", err)
-	}
-	index := internal.BuildVersionIndex(entries)
-	if !noCache {
-		_ = internal.SaveIndexCache(index)
-	}
-	return index, nil
-}
-
-func processImport(ctx context.Context, importStatement []byte, index map[string]string, resultCh chan<- Result, logCh chan<- logEvent) {
+func processImport(ctx context.Context, importStatement []byte, idx index.Index, resultCh chan<- Result, logCh chan<- logEvent) {
 	pkgName, currentVersion := ParsePackageRef(importStatement)
 
-	latestVersion, source, err := LookupVersion(ctx, index, pkgName)
+	latestVersion, source, err := LookupVersion(ctx, idx, pkgName)
 	if err != nil {
 		logCh <- logEvent{"error", err.Error(), nil}
 		return
@@ -299,22 +281,6 @@ func processImport(ctx context.Context, importStatement []byte, index map[string
 
 	logCh <- logEvent{"info", "update", []any{"package", pkgName, "from", currentVersion, "to", latestVersion, "via", source}}
 	resultCh <- Result{Name: pkgName, Latest: latestVersion, Current: currentVersion}
-}
-
-func lookupVersionFromGitHub(ctx context.Context, pkgName string) (string, error) {
-	apiURL, err := url.JoinPath(internal.TypstPackageEndpoint, pkgName)
-	if err != nil {
-		return "", fmt.Errorf("could create url for %q: %w", pkgName, err)
-	}
-	response, err := internal.FetchDataFromGitHub(apiURL, ctx)
-	if err != nil {
-		return "", fmt.Errorf("could not find package %q on github: %w", pkgName, err)
-	}
-	latest, err := internal.GetLatestVersion(response)
-	if err != nil {
-		return "", fmt.Errorf("could not get latest version from response for %q: %w", pkgName, err)
-	}
-	return latest, nil
 }
 
 func collectVersionResults(resultCh <-chan Result) map[string]Result {

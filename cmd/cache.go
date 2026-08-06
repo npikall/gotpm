@@ -5,7 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/index"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -31,11 +32,11 @@ func init() {
 }
 
 func CacheClearRunner(cmd *cobra.Command, args []string) error {
-	remotesDir, err := internal.ResolveRemotesDir()
+	remotesDir, err := remote.CacheDir()
 	if err != nil {
 		return err
 	}
-	cachePath, err := internal.ResolveCachePath()
+	cachePath, err := index.CachePath()
 	if err != nil {
 		return err
 	}
@@ -47,11 +48,11 @@ func CacheClearRunner(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if err = os.RemoveAll(remotesDir); err != nil {
-		return err //nolint: wrapcheck
+	if err = remote.ClearCache(); err != nil {
+		return err
 	}
-	if err = os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
-		return err //nolint: wrapcheck
+	if err = index.ClearCache(); err != nil {
+		return err
 	}
 
 	ui.Infof("Cleared %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)

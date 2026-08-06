@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/index"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,13 +40,13 @@ func newCacheClearCmd(t *testing.T, dryRun bool) *cobra.Command {
 func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) { //nolint: nonamedreturns
 	t.Helper()
 
-	remotesDir, err := internal.ResolveRemotesDir()
+	remotesDir, err := remote.CacheDir()
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(filepath.Join(remotesDir, "example.com", "repo"), paths.DirPerm))
 	require.NoError(t, os.WriteFile(filepath.Join(remotesDir, "example.com", "repo", "file.txt"), []byte("data"), paths.FilePerm))
 
-	require.NoError(t, internal.SaveIndexCache(map[string]string{"pkg": "1.0.0"}))
-	cachePath, err = internal.ResolveCachePath()
+	require.NoError(t, index.SaveCache(index.Index{"pkg": "1.0.0"}))
+	cachePath, err = index.CachePath()
 	require.NoError(t, err)
 
 	cfg := &config.Config{}
