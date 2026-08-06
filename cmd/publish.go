@@ -14,6 +14,7 @@ import (
 	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/pkgfiles"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -125,11 +126,11 @@ func publishToFork(
 
 	relDestDir := filepath.Join(filepath.FromSlash(pkgDir), m.Package.Version)
 	destDir := filepath.Join(forkPath, relDestDir)
-	if err := RemoveTarget(destDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := paths.Remove(destDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("clearing previous version directory: %w", err)
 	}
 	logger.Debug("copying package files", "src", sourceDir, "dest", destDir)
-	if err := CopyPackageFiles(sourceDir, destDir); err != nil {
+	if err := pkgfiles.CopyTree(sourceDir, destDir); err != nil {
 		return "", nil, err
 	}
 	logger.Debug("copied package files")
@@ -187,7 +188,7 @@ func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 			return nil
 		}
 		logger.Debug("fork clone is incomplete (no origin/main), re-cloning", "path", forkPath)
-		if err := RemoveTarget(forkPath); err != nil {
+		if err := paths.Remove(forkPath); err != nil {
 			return fmt.Errorf("removing incomplete fork clone at %q: %w", forkPath, err)
 		}
 	}

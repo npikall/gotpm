@@ -1,3 +1,4 @@
+// Package logger builds the application logger for a given verbosity level.
 package logger
 
 import (

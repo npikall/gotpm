@@ -113,44 +113,6 @@ func Test_validateTargetExists(t *testing.T) {
 	})
 }
 
-func Test_removeTarget(t *testing.T) {
-	t.Parallel()
-	t.Run("removes regular directory and its contents", func(t *testing.T) {
-		t.Parallel()
-		parent := t.TempDir()
-		target := filepath.Join(parent, "pkg")
-		check(os.MkdirAll(filepath.Join(target, "sub"), paths.DirPerm))
-		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), paths.FilePerm))
-
-		err := RemoveTarget(target)
-		require.NoError(t, err)
-		assert.NoDirExists(t, target)
-	})
-	t.Run("removes symlink without deleting the pointed-to directory", func(t *testing.T) {
-		t.Parallel()
-		actual := t.TempDir()
-		check(os.WriteFile(filepath.Join(actual, "lib.typ"), []byte(""), paths.FilePerm))
-		parent := t.TempDir()
-		link := filepath.Join(parent, "link")
-		check(os.Symlink(actual, link))
-
-		err := RemoveTarget(link)
-		require.NoError(t, err)
-		assert.NoFileExists(t, link)
-		assert.DirExists(t, actual) // target directory must be untouched
-	})
-	t.Run("removes dangling symlink", func(t *testing.T) {
-		t.Parallel()
-		parent := t.TempDir()
-		link := filepath.Join(parent, "dangling")
-		check(os.Symlink(filepath.Join(parent, "nowhere"), link))
-
-		err := RemoveTarget(link)
-		require.NoError(t, err)
-		assert.NoFileExists(t, link)
-	})
-}
-
 func Test_readUninstallFlags(t *testing.T) {
 	t.Parallel()
 	newCmd := func() *cobra.Command {

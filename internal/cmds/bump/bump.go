@@ -1,3 +1,5 @@
+// Package bump implements the bump command: it changes the version recorded in
+// a package manifest.
 package bump
 
 import (

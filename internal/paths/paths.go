@@ -1,3 +1,5 @@
+// Package paths resolves the platform specific directories gotpm reads and
+// writes, and holds the small filesystem helpers that go with them.
 package paths
 
 import (

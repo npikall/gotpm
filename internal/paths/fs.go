@@ -28,6 +28,26 @@ func IsDir(path string) bool {
 	return info.IsDir()
 }
 
+// Remove deletes path from disk. A symlink is removed itself rather than
+// followed, so the directory it points at is left alone; anything else is
+// removed with its contents.
+func Remove(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("checking target %q: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("could not remove %q: %w", path, err)
+		}
+		return nil
+	}
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("could not remove-all %q: %w", path, err)
+	}
+	return nil
+}
+
 // WriteFile writes data to path with FilePerm.
 func WriteFile(path string, data []byte) error {
 	if err := os.WriteFile(path, data, FilePerm); err != nil {

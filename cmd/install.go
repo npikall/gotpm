@@ -9,19 +9,16 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/remote"
+	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/ui"
-	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
 
@@ -76,24 +73,26 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 	sourceDir = filepath.Dir(manifestFile)
 	logger.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
 
-	dest, err := resolveInstallDestination(m, opts)
+	s, err := store.Open(opts.InstallDir)
 	if err != nil {
 		return err
 	}
-	logger.Debug("resolved destination", "path", dest.Path)
+	ref, err := pkg.New(opts.Namespace, m.Package.Name, m.Package.Version)
+	if err != nil {
+		return err
+	}
+	logger.Debug("resolved destination", "path", s.Dir(ref))
 
-	if err := prepareDestination(dest.Path, opts.Force); err != nil {
+	if err := prepareDestination(s, ref, opts.Force); err != nil {
 		return err
 	}
 
-	return performInstall(sourceDir, dest, opts)
+	return performInstall(s, ref, sourceDir, opts)
 }
 
 var (
-	ErrTooManyArguments        = errors.New("too many arguments: expected one directory path")
-	ErrEmptyNamespace          = errors.New("namespace must not be empty")
-	ErrPackageAlreadyInstalled = errors.New("package already installed at destination")
-	ErrNotADirectory           = errors.New("path is not a directory")
+	ErrTooManyArguments = errors.New("too many arguments: expected one directory path")
+	ErrNotADirectory    = errors.New("path is not a directory")
 )
 
 // InstallOptions holds the resolved install flags.
@@ -123,280 +122,40 @@ func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
 	}
 }
 
-// resolveInstallDestination routes to the appropriate destination resolver based
-// on whether an install-dir override was provided.
-func resolveInstallDestination(m *manifest.Manifest, opts *InstallOptions) (Destination, error) {
-	dataDir, overridden, err := paths.InstallDir(opts.InstallDir)
-	if err != nil {
-		return Destination{}, fmt.Errorf("could not resolve package directory: %w", err)
-	}
-	if overridden {
-		return ResolveOverriddenDestination(dataDir, m, opts)
-	}
-	return ResolveDefaultDestination(dataDir, m, opts)
-}
-
-// ResolveOverriddenDestination is used when --install-dir or $GOTPM_INSTALL_DIR is set.
-// dataDir is used as the final install path without appending namespace/name/version.
-func ResolveOverriddenDestination(dataDir string, m *manifest.Manifest, opts *InstallOptions) (Destination, error) {
-	if !opts.Force {
-		if err := ValidateDestinationConflict(dataDir); err != nil {
-			return Destination{}, err
-		}
-	}
-	return Destination{
-		Namespace: opts.Namespace,
-		Name:      m.Package.Name,
-		Version:   m.Package.Version,
-		Path:      dataDir,
-	}, nil
-}
-
-// ResolveDefaultDestination is used for the standard install path.
-// It appends namespace/name/version sub-directories to dataDir.
-func ResolveDefaultDestination(dataDir string, m *manifest.Manifest, opts *InstallOptions) (Destination, error) {
-	if err := paths.EnsureDir(dataDir); err != nil {
-		return Destination{}, fmt.Errorf("could not ensure directory %q: %w", dataDir, err)
-	}
-	if err := ValidateNamespace(opts.Namespace); err != nil {
-		return Destination{}, err
-	}
-	dest := BuildDestination(dataDir, m, opts.Namespace)
-	if !opts.Force {
-		if err := ValidateDestinationConflict(dest.Path); err != nil {
-			return Destination{}, err
-		}
-	}
-	return dest, nil
-}
-
-// prepareDestination removes an existing install when force is set.
-// A missing destination is not an error.
-func prepareDestination(path string, force bool) error {
-	if !force {
+// prepareDestination clears an existing install when force is set, and rejects
+// the install otherwise.
+func prepareDestination(s store.Store, ref pkg.Ref, force bool) error {
+	if !s.Has(ref) {
 		return nil
 	}
-	if err := RemoveTarget(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if !force {
+		return fmt.Errorf("%w: %q", store.ErrAlreadyInstalled, s.Dir(ref))
+	}
+	if err := s.Remove(ref); err != nil {
 		return fmt.Errorf("removing existing package: %w", err)
 	}
 	return nil
 }
 
 // performInstall dispatches to the appropriate install mode.
-func performInstall(sourceDir string, dest Destination, opts *InstallOptions) error {
+func performInstall(s store.Store, ref pkg.Ref, sourceDir string, opts *InstallOptions) error {
 	if opts.Editable {
-		return installEditable(sourceDir, dest)
-	}
-	return installCopy(sourceDir, dest)
-}
-
-func installEditable(sourceDir string, dest Destination) error {
-	if err := SymlinkPackage(sourceDir, dest.Path); err != nil {
-		return err
-	}
-	ui.Infof("installed %s (editable)", ui.Import(dest.Namespace, dest.Name, dest.Version))
-	return nil
-}
-
-func installCopy(sourceDir string, dest Destination) error {
-	if err := CopyPackageFiles(sourceDir, dest.Path); err != nil {
-		return err
-	}
-	ui.Infof("installed %s", ui.Import(dest.Namespace, dest.Name, dest.Version))
-	return nil
-}
-
-// SymlinkPackage creates a symlink at dest pointing to the absolute path of src.
-// The parent directory of dest is created if it does not exist.
-func SymlinkPackage(src, dest string) error {
-	if err := paths.EnsureDir(filepath.Dir(dest)); err != nil {
-		return fmt.Errorf("creating parent directory for symlink %q: %w", dest, err)
-	}
-	absSrc, err := filepath.Abs(src)
-	if err != nil {
-		return fmt.Errorf("resolving absolute path for symlink target %q: %w", src, err)
-	}
-	if err := os.Symlink(absSrc, dest); err != nil {
-		return fmt.Errorf("creating symlink %q -> %q: %w", dest, absSrc, err)
-	}
-	return nil
-}
-
-func CopyPackageFiles(src, dest string) error {
-	matcher := BuildIgnoreMatcher(src)
-	jobs, err := CollectJobs(src, dest, matcher)
-	if err != nil {
-		return err
-	}
-	return runTransferJobsWithSpinner(jobs)
-}
-
-func runTransferJobsWithSpinner(jobs []TransferJob) error {
-	spinner := ui.Spinner("")
-	spinner.Start()
-	defer spinner.Stop()
-	return RunTransferJobs(jobs)
-}
-
-func RunTransferJobs(jobs []TransferJob) error {
-	n := len(jobs)
-	errCh := make(chan error, n)
-
-	var wg sync.WaitGroup
-	for _, job := range jobs {
-		wg.Go(func() {
-			if err := CopyFile(job.Src, job.Dst); err != nil {
-				errCh <- err
-				return
-			}
-		})
-	}
-	wg.Wait()
-	close(errCh)
-	return collectErrors(errCh)
-}
-
-func CopyFile(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), paths.DirPerm); err != nil {
-		return fmt.Errorf("creating parent directories for %q: %w", dest, err)
-	}
-
-	srcFile, err := os.Open(src) //nolint: gosec
-	if err != nil {
-		return fmt.Errorf("opening source file %q: %w", src, err)
-	}
-	defer srcFile.Close() //nolint: errcheck
-
-	info, err := srcFile.Stat()
-	if err != nil {
-		return fmt.Errorf("reading file info %q: %w", src, err)
-	}
-
-	destFile, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode()) //nolint: gosec
-	if err != nil {
-		return fmt.Errorf("creating destination file %q: %w", dest, err)
-	}
-	defer destFile.Close() //nolint: errcheck
-
-	if _, err := io.Copy(destFile, srcFile); err != nil {
-		return fmt.Errorf("copying %q to %q: %w", src, dest, err)
-	}
-	return nil
-}
-
-func collectErrors(errCh <-chan error) error {
-	var errs []error
-	for e := range errCh {
-		errs = append(errs, e)
-	}
-	return errors.Join(errs...)
-}
-
-func BuildIgnoreMatcher(dir string) *ignore.GitIgnore {
-	gitIgnorePath := filepath.Join(dir, ".gitignore")
-	typstIgnorePath := filepath.Join(dir, ".typstignore")
-	extraLines := ReadIgnoreLines(typstIgnorePath)
-	if _, err := os.Stat(gitIgnorePath); err == nil {
-		matcher, err := ignore.CompileIgnoreFileAndLines(gitIgnorePath, extraLines...)
-		if err == nil {
-			return matcher
+		if err := s.Link(ref, sourceDir); err != nil {
+			return err
 		}
-	}
-	if len(extraLines) > 0 {
-		return ignore.CompileIgnoreLines(extraLines...)
-	}
-	return nil
-}
-
-type TransferJob struct {
-	Src string
-	Dst string
-}
-
-func CollectJobs(src, dest string, matcher *ignore.GitIgnore) ([]TransferJob, error) {
-	var jobs []TransferJob
-	err := filepath.WalkDir(src, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return fmt.Errorf("walking %q: %w", path, walkErr)
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return fmt.Errorf("resolving relative path %q: %w", path, err)
-		}
-		if ShouldIgnore(rel, matcher) {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !d.IsDir() {
-			jobs = append(jobs, TransferJob{
-				Src: path,
-				Dst: filepath.Join(dest, rel),
-			})
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not collect all files to transfer: %w", err)
-	}
-	return jobs, nil
-}
-
-func ShouldIgnore(rel string, matcher *ignore.GitIgnore) bool {
-	if rel == "." {
-		return false
-	}
-	if _, ok := IgnoredFileNames[filepath.Base(rel)]; ok {
-		return true
-	}
-	if matcher != nil && matcher.MatchesPath(rel) {
-		return true
-	}
-	return false
-}
-
-var IgnoredFileNames = map[string]struct{}{
-	".git":         {},
-	".gitignore":   {},
-	".typstignore": {},
-}
-
-func ReadIgnoreLines(path string) []string {
-	data, err := os.ReadFile(path) //nolint: gosec
-	if err != nil {
+		ui.Infof("installed %s (editable)", ui.AccentBold.Render(ref.String()))
 		return nil
 	}
-	var lines []string
-	for line := range strings.Lines(string(data)) {
-		line = strings.TrimRight(line, "\r\n")
-		if line != "" {
-			lines = append(lines, line)
-		}
-	}
-	return lines
-}
 
-type Destination struct {
-	Namespace string
-	Name      string
-	Version   string
-	Path      string
-}
-
-func BuildDestination(dataDir string, m *manifest.Manifest, namespace string) Destination {
-	path := filepath.Join(
-		dataDir,
-		namespace,
-		m.Package.Name,
-		m.Package.Version,
-	)
-	return Destination{
-		Namespace: namespace,
-		Name:      m.Package.Name,
-		Version:   m.Package.Version,
-		Path:      path,
+	spin := ui.Spinner("")
+	spin.Start()
+	err := s.Install(ref, sourceDir)
+	spin.Stop()
+	if err != nil {
+		return err
 	}
+	ui.Infof("installed %s", ui.AccentBold.Render(ref.String()))
+	return nil
 }
 
 func ResolveSourceDir(args []string, opts *InstallOptions) (string, error) {
@@ -471,24 +230,6 @@ func ResolveProvidedPath(rawPath string) (string, error) {
 		return "", err
 	}
 	return absPath, nil
-}
-
-func ValidateDestinationConflict(path string) error {
-	_, err := os.Stat(path)
-	if err == nil {
-		return fmt.Errorf("%w: %q", ErrPackageAlreadyInstalled, path)
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return fmt.Errorf("validate destination %q: %w", path, err)
-}
-
-func ValidateNamespace(namespace string) error {
-	if namespace == "" {
-		return ErrEmptyNamespace
-	}
-	return nil
 }
 
 func ValidateIsDirectory(path string) error {

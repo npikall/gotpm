@@ -151,3 +151,42 @@ func TestWriteFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "content", string(data))
 }
+
+func TestRemove(t *testing.T) {
+	t.Parallel()
+	t.Run("removes regular directory and its contents", func(t *testing.T) {
+		t.Parallel()
+		parent := t.TempDir()
+		target := filepath.Join(parent, "pkg")
+		require.NoError(t, paths.EnsureDir(filepath.Join(target, "sub")))
+		require.NoError(t, paths.WriteFile(filepath.Join(target, "lib.typ"), []byte("")))
+
+		require.NoError(t, paths.Remove(target))
+		assert.NoDirExists(t, target)
+	})
+	t.Run("removes symlink without deleting the pointed-to directory", func(t *testing.T) {
+		t.Parallel()
+		actual := t.TempDir()
+		require.NoError(t, paths.WriteFile(filepath.Join(actual, "lib.typ"), []byte("")))
+		link := filepath.Join(t.TempDir(), "link")
+		require.NoError(t, os.Symlink(actual, link))
+
+		require.NoError(t, paths.Remove(link))
+		assert.NoFileExists(t, link)
+		assert.DirExists(t, actual, "the link target must be untouched")
+	})
+	t.Run("removes dangling symlink", func(t *testing.T) {
+		t.Parallel()
+		parent := t.TempDir()
+		link := filepath.Join(parent, "dangling")
+		require.NoError(t, os.Symlink(filepath.Join(parent, "nowhere"), link))
+
+		require.NoError(t, paths.Remove(link))
+		assert.NoFileExists(t, link)
+	})
+	t.Run("missing path reports an error", func(t *testing.T) {
+		t.Parallel()
+		err := paths.Remove(filepath.Join(t.TempDir(), "nope"))
+		require.ErrorIs(t, err, os.ErrNotExist)
+	})
+}

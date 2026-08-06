@@ -1,3 +1,5 @@
+// Package remote deals with remote package repositories: parsing their URLs,
+// cloning them and caching those clones on disk.
 package remote
 
 import (

@@ -1,3 +1,5 @@
+// Package semver parses, compares and increments the three-part versions typst
+// packages are numbered with.
 package semver
 
 import (

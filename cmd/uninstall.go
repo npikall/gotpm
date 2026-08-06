@@ -101,7 +101,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if err := RemoveTarget(target); err != nil {
+	if err := paths.Remove(target); err != nil {
 		return err
 	}
 	importStmt := formatImportWithWildcard(flags, pkgVersion, pkgName)
@@ -168,26 +168,6 @@ func ValidateTargetExists(target string) error {
 			return fmt.Errorf("path does not exist %q: %w", target, err)
 		}
 		return fmt.Errorf("checking target %q: %w", target, err)
-	}
-	return nil
-}
-
-// RemoveTarget removes target from disk.
-// When target is a symlink, only the link is removed, not the directory it points to.
-// When target is a regular file or directory, it is removed with all its contents.
-func RemoveTarget(target string) error {
-	info, err := os.Lstat(target)
-	if err != nil {
-		return fmt.Errorf("checking target %q: %w", target, err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		if err := os.Remove(target); err != nil {
-			return fmt.Errorf("could not remove %q: %w", target, err)
-		}
-		return nil
-	}
-	if err = os.RemoveAll(target); err != nil {
-		return fmt.Errorf("could not remove-all %q: %w", target, err)
 	}
 	return nil
 }

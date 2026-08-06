@@ -1,3 +1,5 @@
+// Package manifest finds, reads, validates and updates a typst package
+// manifest (typst.toml).
 package manifest
 
 import (
