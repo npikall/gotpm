@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -48,7 +49,7 @@ func init() {
 	uninstallCmd.Flags().StringP("version", "V", "", "The specific version of a package that should be removed.")
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
-	uninstallCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
+	uninstallCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
 }
 
 var ErrInsufficientPackage = errors.New("both package and version must be specified")
@@ -76,8 +77,8 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	logger.Debug("resolved package", "name", pkgName, "version", pkgVersion)
 
 	// Intentionally does not create the directory if it doesn't exist yet.
-	installDir := internal.Must(cmd.Flags().GetString(internal.InstallDirFlag))
-	localPkgDir, overridden, err := internal.ResolvePackageDirPath(installDir)
+	installDir := internal.Must(cmd.Flags().GetString(paths.InstallDirFlag))
+	localPkgDir, overridden, err := paths.InstallDir(installDir)
 	if err != nil {
 		return fmt.Errorf("could not resolve local package directory: %w", err)
 	}

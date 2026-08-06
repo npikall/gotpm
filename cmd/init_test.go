@@ -7,6 +7,7 @@ import (
 
 	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,7 +77,7 @@ func TestInitRunner_ExistingDirFails(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
 	// pre-create the subdir so Mkdir fails
-	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), internal.DirPerm))
+	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), paths.DirPerm))
 	err := InitRunner(newInitCmd(t), []string{"dup"})
 	assert.Error(t, err)
 }

@@ -18,6 +18,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -182,7 +183,7 @@ func CheckPackageExists(imp string, result *CheckResult, index map[string]string
 }
 
 func CheckPackageExistsLocally(namespace, pkg, version string) error {
-	dir, err := internal.ResolveLocalPackageDirPath()
+	dir, err := paths.TypstPackagesDir()
 	if err != nil {
 		return fmt.Errorf("could not resolve local package directory: %w", err)
 	}

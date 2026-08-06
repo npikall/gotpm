@@ -9,6 +9,7 @@ import (
 
 	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ func Test_copyPackageFiles(t *testing.T) {
 	writeFile(t, src, "lib.typ", "content")
 	writeFile(t, src, "README.md", "readme")
 	srcSubDir := filepath.Join(src, "utils")
-	check(os.MkdirAll(srcSubDir, internal.DirPerm))
+	check(os.MkdirAll(srcSubDir, paths.DirPerm))
 	writeFile(t, srcSubDir, "helper.typ", "helper")
 
 	t.Run("copies all files concurrently", func(t *testing.T) {
@@ -39,12 +40,12 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 	dataDir := t.TempDir()
 	manifest := newManifest("my-package", "0.1.0", "lib.typ")
 	t.Run("default namespace builds correct path", func(t *testing.T) { //nolint: paralleltest
-		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: paths.DefaultNamespace}
 		got, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
-		assert.Equal(t, internal.DefaultNamespace, got.Namespace)
+		assert.Equal(t, paths.DefaultNamespace, got.Namespace)
 		wantPath := filepath.Join(dataDir, "local", "my-package", "0.1.0")
 		assert.Equal(t, wantPath, got.Path)
 	})
@@ -63,18 +64,18 @@ func Test_resolveDefaultDestination(t *testing.T) { //nolint: paralleltest
 	})
 	t.Run("already installed returns error", func(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		err := os.MkdirAll(existing, internal.DirPerm)
+		err := os.MkdirAll(existing, paths.DirPerm)
 		require.NoError(t, err)
 
-		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: paths.DefaultNamespace}
 		_, err = ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
 	t.Run("force skips conflict check", func(t *testing.T) { //nolint: paralleltest
 		existing := filepath.Join(dataDir, "local", "my-package", "0.1.0")
-		check(os.MkdirAll(existing, internal.DirPerm))
+		check(os.MkdirAll(existing, paths.DirPerm))
 
-		opts := &InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
+		opts := &InstallOptions{Namespace: paths.DefaultNamespace, Force: true}
 		_, err := ResolveDefaultDestination(dataDir, manifest, opts)
 		assert.NoError(t, err)
 	})
@@ -84,7 +85,7 @@ func Test_resolveLocalPackageDir(t *testing.T) {
 	t.Parallel()
 	t.Run("creates dir", func(t *testing.T) {
 		t.Parallel()
-		got, err := internal.ResolveLocalPackageDir()
+		got, err := paths.EnsureTypstPackagesDir()
 		require.NoError(t, err)
 		info, statErr := os.Stat(got)
 		require.NoError(t, statErr)
@@ -94,7 +95,7 @@ func Test_resolveLocalPackageDir(t *testing.T) {
 	})
 	t.Run("contains typst/packages", func(t *testing.T) {
 		t.Parallel()
-		got, err := internal.ResolveLocalPackageDir()
+		got, err := paths.EnsureTypstPackagesDir()
 		require.NoError(t, err)
 		suffix := filepath.Join("typst", "packages")
 		assertHasSuffix(t, got, suffix)
@@ -108,14 +109,14 @@ func Test_resolveLinuxDataDir(t *testing.T) {
 	t.Run("uses xdg if set", func(t *testing.T) {
 		xdgDir := t.TempDir()
 		t.Setenv("XDG_DATA_HOME", xdgDir)
-		got, err := internal.ResolveLinuxDataDir()
+		got, err := paths.LinuxDataDir()
 		require.NoError(t, err)
 		assertHasPrefix(t, got, xdgDir)
 	})
 	t.Run("fallsback to home/.local", func(t *testing.T) {
 		t.Setenv("XDG_DATA_HOME", "")
 		home, _ := os.UserHomeDir()
-		got, err := internal.ResolveLinuxDataDir()
+		got, err := paths.LinuxDataDir()
 		require.NoError(t, err)
 		assertHasPrefix(t, got, filepath.Join(home, ".local", "share"))
 	})
@@ -129,7 +130,7 @@ func Test_resolveDarwinDataDir(t *testing.T) {
 	t.Run("uses Library Application Support", func(t *testing.T) {
 		t.Parallel()
 		home, _ := os.UserHomeDir()
-		got, err := internal.ResolveDarwinDataDir()
+		got, err := paths.DarwinDataDir()
 		require.NoError(t, err)
 		assertHasPrefix(t, got, filepath.Join(home, "Library", "Application Support"))
 	})
@@ -142,13 +143,13 @@ func Test_resolveWindowsDataDir(t *testing.T) {
 	t.Run("uses AppData", func(t *testing.T) {
 		appData := t.TempDir()
 		t.Setenv("APPDATA", appData)
-		got, err := internal.ResolveWindowsDataDir()
+		got, err := paths.WindowsDataDir()
 		require.NoError(t, err)
 		assertHasPrefix(t, got, appData)
 	})
 	t.Run("missing AppData returns error", func(t *testing.T) {
 		t.Setenv("APPDATA", "")
-		_, err := internal.ResolveWindowsDataDir()
+		_, err := paths.WindowsDataDir()
 		assert.Error(t, err)
 	})
 }
@@ -228,7 +229,7 @@ func Test_validateIsDirectory(t *testing.T) {
 	dir, _ = filepath.EvalSymlinks(dir)
 	notExistingDir := filepath.Join(dir, "subdir")
 	file := filepath.Join(dir, "empty")
-	check(os.WriteFile(file, []byte(""), internal.FilePerm))
+	check(os.WriteFile(file, []byte(""), paths.FilePerm))
 
 	t.Run("file returns error", func(t *testing.T) {
 		t.Parallel()
@@ -251,7 +252,7 @@ func Test_resolveProvidedPath(t *testing.T) { //nolint: paralleltest
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
 	subdir := filepath.Join(dir, "subdir")
-	check(os.Mkdir(subdir, internal.DirPerm))
+	check(os.Mkdir(subdir, paths.DirPerm))
 	t.Chdir(dir)
 
 	t.Run("absolute path to existing dir returns correct", func(t *testing.T) { //nolint: paralleltest
@@ -280,9 +281,9 @@ func Test_resolveSourceDir(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	cwd, _ := os.Getwd()
 	subdir := filepath.Join(dir, "subdir")
-	check(os.Mkdir(subdir, internal.DirPerm))
+	check(os.Mkdir(subdir, paths.DirPerm))
 	file := filepath.Join(dir, "file.txt")
-	check(os.WriteFile(file, []byte(""), internal.FilePerm))
+	check(os.WriteFile(file, []byte(""), paths.FilePerm))
 
 	t.Run("no args returns cwd", func(t *testing.T) { //nolint: paralleltest
 		got, gotErr := ResolveLocalSourceDir([]string{})
@@ -317,7 +318,7 @@ func writeManifest(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
-	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), internal.FilePerm)
+	err := os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), paths.FilePerm)
 	if err != nil {
 		t.Fatalf("writing test manifest: %v", err)
 	}
@@ -351,7 +352,7 @@ func newManifest(name, version, entrypoint string) internal.Manifest {
 func writeFile(t *testing.T, dir, filename, content string) {
 	t.Helper()
 	dir, _ = filepath.EvalSymlinks(dir)
-	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), internal.FilePerm)
+	err := os.WriteFile(filepath.Join(dir, filename), []byte(content), paths.FilePerm)
 	if err != nil {
 		t.Fatalf("writing test file: %v", err)
 	}
@@ -417,21 +418,21 @@ func Test_readIgnoreLines(t *testing.T) {
 	t.Run("returns trimmed non-empty lines", func(t *testing.T) {
 		t.Parallel()
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		check(os.WriteFile(path, []byte("*.typ\nREADME.md\n"), internal.FilePerm))
+		check(os.WriteFile(path, []byte("*.typ\nREADME.md\n"), paths.FilePerm))
 		got := ReadIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
 	t.Run("skips blank lines", func(t *testing.T) {
 		t.Parallel()
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		check(os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), internal.FilePerm))
+		check(os.WriteFile(path, []byte("*.typ\n\nREADME.md\n"), paths.FilePerm))
 		got := ReadIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
 	t.Run("strips windows-style CRLF line endings", func(t *testing.T) {
 		t.Parallel()
 		path := filepath.Join(t.TempDir(), ".typstignore")
-		check(os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), internal.FilePerm))
+		check(os.WriteFile(path, []byte("*.typ\r\nREADME.md\r\n"), paths.FilePerm))
 		got := ReadIgnoreLines(path)
 		assert.Equal(t, []string{"*.typ", "README.md"}, got)
 	})
@@ -523,7 +524,7 @@ func Test_collectJobs_ignoredDirectorySkipsContents(t *testing.T) {
 	dst := t.TempDir()
 	writeFile(t, src, "lib.typ", "content")
 	subdir := filepath.Join(src, "dist")
-	check(os.MkdirAll(subdir, internal.DirPerm))
+	check(os.MkdirAll(subdir, paths.DirPerm))
 	writeFile(t, subdir, "output.typ", "generated")
 	writeFile(t, src, ".typstignore", "dist/\n")
 
@@ -574,25 +575,25 @@ func Test_resolveOverriddenDestination(t *testing.T) {
 		t.Parallel()
 		base := t.TempDir()
 		dest := filepath.Join(base, "custom-dest")
-		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: paths.DefaultNamespace}
 		got, err := ResolveOverriddenDestination(dest, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, dest, got.Path)
 		assert.Equal(t, "my-package", got.Name)
 		assert.Equal(t, "0.1.0", got.Version)
-		assert.Equal(t, internal.DefaultNamespace, got.Namespace)
+		assert.Equal(t, paths.DefaultNamespace, got.Namespace)
 	})
 	t.Run("conflict returns error when path exists", func(t *testing.T) {
 		t.Parallel()
 		existing := t.TempDir()
-		opts := &InstallOptions{Namespace: internal.DefaultNamespace}
+		opts := &InstallOptions{Namespace: paths.DefaultNamespace}
 		_, err := ResolveOverriddenDestination(existing, manifest, opts)
 		assert.ErrorIs(t, err, ErrPackageAlreadyInstalled)
 	})
 	t.Run("force skips conflict check", func(t *testing.T) {
 		t.Parallel()
 		existing := t.TempDir()
-		opts := &InstallOptions{Namespace: internal.DefaultNamespace, Force: true}
+		opts := &InstallOptions{Namespace: paths.DefaultNamespace, Force: true}
 		got, err := ResolveOverriddenDestination(existing, manifest, opts)
 		require.NoError(t, err)
 		assert.Equal(t, existing, got.Path)
@@ -605,10 +606,10 @@ func Test_installRunner_force(t *testing.T) {
 	newForceCmd := func(installDir string) *cobra.Command {
 		cmd := &cobra.Command{}
 		cmd.Flags().CountP("verbose", "v", "")
-		cmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "")
+		cmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "")
 		cmd.Flags().BoolP("editable", "e", false, "")
 		cmd.Flags().BoolP("force", "f", false, "")
-		cmd.Flags().String(internal.InstallDirFlag, installDir, "")
+		cmd.Flags().String(paths.InstallDirFlag, installDir, "")
 		cmd.Flags().StringP("remote", "r", "", "")
 		cmd.Flags().StringP("rev", "t", "HEAD", "")
 		return cmd
@@ -705,7 +706,7 @@ func Test_copyFile(t *testing.T) {
 		t.Parallel()
 		src := filepath.Join(t.TempDir(), "src.typ")
 		dst := filepath.Join(t.TempDir(), "dst.typ")
-		check(os.WriteFile(src, []byte("hello"), internal.FilePerm))
+		check(os.WriteFile(src, []byte("hello"), paths.FilePerm))
 
 		err := CopyFile(src, dst)
 		require.NoError(t, err)
@@ -717,7 +718,7 @@ func Test_copyFile(t *testing.T) {
 		t.Parallel()
 		src := filepath.Join(t.TempDir(), "src.typ")
 		dst := filepath.Join(t.TempDir(), "a", "b", "c", "dst.typ")
-		check(os.WriteFile(src, []byte("x"), internal.FilePerm))
+		check(os.WriteFile(src, []byte("x"), paths.FilePerm))
 
 		err := CopyFile(src, dst)
 		require.NoError(t, err)
@@ -727,13 +728,13 @@ func Test_copyFile(t *testing.T) {
 		t.Parallel()
 		src := filepath.Join(t.TempDir(), "exec.typ")
 		dst := filepath.Join(t.TempDir(), "exec-dst.typ")
-		check(os.WriteFile(src, []byte("x"), internal.DirPerm))
+		check(os.WriteFile(src, []byte("x"), paths.DirPerm))
 
 		err := CopyFile(src, dst)
 		require.NoError(t, err)
 		info, err := os.Stat(dst)
 		require.NoError(t, err)
-		assert.Equal(t, internal.DirPerm, info.Mode().Perm())
+		assert.Equal(t, paths.DirPerm, info.Mode().Perm())
 	})
 	t.Run("missing source returns error", func(t *testing.T) {
 		t.Parallel()
@@ -748,8 +749,8 @@ func Test_runTransferJobs(t *testing.T) {
 		t.Parallel()
 		srcDir := t.TempDir()
 		dstDir := t.TempDir()
-		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), internal.FilePerm))
-		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), internal.FilePerm))
+		check(os.WriteFile(filepath.Join(srcDir, "a.typ"), []byte("a"), paths.FilePerm))
+		check(os.WriteFile(filepath.Join(srcDir, "b.typ"), []byte("b"), paths.FilePerm))
 
 		jobs := []TransferJob{
 			{Src: filepath.Join(srcDir, "a.typ"), Dst: filepath.Join(dstDir, "a.typ")},
@@ -784,8 +785,8 @@ func Test_readInstallOptions(t *testing.T) {
 		cmd := &cobra.Command{}
 		cmd.Flags().BoolP("force", "f", false, "")
 		cmd.Flags().BoolP("editable", "e", false, "")
-		cmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "")
-		cmd.Flags().String(internal.InstallDirFlag, "", "")
+		cmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "")
+		cmd.Flags().String(paths.InstallDirFlag, "", "")
 		cmd.Flags().StringP("remote", "r", "", "")
 		cmd.Flags().StringP("rev", "t", "HEAD", "")
 		return cmd
@@ -797,7 +798,7 @@ func Test_readInstallOptions(t *testing.T) {
 		opts := ReadInstallOptions(cmd)
 		assert.False(t, opts.Force)
 		assert.False(t, opts.Editable)
-		assert.Equal(t, internal.DefaultNamespace, opts.Namespace)
+		assert.Equal(t, paths.DefaultNamespace, opts.Namespace)
 	})
 	t.Run("force flag", func(t *testing.T) {
 		t.Parallel()

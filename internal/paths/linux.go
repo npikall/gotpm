@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 )
 
-func linuxDataDir() (string, error) {
+// LinuxDataDir returns the data directory used on linux ($XDG_DATA_HOME or
+// ~/.local/share).
+func LinuxDataDir() (string, error) {
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
 		return xdg, nil
 	}

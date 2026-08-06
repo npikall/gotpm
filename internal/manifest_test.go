@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +14,7 @@ import (
 func writeManifest(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), FilePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "typst.toml"), []byte(content), paths.FilePerm))
 	return dir
 }
 

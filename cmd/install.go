@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
 	ignore "github.com/sabhiram/go-gitignore"
@@ -46,10 +47,10 @@ gotpm install path/to/package -n preview
 
 func init() {
 	rootCmd.AddCommand(installCmd)
-	installCmd.Flags().StringP("namespace", "n", internal.DefaultNamespace, "The namespace in which the package should be available.")
+	installCmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
-	installCmd.Flags().String(internal.InstallDirFlag, "", "Override the package directory (env: $"+internal.InstallDirEnvVar+")")
+	installCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
 	installCmd.Flags().StringP("remote", "r", "", "The remote repository which should be installed.")
 	installCmd.Flags().StringP("rev", "t", "HEAD", "The revision (hash or tag) that should be checked out.")
 }
@@ -106,7 +107,7 @@ func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
 	remote := internal.Must(cmd.Flags().GetString("remote"))
 	editable := internal.Must(cmd.Flags().GetBool("editable"))
 	namespace := internal.Must(cmd.Flags().GetString("namespace"))
-	installDir := internal.Must(cmd.Flags().GetString(internal.InstallDirFlag))
+	installDir := internal.Must(cmd.Flags().GetString(paths.InstallDirFlag))
 	return &InstallOptions{
 		Force:      force,
 		Editable:   editable,
@@ -120,7 +121,7 @@ func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
 // resolveInstallDestination routes to the appropriate destination resolver based
 // on whether an install-dir override was provided.
 func resolveInstallDestination(manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
-	dataDir, overridden, err := internal.ResolvePackageDirPath(opts.InstallDir)
+	dataDir, overridden, err := paths.InstallDir(opts.InstallDir)
 	if err != nil {
 		return Destination{}, fmt.Errorf("could not resolve package directory: %w", err)
 	}
@@ -149,7 +150,7 @@ func ResolveOverriddenDestination(dataDir string, manifest internal.Manifest, op
 // ResolveDefaultDestination is used for the standard install path.
 // It appends namespace/name/version sub-directories to dataDir.
 func ResolveDefaultDestination(dataDir string, manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
-	if err := internal.EnsureDir(dataDir); err != nil {
+	if err := paths.EnsureDir(dataDir); err != nil {
 		return Destination{}, fmt.Errorf("could not ensure directory %q: %w", dataDir, err)
 	}
 	if err := ValidateNamespace(opts.Namespace); err != nil {
@@ -203,7 +204,7 @@ func installCopy(sourceDir string, dest Destination) error {
 // SymlinkPackage creates a symlink at dest pointing to the absolute path of src.
 // The parent directory of dest is created if it does not exist.
 func SymlinkPackage(src, dest string) error {
-	if err := internal.EnsureDir(filepath.Dir(dest)); err != nil {
+	if err := paths.EnsureDir(filepath.Dir(dest)); err != nil {
 		return fmt.Errorf("creating parent directory for symlink %q: %w", dest, err)
 	}
 	absSrc, err := filepath.Abs(src)
@@ -251,7 +252,7 @@ func RunTransferJobs(jobs []TransferJob) error {
 }
 
 func CopyFile(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), internal.DirPerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), paths.DirPerm); err != nil {
 		return fmt.Errorf("creating parent directories for %q: %w", dest, err)
 	}
 
@@ -412,7 +413,7 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 	}
 	repoDir := filepath.Join(remotesDir, repoName)
 
-	isDir := internal.IsDir(repoDir)
+	isDir := paths.IsDir(repoDir)
 	if isDir && opts.Revision != "" {
 		repo, err := git.PlainOpen(repoDir)
 		if err != nil {

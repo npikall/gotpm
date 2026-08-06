@@ -22,6 +22,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -223,10 +224,10 @@ func isStdinPiped() bool {
 
 func WriteOutputContent(content []byte, inputFilePath string, outputPath string) error {
 	if outputPath != "" {
-		return internal.WriteFile(outputPath, content)
+		return paths.WriteFile(outputPath, content)
 	}
 	if inputFilePath != "" {
-		return internal.WriteFile(inputFilePath, content)
+		return paths.WriteFile(inputFilePath, content)
 	}
 	_, err := os.Stdout.Write(content)
 	if err != nil {

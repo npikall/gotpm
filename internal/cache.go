@@ -6,11 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/npikall/gotpm/internal/paths"
 )
 
 const (
 	CacheTTL      = time.Hour
-	cacheAppDir   = "gotpm"
 	cacheFileName = "index-cache.json"
 	remotesDir    = "remotes"
 )
@@ -25,7 +26,7 @@ func (c *IndexCache) IsValid() bool {
 }
 
 func ResolveCachePath() (string, error) {
-	base, err := ResolveAppDataDir()
+	base, err := paths.GotpmDataDir()
 	if err != nil {
 		return "", err
 	}
@@ -35,19 +36,11 @@ func ResolveCachePath() (string, error) {
 // ResolveRemotesDir returns the path to the directory holding cloned remote
 // repos, without creating it.
 func ResolveRemotesDir() (string, error) {
-	base, err := ResolveAppDataDir()
+	base, err := paths.GotpmDataDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(base, remotesDir), nil
-}
-
-func ResolveAppDataDir() (string, error) {
-	base, err := ResolveDataDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(base, cacheAppDir), nil
 }
 
 // LoadIndexCache reads the on-disk cache.
@@ -76,7 +69,7 @@ func SaveIndexCache(index map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if err := EnsureDir(filepath.Dir(path)); err != nil {
+	if err := paths.EnsureDir(filepath.Dir(path)); err != nil {
 		return err
 	}
 	cache := IndexCache{
@@ -87,5 +80,5 @@ func SaveIndexCache(index map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("could not marshal index: %w", err)
 	}
-	return WriteFile(path, data)
+	return paths.WriteFile(path, data)
 }

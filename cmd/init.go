@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +40,7 @@ func InitRunner(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		pkgName = args[0]
 		cwd = filepath.Join(cwd, pkgName)
-		if err := os.Mkdir(cwd, internal.DirPerm); err != nil {
+		if err := os.Mkdir(cwd, paths.DirPerm); err != nil {
 			return fmt.Errorf("could not create directory: %w", err)
 		}
 	} else {
@@ -61,7 +62,7 @@ entrypoint = "lib.typ"`, pkgName)},
 	}
 
 	for _, boot := range bootstrap {
-		if err := internal.WriteFile(boot.path, boot.content); err != nil {
+		if err := paths.WriteFile(boot.path, boot.content); err != nil {
 			return err
 		}
 	}

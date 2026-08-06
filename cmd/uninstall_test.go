@@ -7,6 +7,7 @@ import (
 
 	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,7 +93,7 @@ func Test_validateTargetExists(t *testing.T) {
 	t.Run("existing file returns no error", func(t *testing.T) {
 		t.Parallel()
 		file := filepath.Join(dir, "file.txt")
-		check(os.WriteFile(file, []byte(""), internal.FilePerm))
+		check(os.WriteFile(file, []byte(""), paths.FilePerm))
 		err := ValidateTargetExists(file)
 		assert.NoError(t, err)
 	})
@@ -118,8 +119,8 @@ func Test_removeTarget(t *testing.T) {
 		t.Parallel()
 		parent := t.TempDir()
 		target := filepath.Join(parent, "pkg")
-		check(os.MkdirAll(filepath.Join(target, "sub"), internal.DirPerm))
-		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), internal.FilePerm))
+		check(os.MkdirAll(filepath.Join(target, "sub"), paths.DirPerm))
+		check(os.WriteFile(filepath.Join(target, "lib.typ"), []byte(""), paths.FilePerm))
 
 		err := RemoveTarget(target)
 		require.NoError(t, err)
@@ -128,7 +129,7 @@ func Test_removeTarget(t *testing.T) {
 	t.Run("removes symlink without deleting the pointed-to directory", func(t *testing.T) {
 		t.Parallel()
 		actual := t.TempDir()
-		check(os.WriteFile(filepath.Join(actual, "lib.typ"), []byte(""), internal.FilePerm))
+		check(os.WriteFile(filepath.Join(actual, "lib.typ"), []byte(""), paths.FilePerm))
 		parent := t.TempDir()
 		link := filepath.Join(parent, "link")
 		check(os.Symlink(actual, link))

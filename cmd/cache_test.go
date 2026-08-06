@@ -8,6 +8,7 @@ import (
 	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,8 +41,8 @@ func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) { /
 
 	remotesDir, err := internal.ResolveRemotesDir()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Join(remotesDir, "example.com", "repo"), internal.DirPerm))
-	require.NoError(t, os.WriteFile(filepath.Join(remotesDir, "example.com", "repo", "file.txt"), []byte("data"), internal.FilePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(remotesDir, "example.com", "repo"), paths.DirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(remotesDir, "example.com", "repo", "file.txt"), []byte("data"), paths.FilePerm))
 
 	require.NoError(t, internal.SaveIndexCache(map[string]string{"pkg": "1.0.0"}))
 	cachePath, err = internal.ResolveCachePath()

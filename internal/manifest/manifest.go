@@ -96,7 +96,7 @@ func Update(file string, manifest *Manifest, indent bool) error {
 		return fmt.Errorf("could not update typst.toml: %w", err)
 	}
 
-	if err := internal.WriteFile(file, buf.Bytes()); err != nil {
+	if err := paths.WriteFile(file, buf.Bytes()); err != nil {
 		return err
 	}
 	return nil

@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 )
 
-func darwinDataDir() (string, error) {
+// DarwinDataDir returns the data directory used on macOS.
+func DarwinDataDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrDataDirNotResolvable, err)

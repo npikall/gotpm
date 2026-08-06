@@ -17,6 +17,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -153,7 +154,7 @@ func ScanPackages(root string) ([]packageNamespace, error) {
 func listRunner(cmd *cobra.Command, args []string) error {
 	logger := internal.SetupLogger(cmd)
 
-	typstPackagePath, err := internal.ResolveLocalPackageDirPath()
+	typstPackagePath, err := paths.TypstPackagesDir()
 	if err != nil {
 		return fmt.Errorf("could not resolve package directory: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
 	"github.com/npikall/gotpm/internal/gitcli"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -144,7 +145,7 @@ func resolveForkPath(cfg *config.Config) (string, error) {
 	if forkPath != "" {
 		return forkPath, nil
 	}
-	dataDir, err := internal.ResolveAppDataDir()
+	dataDir, err := paths.GotpmDataDir()
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +174,7 @@ func resolveForkPath(cfg *config.Config) (string, error) {
 // detected here and wiped and redone rather than failing deep inside
 // CheckoutPackageBranch with a confusing "origin/main not found".
 func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
-	if internal.IsDir(filepath.Join(forkPath, ".git")) {
+	if paths.IsDir(filepath.Join(forkPath, ".git")) {
 		logger.Debug("using existing fork clone as-is (not fetching)", "path", forkPath)
 		if gitcli.HasMain(forkPath) {
 			return nil
@@ -183,7 +184,7 @@ func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 			return fmt.Errorf("removing incomplete fork clone at %q: %w", forkPath, err)
 		}
 	}
-	if err := internal.EnsureDir(filepath.Dir(forkPath)); err != nil {
+	if err := paths.EnsureDir(filepath.Dir(forkPath)); err != nil {
 		return err
 	}
 	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)

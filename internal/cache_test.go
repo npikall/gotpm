@@ -9,6 +9,7 @@ import (
 	"time"
 
 	. "github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,8 +69,8 @@ func TestLoadIndexCache_InvalidJSON(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), DirPerm))
-	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), FilePerm))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), paths.DirPerm))
+	require.NoError(t, os.WriteFile(path, []byte("not json{{{"), paths.FilePerm))
 
 	cache, err := LoadIndexCache()
 	require.Error(t, err)
@@ -81,7 +82,7 @@ func TestLoadIndexCache_Valid(t *testing.T) { //nolint: paralleltest
 	redirectCacheToTempDir(t)
 	path, err := ResolveCachePath()
 	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), DirPerm))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), paths.DirPerm))
 
 	timestamp := time.Now().Truncate(time.Second)
 	fixture := IndexCache{
@@ -90,7 +91,7 @@ func TestLoadIndexCache_Valid(t *testing.T) { //nolint: paralleltest
 	}
 	data, err := json.Marshal(fixture)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(path, data, FilePerm))
+	require.NoError(t, os.WriteFile(path, data, paths.FilePerm))
 
 	got, err := LoadIndexCache()
 	require.NoError(t, err)

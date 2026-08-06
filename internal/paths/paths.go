@@ -19,11 +19,11 @@ var (
 func DataDir() (string, error) {
 	switch runtime.GOOS {
 	case "linux":
-		return linuxDataDir()
+		return LinuxDataDir()
 	case "darwin":
-		return darwinDataDir()
+		return DarwinDataDir()
 	case "windows":
-		return windowsDataDir()
+		return WindowsDataDir()
 	default:
 		return "", fmt.Errorf("%w: unsupported OS %q", ErrDataDirNotResolvable, runtime.GOOS)
 	}
