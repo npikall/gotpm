@@ -22,22 +22,19 @@ type Options struct {
 }
 
 var (
+	// ErrMissingArgument is returned when no increment is given and none can
+	// be left out, i.e. anything but --show-current.
 	ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 	ErrInvalidVersion  = errors.New("invalid version")
 )
 
 func Run(increment string, opts *Options, log *log.Logger) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("could not get the current working directory: %w", err)
+	// Showing the current version is the one mode that needs no increment.
+	if increment == "" && !opts.ShowCur {
+		return ErrMissingArgument
 	}
-	manifestFile, err := manifest.FindFile(cwd)
-	if err != nil {
-		return err
-	}
-	log.Debug("load", "manifest", manifestFile)
 
-	m, err := manifest.LoadFile(manifestFile)
+	manifestFile, m, err := load(log)
 	if err != nil {
 		return err
 	}
@@ -67,17 +64,36 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 	}
 
 	m.Package.Version = newVersion
-	err = manifest.Update(manifestFile, m, opts.Indent)
-	if err != nil {
+	if err := manifest.Update(manifestFile, m, opts.Indent); err != nil {
 		return fmt.Errorf("could not update %q: %w", manifestFile, err)
 	}
 
 	ui.Infof(
 		"updated version %s -> %s",
 		ui.AccentBold.Render(oldVersion),
-		ui.AccentBold.Render(m.Package.Version),
+		ui.AccentBold.Render(newVersion),
 	)
 	return nil
+}
+
+// load reads the manifest of the package the working directory belongs to,
+// returning its path alongside it so it can be written back.
+func load(log *log.Logger) (string, *manifest.Manifest, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", nil, fmt.Errorf("could not get the current working directory: %w", err)
+	}
+	manifestFile, err := manifest.FindFile(cwd)
+	if err != nil {
+		return "", nil, err
+	}
+	log.Debug("load", "manifest", manifestFile)
+
+	m, err := manifest.LoadFile(manifestFile)
+	if err != nil {
+		return "", nil, err
+	}
+	return manifestFile, m, nil
 }
 
 func bumpVersion(version, increment string) (string, error) {

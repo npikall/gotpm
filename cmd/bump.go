@@ -7,8 +7,6 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"errors"
-
 	"github.com/npikall/gotpm/internal/cmds/bump"
 	"github.com/spf13/cobra"
 )
@@ -43,8 +41,6 @@ func init() {
 	bumpCmd.Flags().BoolP("indent", "i", false, "Use Indentation in the typst.toml file.")
 }
 
-var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
-
 func BumpRunner(cmd *cobra.Command, args []string) error {
 	opts := &bump.Options{
 		DryRun:   Must(cmd.Flags().GetBool("dry-run")),
@@ -56,8 +52,6 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 	increment := ""
 	if len(args) > 0 {
 		increment = args[0]
-	} else if !opts.ShowCur {
-		return ErrMissingArgument
 	}
 	return bump.Run(increment, opts, newLogger(cmd))
 }

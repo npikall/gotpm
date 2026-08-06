@@ -7,14 +7,7 @@ See the LICENSE file in the repository root for full license text.
 package cmd
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"runtime"
-	"strings"
-
-	"github.com/creativeprojects/go-selfupdate"
-	"github.com/npikall/gotpm/internal/ui"
+	"github.com/npikall/gotpm/internal/cmds/self"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +15,8 @@ var selfUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update gotpm to the latest version from GitHub Releases",
 	Long:  "Download and install the latest gotpm release from GitHub, replacing the current binary in place.",
-	RunE:  selfUpdateRunner,
+	Args:  cobra.NoArgs,
+	RunE:  SelfUpdateRunner,
 }
 
 func init() {
@@ -30,75 +24,9 @@ func init() {
 	selfUpdateCmd.Flags().Bool("check", false, "check for an update without installing it")
 }
 
-var (
-	ErrUpdateDevelopmentBuild = errors.New("cannot self-update a development build; install a tagged release first")
-	ErrUpdateBrewBuild        = errors.New("gotpm was installed via Homebrew; update with: brew upgrade gotpm")
-)
-
-func selfUpdateRunner(cmd *cobra.Command, args []string) error {
-	checkOnly, _ := cmd.Flags().GetBool("check")
-	ctx := context.Background()
-
-	if gitTag == "dev" {
-		return ErrUpdateDevelopmentBuild
+func SelfUpdateRunner(cmd *cobra.Command, _ []string) error {
+	opts := &self.Options{
+		CheckOnly: Must(cmd.Flags().GetBool("check")),
 	}
-
-	currentVersion := strings.TrimPrefix(gitTag, "v")
-
-	filter := fmt.Sprintf("gotpm-%s-%s", runtime.GOOS, runtime.GOARCH)
-	if runtime.GOOS == "windows" {
-		filter += ".exe"
-	}
-
-	updater, err := selfupdate.NewUpdater(selfupdate.Config{
-		Filters: []string{filter},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create updater: %w", err)
-	}
-
-	s := ui.Spinner("")
-	s.Suffix = ui.Muted.Render(" Checking for updates...")
-	s.Start()
-	release, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug("npikall/gotpm"))
-	s.Stop()
-
-	if err != nil {
-		return fmt.Errorf("failed to check for updates: %w", err)
-	}
-	if !found {
-		ui.Warnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
-		return nil
-	}
-
-	latestVersion := release.Version()
-	if latestVersion == currentVersion {
-		ui.Infof("already up to date (%s)", gitTag)
-		return nil
-	}
-
-	if checkOnly {
-		ui.Infof("update available: %s → %s",
-			ui.AccentBold.Render(gitTag),
-			ui.AccentBold.Render("v"+latestVersion))
-		return nil
-	}
-
-	if installer == "brew" {
-		return ErrUpdateBrewBuild
-	}
-
-	s.Suffix = ui.Muted.Render(" Downloading update...")
-	s.Start()
-	_, err = updater.UpdateSelf(ctx, currentVersion, selfupdate.ParseSlug("npikall/gotpm"))
-	s.Stop()
-
-	if err != nil {
-		return fmt.Errorf("update failed: %w", err)
-	}
-
-	ui.Infof("updated gotpm %s → %s",
-		ui.AccentBold.Render(gitTag),
-		ui.AccentBold.Render("v"+latestVersion))
-	return nil
+	return self.Update(buildInfo(), opts)
 }

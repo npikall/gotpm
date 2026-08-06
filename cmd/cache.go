@@ -1,13 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
-	"github.com/npikall/gotpm/internal/index"
-	"github.com/npikall/gotpm/internal/remote"
-	"github.com/npikall/gotpm/internal/ui"
+	"github.com/npikall/gotpm/internal/cmds/cache"
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +15,7 @@ var cacheCmd = &cobra.Command{
 var cacheClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear the Cache",
+	Args:  cobra.NoArgs,
 	RunE:  CacheClearRunner,
 }
 
@@ -31,56 +26,9 @@ func init() {
 	cacheClearCmd.Flags().Bool("dry-run", false, "Dry run to see which data will be deleted")
 }
 
-func CacheClearRunner(cmd *cobra.Command, args []string) error {
-	remotesDir, err := remote.CacheDir()
-	if err != nil {
-		return err
+func CacheClearRunner(cmd *cobra.Command, _ []string) error {
+	opts := &cache.Options{
+		DryRun: Must(cmd.Flags().GetBool("dry-run")),
 	}
-	cachePath, err := index.CachePath()
-	if err != nil {
-		return err
-	}
-
-	size := cacheClearSizeMB(remotesDir, cachePath)
-
-	if isDryRun := Must(cmd.Flags().GetBool("dry-run")); isDryRun {
-		ui.Warnf("dry-run, would clear %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
-		return nil
-	}
-
-	if err = remote.ClearCache(); err != nil {
-		return err
-	}
-	if err = index.ClearCache(); err != nil {
-		return err
-	}
-
-	ui.Infof("Cleared %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
-	return nil
-}
-
-func cacheClearSizeMB(remotesDir, cachePath string) string {
-	size, err := DirSize(remotesDir)
-	if err != nil {
-		return "?"
-	}
-	if info, err := os.Stat(cachePath); err == nil {
-		size += info.Size()
-	}
-	sizeMB := float64(size) / 1024.0 / 1024.0 //nolint: mnd
-	return fmt.Sprintf("%.1fMB", sizeMB)
-}
-
-func DirSize(path string) (int64, error) {
-	var size int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			size += info.Size()
-		}
-		return err
-	})
-	return size, err //nolint: wrapcheck
+	return cache.Clear(opts, newLogger(cmd))
 }

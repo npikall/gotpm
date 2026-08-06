@@ -1,9 +1,11 @@
 package paths
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -26,6 +28,39 @@ func IsDir(path string) bool {
 		return false
 	}
 	return info.IsDir()
+}
+
+// Size sums the bytes held by the given files and directories. Paths that do
+// not exist contribute nothing, so an absent cache directory reports as empty
+// rather than as an error.
+func Size(targets ...string) (int64, error) {
+	var total int64
+	for _, target := range targets {
+		err := filepath.WalkDir(target, func(_ string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return nil
+				}
+				return err
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			info, err := entry.Info()
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return nil
+				}
+				return fmt.Errorf("reading file info: %w", err)
+			}
+			total += info.Size()
+			return nil
+		})
+		if err != nil {
+			return 0, fmt.Errorf("measuring %q: %w", target, err)
+		}
+	}
+	return total, nil
 }
 
 // Remove deletes path from disk. A symlink is removed itself rather than

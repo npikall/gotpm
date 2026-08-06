@@ -1,30 +1,28 @@
-package cmd_test
+package scaffold_test
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	. "github.com/npikall/gotpm/cmd"
+	"charm.land/log/v2"
+	"github.com/npikall/gotpm/internal/cmds/scaffold"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newInitCmd(t *testing.T) *cobra.Command {
-	t.Helper()
-	cmd := &cobra.Command{}
-	cmd.Flags().CountP("verbose", "v", "")
-	return cmd
+func discardLogger() *log.Logger {
+	return log.New(io.Discard)
 }
 
-func TestInitRunner_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
+func TestRun_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
 	// cwd basename becomes the package name
 	dir := t.TempDir()
 	t.Chdir(dir)
-	require.NoError(t, InitRunner(newInitCmd(t), []string{}))
+	require.NoError(t, scaffold.Run("", discardLogger()))
 
 	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
@@ -36,10 +34,10 @@ func TestInitRunner_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
 	assert.FileExists(t, filepath.Join(dir, "lib.typ"))
 }
 
-func TestInitRunner_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
+func TestRun_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
-	require.NoError(t, InitRunner(newInitCmd(t), []string{"my-pkg"}))
+	require.NoError(t, scaffold.Run("my-pkg", discardLogger()))
 
 	pkgDir := filepath.Join(parent, "my-pkg")
 	assert.DirExists(t, pkgDir)
@@ -53,31 +51,31 @@ func TestInitRunner_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
 	assert.FileExists(t, filepath.Join(pkgDir, "lib.typ"))
 }
 
-func TestInitRunner_LibFileContent(t *testing.T) { //nolint: paralleltest
+func TestRun_LibFileContent(t *testing.T) { //nolint: paralleltest
 	dir := t.TempDir()
 	t.Chdir(dir)
-	require.NoError(t, InitRunner(newInitCmd(t), []string{}))
+	require.NoError(t, scaffold.Run("", discardLogger()))
 
 	content, err := os.ReadFile(filepath.Join(dir, "lib.typ"))
 	require.NoError(t, err)
-	assert.Equal(t, string(LibFile), string(content))
+	assert.Equal(t, string(scaffold.LibFile), string(content))
 }
 
-func TestInitRunner_TomlContainsName(t *testing.T) { //nolint: paralleltest
+func TestRun_TomlContainsName(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
-	require.NoError(t, InitRunner(newInitCmd(t), []string{"cool-pkg"}))
+	require.NoError(t, scaffold.Run("cool-pkg", discardLogger()))
 
 	raw, err := os.ReadFile(filepath.Join(parent, "cool-pkg", "typst.toml"))
 	require.NoError(t, err)
 	assert.Contains(t, string(raw), `"cool-pkg"`)
 }
 
-func TestInitRunner_ExistingDirFails(t *testing.T) { //nolint: paralleltest
+func TestRun_ExistingDirFails(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
 	// pre-create the subdir so Mkdir fails
 	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), paths.DirPerm))
-	err := InitRunner(newInitCmd(t), []string{"dup"})
+	err := scaffold.Run("dup", discardLogger())
 	assert.Error(t, err)
 }

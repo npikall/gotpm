@@ -1,16 +1,17 @@
-package cmd_test
+package cache_test
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	. "github.com/npikall/gotpm/cmd"
+	"charm.land/log/v2"
+	cachecmd "github.com/npikall/gotpm/internal/cmds/cache"
 	"github.com/npikall/gotpm/internal/config"
 	"github.com/npikall/gotpm/internal/index"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,11 +31,8 @@ func isolateCacheDir(t *testing.T) {
 	t.Setenv("APPDATA", shared)
 }
 
-func newCacheClearCmd(t *testing.T, dryRun bool) *cobra.Command {
-	t.Helper()
-	cmd := &cobra.Command{}
-	cmd.Flags().Bool("dry-run", dryRun, "")
-	return cmd
+func discardLogger() *log.Logger {
+	return log.New(io.Discard)
 }
 
 func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) { //nolint: nonamedreturns
@@ -58,11 +56,11 @@ func seedCacheState(t *testing.T) (remotesDir, cachePath, configPath string) { /
 	return remotesDir, cachePath, configPath
 }
 
-func TestCacheClearRunner_PreservesConfig(t *testing.T) { //nolint: paralleltest
+func TestClear_PreservesConfig(t *testing.T) { //nolint: paralleltest
 	isolateCacheDir(t)
 	remotesDir, cachePath, configPath := seedCacheState(t)
 
-	require.NoError(t, CacheClearRunner(newCacheClearCmd(t, false), nil))
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{}, discardLogger()))
 
 	assert.NoDirExists(t, remotesDir, "remotes dir must be removed")
 	assert.NoFileExists(t, cachePath, "index cache must be removed")
@@ -73,18 +71,18 @@ func TestCacheClearRunner_PreservesConfig(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, "/tmp/my-fork", cfg.Fork.Path, "config content must be intact")
 }
 
-func TestCacheClearRunner_MissingFilesNoOp(t *testing.T) { //nolint: paralleltest
+func TestClear_MissingFilesNoOp(t *testing.T) { //nolint: paralleltest
 	isolateCacheDir(t)
 
-	err := CacheClearRunner(newCacheClearCmd(t, false), nil)
+	err := cachecmd.Clear(&cachecmd.Options{}, discardLogger())
 	require.NoError(t, err, "clearing an already-empty cache must not error")
 }
 
-func TestCacheClearRunner_DryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
+func TestClear_DryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
 	isolateCacheDir(t)
 	remotesDir, cachePath, configPath := seedCacheState(t)
 
-	require.NoError(t, CacheClearRunner(newCacheClearCmd(t, true), nil))
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{DryRun: true}, discardLogger()))
 
 	assert.DirExists(t, remotesDir, "dry-run must not remove remotes dir")
 	assert.FileExists(t, cachePath, "dry-run must not remove index cache")
