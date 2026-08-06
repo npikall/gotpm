@@ -7,6 +7,8 @@ import (
 
 	. "github.com/npikall/gotpm/cmd"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/semver"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,7 +41,7 @@ func TestBumpRunner_MissingArgument(t *testing.T) { //nolint: paralleltest
 func TestBumpRunner_NoManifest(t *testing.T) { //nolint: paralleltest
 	t.Chdir(t.TempDir())
 	err := BumpRunner(newBumpCmd(t), []string{"patch"})
-	assert.ErrorIs(t, err, internal.ErrManifestNotFound)
+	assert.ErrorIs(t, err, manifest.ErrManifestNotFound)
 }
 
 func TestBumpRunner_ShowCurrent(t *testing.T) { //nolint: paralleltest
@@ -98,7 +100,7 @@ func TestBumpRunner_InvalidIncrement(t *testing.T) { //nolint: paralleltest
 	dir := writeManifest(t, bumpManifest)
 	t.Chdir(dir)
 	err := BumpRunner(newBumpCmd(t), []string{"bogus"})
-	assert.ErrorIs(t, err, internal.ErrInvalidIncrement)
+	assert.ErrorIs(t, err, semver.ErrInvalidIncrement)
 }
 
 func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest

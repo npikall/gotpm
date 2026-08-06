@@ -31,7 +31,9 @@ Valid arguments can be:
 	- patch
 	- a valid semantic version (e.g. 0.1.2)`,
 	RunE: BumpRunner,
-	Args: cobra.ExactArgs(1),
+	// --show-current needs no increment, everything else does; the check
+	// lives in BumpRunner rather than in Args.
+	Args: cobra.MaximumNArgs(1),
 }
 
 func init() {
@@ -51,5 +53,12 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 	}
 	log := logger.Setup(logLevel)
 	opts := bump.GetOptions(cmd)
-	return bump.Run(args[0], opts, log)
+
+	increment := ""
+	if len(args) > 0 {
+		increment = args[0]
+	} else if !opts.ShowCur {
+		return ErrMissingArgument
+	}
+	return bump.Run(increment, opts, log)
 }
