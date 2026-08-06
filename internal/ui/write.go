@@ -18,6 +18,13 @@ func Warnf(format string, a ...any) {
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
+// Missingf reports something that could not be found.
+func Missingf(format string, a ...any) {
+	prefix := RedBold.Render("missing")
+	text := Normal.Render(fmt.Sprintf(format, a...))
+	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
+}
+
 func Error(err error) {
 	prefix := RedBold.Render("error")
 	text := Normal.Render(err.Error())
