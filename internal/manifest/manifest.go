@@ -25,7 +25,8 @@ var (
 )
 
 type Manifest struct {
-	Package PackageMeta `toml:"package"`
+	Package  PackageMeta `toml:"package"`
+	Template Template    `toml:"template,omitempty"`
 }
 
 type PackageMeta struct {
@@ -35,18 +36,24 @@ type PackageMeta struct {
 	Entrypoint string `toml:"entrypoint"`
 
 	// required for submissions to typst/packages
-	Authors     []string `toml:"authors"`
-	License     string   `toml:"license"`
-	Description string   `toml:"description"`
+	Authors     []string `toml:"authors,omitempty"`
+	License     string   `toml:"license,omitempty"`
+	Description string   `toml:"description,omitempty"`
 
 	// optional fields
-	Homepage    string   `toml:"homepage"`
-	Repository  string   `toml:"repository"`
-	Keywords    []string `toml:"keywords"`
-	Categories  []string `toml:"categories"`
-	Disciplines []string `toml:"disciplines"`
-	Compiler    string   `toml:"compiler"`
-	Exclude     []string `toml:"exclude"`
+	Homepage    string   `toml:"homepage,omitempty"`
+	Repository  string   `toml:"repository,omitempty"`
+	Keywords    []string `toml:"keywords,omitempty"`
+	Categories  []string `toml:"categories,omitempty"`
+	Disciplines []string `toml:"disciplines,omitempty"`
+	Compiler    string   `toml:"compiler,omitempty"`
+	Exclude     []string `toml:"exclude,omitempty"`
+}
+
+type Template struct {
+	Path       string `toml:"path,omitempty"`
+	Entrypoint string `toml:"entrypoint,omitempty"`
+	Thumbnail  string `toml:"thumbnail,omitempty"`
 }
 
 func FindFile(dir string) (string, error) {
