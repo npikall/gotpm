@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	ignore "github.com/sabhiram/go-gitignore"
 )
@@ -43,9 +44,14 @@ func CopyTree(src, dst string) error {
 // Matcher builds the ignore rules of the package in dir from its .gitignore
 // and .typstignore files. It returns nil when the package has neither.
 func Matcher(dir string) *ignore.GitIgnore {
-	gitIgnorePath := filepath.Join(dir, ".gitignore")
 	typstIgnorePath := filepath.Join(dir, ".typstignore")
 	extraLines := ReadIgnoreLines(typstIgnorePath)
+
+	if m, err := manifest.LoadFrom(dir); err == nil {
+		extraLines = append(extraLines, m.Package.Exclude...)
+	}
+
+	gitIgnorePath := filepath.Join(dir, ".gitignore")
 	if _, err := os.Stat(gitIgnorePath); err == nil {
 		matcher, err := ignore.CompileIgnoreFileAndLines(gitIgnorePath, extraLines...)
 		if err == nil {
