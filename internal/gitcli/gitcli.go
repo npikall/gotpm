@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -49,6 +50,40 @@ func Clone(remote, dest string) error {
 // remote-tracking ref, i.e. whether its initial clone actually completed.
 func HasMain(dir string) bool {
 	return run(dir, "rev-parse", "--verify", "--quiet", "origin/main") == nil
+}
+
+// Fetch updates origin/main, and only origin/main: Clone's --depth implies
+// --single-branch, leaving the clone's refspec as
+// +refs/heads/main:refs/remotes/origin/main. Package branches are not covered
+// by it and need FetchBranch. Fetching keeps the clone shallow.
+func Fetch(dir string) error {
+	return run(dir, "fetch", "origin")
+}
+
+// FetchBranch updates origin/<branch> via an explicit refspec
+func FetchBranch(dir, branch string) error {
+	return run(dir, "fetch", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch)
+}
+
+// MergeFFOnly fast-forwards the current branch to origin/<branch>, failing
+// rather than merging when the two have diverged
+func MergeFFOnly(dir, branch string) error {
+	return run(dir, "merge", "--ff-only", "origin/"+branch)
+}
+
+// SetUpstream makes branch track origin/<branch>.
+func SetUpstream(dir, branch string) error {
+	if err := run(dir, "config", "branch."+branch+".remote", "origin"); err != nil {
+		return err
+	}
+	return run(dir, "config", "branch."+branch+".merge", "refs/heads/"+branch)
+}
+
+// TracksOwnBranch reports whether branch tracks origin/<branch> rather than
+// origin/main or nothing at all
+func TracksOwnBranch(dir, branch string) bool {
+	pattern := "^refs/heads/" + regexp.QuoteMeta(branch) + "$"
+	return run(dir, "config", "--get", "branch."+branch+".merge", pattern) == nil
 }
 
 // BranchExists reports whether branch already exists locally in dir.
