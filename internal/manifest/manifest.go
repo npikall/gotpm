@@ -29,9 +29,24 @@ type Manifest struct {
 }
 
 type PackageMeta struct {
+	// required for typst compiler
 	Name       string `toml:"name"`
 	Version    string `toml:"version"`
 	Entrypoint string `toml:"entrypoint"`
+
+	// required for submissions to typst/packages
+	Authors     []string `toml:"authors"`
+	License     string   `toml:"license"`
+	Description string   `toml:"description"`
+
+	// optional fields
+	Homepage    string   `toml:"homepage"`
+	Repository  string   `toml:"repository"`
+	Keywords    []string `toml:"keywords"`
+	Categories  []string `toml:"categories"`
+	Disciplines []string `toml:"disciplines"`
+	Compiler    string   `toml:"compiler"`
+	Exclude     []string `toml:"exclude"`
 }
 
 func FindFile(dir string) (string, error) {
