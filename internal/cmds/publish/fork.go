@@ -1,6 +1,7 @@
 package publish
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -10,32 +11,12 @@ import (
 	"github.com/npikall/gotpm/internal/ui"
 )
 
-// EnsureForkRepo clones forkURL into forkPath if it isn't already a clone.
-//
-// The clone is blobless (--filter=blob:none) and checkout-less: only commits
-// and trees are fetched up front, and git's promisor-remote support lazily
-// fetches the blobs for whatever pkgDir CheckoutPackageBranch later sparse-
-// checks out, rather than the ~1000 packages/preview/* directories the fork
-// actually holds. go-git cannot do this - it has no mechanism to lazily fetch
-// objects excluded by a server-side filter, so any later Checkout/Reset needing
-// a filtered-out blob fails outright - hence shelling out to git itself.
-//
-// A fork clone is never fetched after its initial clone: gotpm is the only
-// writer of its own branches (fix-up publishes reuse the local branch tip
-// as-is), and new branches are cut from local origin/main, which staying
-// pinned to clone time is fine since publishing only ever adds a new
-// packages/preview/<name>/<version> directory. Deleting forkPath and letting
-// the next publish re-clone is how to pick up a manually-synced fork main.
-//
-// A forkPath whose clone was interrupted (e.g. killed mid-clone) leaves a
-// .git directory behind with no origin/main ref ever written. Such a clone is
-// detected here and wiped and redone rather than failing deep inside
-// CheckoutPackageBranch with a confusing "origin/main not found".
+// EnsureForkRepo clones forkURL into forkPath if it isn't already a clone, and
+// brings an existing clone's origin/main up to date.
 func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	if paths.IsDir(filepath.Join(forkPath, ".git")) {
-		logger.Debug("using existing fork clone as-is (not fetching)", "path", forkPath)
 		if gitcli.HasMain(forkPath) {
-			return nil
+			return fetchFork(logger, forkPath)
 		}
 		logger.Debug("fork clone is incomplete (no origin/main), re-cloning", "path", forkPath)
 		if err := paths.Remove(forkPath); err != nil {
@@ -57,17 +38,34 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	return nil
 }
 
+// fetchFork updates an existing clone's origin/main.
+func fetchFork(logger *log.Logger, forkPath string) error {
+	logger.Debug("fetching fork", "path", forkPath)
+	spin := ui.Spinner(" Fetching fork...")
+	spin.Start()
+	err := gitcli.Fetch(forkPath)
+	spin.Stop()
+	if err != nil {
+		return fmt.Errorf("fetching fork at %q: %w", forkPath, err)
+	}
+	logger.Debug("fetched fork")
+	return nil
+}
+
+// ErrForkBranchDiverged is returned when the local package branch and the
+// fork's branch of the same name have both moved on independently.
+var ErrForkBranchDiverged = errors.New("local branch and fork branch have diverged")
+
 // CheckoutPackageBranch checks out branchName, scoped to pkgDir via sparse
-// checkout, creating it from origin/main's tip if it does not already exist.
-// It reports whether the branch already existed before this call.
-//
-// Unlike go-git's sparse checkout, git's own sparse-checkout has no
-// requirement that pkgDir already exist in the target tree, so a brand-new
-// package (never published before) scopes down to just pkgDir like any other,
-// rather than widening out to the whole packages/preview namespace.
+// checkout, and makes it track origin/branchName. It reports whether the
+// branch already existed - locally or on the fork - before this call.
 func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir string) (bool, error) {
-	branchExisted := gitcli.BranchExists(forkPath, branchName)
-	logger.Debug("resolved package branch", "branch", branchName, "existed", branchExisted)
+	onFork := gitcli.FetchBranch(forkPath, branchName) == nil
+	if !onFork {
+		logger.Debug("branch not on fork yet", "branch", branchName)
+	}
+	local := gitcli.BranchExists(forkPath, branchName)
+	logger.Debug("resolved package branch", "branch", branchName, "local", local, "fork", onFork)
 
 	spin := ui.Spinner(" Checking out package branch...")
 	spin.Start()
@@ -77,26 +75,48 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 		return false, fmt.Errorf("setting sparse-checkout scope %q: %w", pkgDir, err)
 	}
 
-	if branchExisted {
-		if err := gitcli.CheckoutBranch(forkPath, branchName); err != nil {
-			return false, fmt.Errorf("checking out %q: %w", branchName, err)
-		}
-	} else {
-		logger.Debug("creating new branch from origin/main", "branch", branchName)
-		if err := gitcli.CheckoutNewBranch(forkPath, branchName, "origin/main"); err != nil {
-			return false, fmt.Errorf("checking out %q: %w", branchName, err)
-		}
+	if err := checkoutFrom(logger, forkPath, branchName, local, onFork); err != nil {
+		return false, err
 	}
+
+	if err := gitcli.SetUpstream(forkPath, branchName); err != nil {
+		logger.Warn("could not set branch upstream", "branch", branchName, "err", err)
+	}
+
 	logger.Debug("checked out branch", "branch", branchName)
-	return branchExisted, nil
+	return local || onFork, nil
 }
 
-// commitFork stages relDestDir and commits it. Staging is deliberately scoped
-// to relDestDir rather than the whole worktree, keeping the commit limited to
-// this version's files regardless of whatever else is present in the sparse
-// checkout. Signing is left to the caller's own git config as-is: real git,
-// unlike go-git, natively supports whatever signing method (gpg, ssh, ...) the
-// user has configured.
+// checkoutFrom checks out branchName from whichever base the branch's
+// local/fork existence calls for, fast-forwarding onto the fork's tip when the
+// branch exists in both places.
+func checkoutFrom(logger *log.Logger, forkPath, branchName string, local, onFork bool) error {
+	if !local {
+		base := "origin/main"
+		if onFork {
+			base = "origin/" + branchName
+		}
+		logger.Debug("creating branch", "branch", branchName, "base", base)
+		if err := gitcli.CheckoutNewBranch(forkPath, branchName, base); err != nil {
+			return fmt.Errorf("checking out %q: %w", branchName, err)
+		}
+		return nil
+	}
+
+	if err := gitcli.CheckoutBranch(forkPath, branchName); err != nil {
+		return fmt.Errorf("checking out %q: %w", branchName, err)
+	}
+	if !onFork {
+		return nil
+	}
+	logger.Debug("fast-forwarding onto fork branch", "branch", branchName)
+	if err := gitcli.MergeFFOnly(forkPath, branchName); err != nil {
+		manual := fmt.Sprintf("git -C %s log --oneline %s..origin/%s", forkPath, branchName, branchName)
+		return fmt.Errorf("%w: %w\nInspect and reconcile them: %s", ErrForkBranchDiverged, err, manual)
+	}
+	return nil
+}
+
 func commitFork(logger *log.Logger, forkPath, relDestDir, msg string) error {
 	logger.Debug("staging package files", "path", relDestDir)
 	if err := gitcli.Add(forkPath, relDestDir); err != nil {
