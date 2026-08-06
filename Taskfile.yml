@@ -126,10 +126,10 @@ tasks:
         git push && git push --tags
 
     preconditions:
-      # - sh: test $(git rev-parse --abbrev-ref HEAD) = "main"
-      #   msg: "You must be on the main branch to release"
-      # - sh: "[[ -z $(git diff --shortstat main) ]]"
-      #   msg: "You must have a clean working tree to release"
+      - sh: test $(git rev-parse --abbrev-ref HEAD) = "main"
+        msg: "You must be on the main branch to release"
+      - sh: "[[ -z $(git diff --shortstat main) ]]"
+        msg: "You must have a clean working tree to release"
     prompt: "Are you sure you want to release version {{.VERSION}}?"
     cmds:
       - cmd: echo "Releasing {{.VERSION}}"
