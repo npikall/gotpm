@@ -34,12 +34,19 @@ var (
 type Options struct {
 	// Local stops after committing to the fork clone, without pushing.
 	Local bool
+	// Custom commit message
+	Message string
+}
+
+type fork struct {
+	url  string
+	path string
 }
 
 // Run publishes the package of the current working directory to the
 // configured fork.
 func Run(opts *Options, logger *log.Logger) error {
-	forkURL, forkPath, err := resolveTarget()
+	fork, err := resolveTarget()
 	if err != nil {
 		return err
 	}
@@ -49,16 +56,16 @@ func Run(opts *Options, logger *log.Logger) error {
 		return fmt.Errorf("could not get current working directory: %w", err)
 	}
 
-	branchName, m, err := commitToFork(logger, sourceDir, forkURL, forkPath)
+	branchName, m, err := commitToFork(logger, sourceDir, fork, opts.Message)
 	if err != nil {
 		return err
 	}
 
 	if opts.Local {
-		ui.Infof("push it when you are ready:\n%s", pushCommand(forkPath, branchName))
+		ui.Infof("push it when you are ready:\n%s", pushCommand(fork.path, branchName))
 		return nil
 	}
-	return pushAndSuggestPR(logger, forkURL, forkPath, branchName, m)
+	return pushAndSuggestPR(logger, fork, branchName, m)
 }
 
 // pushCommand returns the command that pushes branchName from forkPath
@@ -71,23 +78,23 @@ func pushCommand(forkPath, branchName string) string {
 
 // resolveTarget loads the fork configuration, erroring if fork.url is unset,
 // and resolving fork.path to its default when unset.
-func resolveTarget() (string, string, error) {
+func resolveTarget() (*fork, error) {
 	cfg, err := config.Load()
 	if err != nil {
-		return "", "", err
+		return &fork{}, err
 	}
 	forkURL, err := cfg.Get("fork.url")
 	if err != nil {
-		return "", "", err
+		return &fork{}, err
 	}
 	if forkURL == "" {
-		return "", "", fmt.Errorf("%w\nRun: `gotpm config set fork.url <repo>`", ErrMissingForkURL)
+		return &fork{}, fmt.Errorf("%w\nRun: `gotpm config set fork.url <repo>`", ErrMissingForkURL)
 	}
 	forkPath, err := resolveForkPath(cfg)
 	if err != nil {
-		return "", "", err
+		return &fork{}, err
 	}
-	return forkURL, forkPath, nil
+	return &fork{url: forkURL, path: forkPath}, nil
 }
 
 // resolveForkPath returns the configured fork.path, defaulting to
@@ -110,7 +117,7 @@ func resolveForkPath(cfg *config.Config) (string, error) {
 // commitToFork loads the package manifest, checks out its branch in the fork
 // clone, copies the package files in, and commits them.
 func commitToFork(
-	logger *log.Logger, sourceDir, forkURL, forkPath string,
+	logger *log.Logger, sourceDir string, fork *fork, msg string,
 ) (string, *manifest.Manifest, error) {
 	// Publishing copies the package root, which is the directory holding
 	// typst.toml rather than the directory the command was run from.
@@ -128,16 +135,16 @@ func commitToFork(
 	pkgDir := path.Join("packages", previewNamespace, m.Package.Name)
 	branchName := m.Package.Name + "-" + m.Package.Version
 
-	if err := EnsureForkRepo(logger, forkURL, forkPath); err != nil {
+	if err := EnsureForkRepo(logger, fork.url, fork.path); err != nil {
 		return "", nil, err
 	}
-	branchExisted, err := CheckoutPackageBranch(logger, forkPath, branchName, pkgDir)
+	branchExisted, err := CheckoutPackageBranch(logger, fork.path, branchName, pkgDir)
 	if err != nil {
 		return "", nil, err
 	}
 
 	relDestDir := filepath.Join(filepath.FromSlash(pkgDir), m.Package.Version)
-	destDir := filepath.Join(forkPath, relDestDir)
+	destDir := filepath.Join(fork.path, relDestDir)
 	if err := paths.Remove(destDir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, fmt.Errorf("clearing previous version directory: %w", err)
 	}
@@ -147,8 +154,10 @@ func commitToFork(
 	}
 	logger.Debug("copied package files")
 
-	msg := commitMessage(sourceDir, m, branchExisted)
-	if err := commitFork(logger, forkPath, relDestDir, msg); err != nil {
+	if msg == "" {
+		msg = commitMessage(sourceDir, m, branchExisted)
+	}
+	if err := commitFork(logger, fork.path, relDestDir, msg); err != nil {
 		return "", nil, err
 	}
 	ui.Infof("committed %q on branch %s", msg, branchName)
@@ -188,17 +197,17 @@ func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) s
 // success it prints a ready-to-run `gh pr create` suggestion; gotpm never
 // talks to GitHub itself.
 func pushAndSuggestPR(
-	logger *log.Logger, forkURL, forkPath, branchName string, m *manifest.Manifest,
+	logger *log.Logger, fork *fork, branchName string, m *manifest.Manifest,
 ) error {
 	logger.Debug("pushing branch to origin", "branch", branchName)
-	if err := Push(logger, forkPath, branchName); err != nil {
-		manual := fmt.Sprintf("git -C %s push origin %s", forkPath, branchName)
+	if err := Push(logger, fork.path, branchName); err != nil {
+		manual := fmt.Sprintf("git -C %s push origin %s", fork.path, branchName)
 		return fmt.Errorf("%w: %w\nRun manually: %s", ErrPushFailed, err, manual)
 	}
 
-	owner, err := remote.OwnerFromURL(forkURL)
+	owner, err := remote.OwnerFromURL(fork.url)
 	if err != nil {
-		return fmt.Errorf("could not determine fork owner from %q: %w", forkURL, err)
+		return fmt.Errorf("could not determine fork owner from %q: %w", fork.url, err)
 	}
 	title := fmt.Sprintf("release: %s %s", m.Package.Name, m.Package.Version)
 	ghCmd := fmt.Sprintf(

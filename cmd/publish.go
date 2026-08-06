@@ -24,11 +24,13 @@ gotpm publish --local`,
 func init() {
 	rootCmd.AddCommand(publishCmd)
 	publishCmd.Flags().Bool("local", false, "Stop after committing to the local fork clone; do not push.")
+	publishCmd.Flags().StringP("message", "m", "", "Custom commit message")
 }
 
 func PublishRunner(cmd *cobra.Command, _ []string) error {
 	opts := &publish.Options{
-		Local: Must(cmd.Flags().GetBool("local")),
+		Local:   Must(cmd.Flags().GetBool("local")),
+		Message: Must(cmd.Flags().GetString("message")),
 	}
 	return publish.Run(opts, newLogger(cmd))
 }
