@@ -13,6 +13,7 @@ import (
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
 	"github.com/npikall/gotpm/internal/gitcli"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
@@ -62,7 +63,7 @@ func publishRunner(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not get current working directory: %w", err)
 	}
 
-	branchName, manifest, err := publishToFork(logger, sourceDir, forkURL, forkPath)
+	branchName, m, err := publishToFork(logger, sourceDir, forkURL, forkPath)
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func publishRunner(cmd *cobra.Command, _ []string) error {
 	if local {
 		return nil
 	}
-	return pushAndSuggestPR(logger, forkURL, forkPath, branchName, manifest)
+	return pushAndSuggestPR(logger, forkURL, forkPath, branchName, m)
 }
 
 // resolvePublishTarget loads the fork configuration, erroring if fork.url is
@@ -98,41 +99,48 @@ func resolvePublishTarget() (string, string, error) {
 // fork clone, copies the package files in, and commits them.
 func publishToFork(
 	logger *log.Logger, sourceDir, forkURL, forkPath string,
-) (string, internal.Manifest, error) {
-	manifest, err := internal.LoadManifest(sourceDir)
+) (string, *manifest.Manifest, error) {
+	// Publishing copies the package root, which is the directory holding
+	// typst.toml rather than the directory the command was run from.
+	manifestFile, err := manifest.FindFile(sourceDir)
 	if err != nil {
-		return "", internal.Manifest{}, fmt.Errorf("could not load manifest: %w", err)
+		return "", nil, fmt.Errorf("could not load manifest: %w", err)
 	}
-	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
+	m, err := manifest.LoadFile(manifestFile)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not load manifest: %w", err)
+	}
+	sourceDir = filepath.Dir(manifestFile)
+	logger.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
 
-	pkgDir := path.Join("packages", previewNamespace, manifest.Package.Name)
-	branchName := manifest.Package.Name + "-" + manifest.Package.Version
+	pkgDir := path.Join("packages", previewNamespace, m.Package.Name)
+	branchName := m.Package.Name + "-" + m.Package.Version
 
 	if err := ensureForkRepo(logger, forkURL, forkPath); err != nil {
-		return "", internal.Manifest{}, err
+		return "", nil, err
 	}
 	branchExisted, err := CheckoutPackageBranch(logger, forkPath, branchName, pkgDir)
 	if err != nil {
-		return "", internal.Manifest{}, err
+		return "", nil, err
 	}
 
-	relDestDir := filepath.Join(filepath.FromSlash(pkgDir), manifest.Package.Version)
+	relDestDir := filepath.Join(filepath.FromSlash(pkgDir), m.Package.Version)
 	destDir := filepath.Join(forkPath, relDestDir)
 	if err := RemoveTarget(destDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", internal.Manifest{}, fmt.Errorf("clearing previous version directory: %w", err)
+		return "", nil, fmt.Errorf("clearing previous version directory: %w", err)
 	}
 	logger.Debug("copying package files", "src", sourceDir, "dest", destDir)
 	if err := CopyPackageFiles(sourceDir, destDir); err != nil {
-		return "", internal.Manifest{}, err
+		return "", nil, err
 	}
 	logger.Debug("copied package files")
 
-	msg := commitMessage(sourceDir, manifest, branchExisted)
+	msg := commitMessage(sourceDir, m, branchExisted)
 	if err := commitFork(logger, forkPath, relDestDir, msg); err != nil {
-		return "", internal.Manifest{}, err
+		return "", nil, err
 	}
 	ui.Infof("committed %q on branch %s", msg, branchName)
-	return branchName, manifest, nil
+	return branchName, m, nil
 }
 
 // resolveForkPath returns the configured fork.path, defaulting to
@@ -240,8 +248,8 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 // package repo's own HEAD commit message so fixes made there carry over to
 // the fork, falling back to the release message when the source isn't a git
 // repo or has no commits.
-func commitMessage(sourceDir string, manifest internal.Manifest, branchExisted bool) string {
-	fallback := fmt.Sprintf("release: %s %s", manifest.Package.Name, manifest.Package.Version)
+func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) string {
+	fallback := fmt.Sprintf("release: %s %s", m.Package.Name, m.Package.Version)
 	if !branchExisted {
 		return fallback
 	}
@@ -287,7 +295,7 @@ func commitFork(logger *log.Logger, forkPath, relDestDir, msg string) error {
 // success it prints a ready-to-run `gh pr create` suggestion; gotpm never
 // talks to GitHub itself.
 func pushAndSuggestPR(
-	logger *log.Logger, forkURL, forkPath, branchName string, manifest internal.Manifest,
+	logger *log.Logger, forkURL, forkPath, branchName string, m *manifest.Manifest,
 ) error {
 	logger.Debug("pushing branch to origin", "branch", branchName)
 	if err := gitcli.Push(forkPath, branchName); err != nil {
@@ -300,7 +308,7 @@ func pushAndSuggestPR(
 	if err != nil {
 		return fmt.Errorf("could not determine fork owner from %q: %w", forkURL, err)
 	}
-	title := fmt.Sprintf("release: %s %s", manifest.Package.Name, manifest.Package.Version)
+	title := fmt.Sprintf("release: %s %s", m.Package.Name, m.Package.Version)
 	ghCmd := fmt.Sprintf(
 		"gh pr create --repo typst/packages --base main --head %s:%s --draft --title %q",
 		owner, branchName, title,

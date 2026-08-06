@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +26,7 @@ func TestInitRunner_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	require.NoError(t, InitRunner(newInitCmd(t), []string{}))
 
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(dir), m.Package.Name)
 	assert.Equal(t, "0.1.0", m.Package.Version)
@@ -44,7 +44,7 @@ func TestInitRunner_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
 	pkgDir := filepath.Join(parent, "my-pkg")
 	assert.DirExists(t, pkgDir)
 
-	m, err := internal.LoadManifest(pkgDir)
+	m, err := manifest.LoadFrom(pkgDir)
 	require.NoError(t, err)
 	assert.Equal(t, "my-pkg", m.Package.Name)
 	assert.Equal(t, "0.1.0", m.Package.Version)

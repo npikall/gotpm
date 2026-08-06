@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/paths"
 )
 
@@ -52,18 +52,23 @@ func FindFile(dir string) (string, error) {
 	}
 }
 
+// Load reads the manifest of the package the current working directory
+// belongs to.
 func Load() (*Manifest, error) {
-	manifest := &Manifest{}
 	cwd, err := os.Getwd()
 	if err != nil {
-		return manifest, fmt.Errorf("could not get the current wooring directory: %w", err)
+		return &Manifest{}, fmt.Errorf("could not get the current working directory: %w", err)
 	}
+	return LoadFrom(cwd)
+}
 
-	path, err := FindFile(cwd)
+// LoadFrom reads the manifest of the package dir belongs to, searching dir and
+// then its parents.
+func LoadFrom(dir string) (*Manifest, error) {
+	path, err := FindFile(dir)
 	if err != nil {
-		return manifest, err
+		return &Manifest{}, err
 	}
-
 	return LoadFile(path)
 }
 
@@ -92,12 +97,38 @@ func Update(file string, manifest *Manifest, indent bool) error {
 	}
 
 	var buf bytes.Buffer
-	if err := internal.UpdateTOML(&buf, internal.PackageMeta(manifest.Package), content, indent); err != nil {
+	if err := writeTOML(&buf, manifest.Package, content, indent); err != nil {
 		return fmt.Errorf("could not update typst.toml: %w", err)
 	}
 
 	if err := paths.WriteFile(file, buf.Bytes()); err != nil {
 		return err
+	}
+	return nil
+}
+
+// writeTOML writes the package metadata (name, version, entrypoint) back into
+// the TOML document represented by data. Everything else in the document is
+// carried over untouched.
+func writeTOML(w io.Writer, p PackageMeta, data []byte, indent bool) error {
+	var m map[string]any
+	if err := toml.Unmarshal(data, &m); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+	}
+	pkg, ok := m["package"].(map[string]any)
+	if !ok {
+		return ErrInvalidManifest
+	}
+	pkg["version"] = p.Version
+	pkg["name"] = p.Name
+	pkg["entrypoint"] = p.Entrypoint
+
+	encoder := toml.NewEncoder(w)
+	if !indent {
+		encoder.Indent = ""
+	}
+	if err := encoder.Encode(m); err != nil {
+		return fmt.Errorf("could not encode manifest: %w", err)
 	}
 	return nil
 }

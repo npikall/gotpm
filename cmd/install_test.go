@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
@@ -164,7 +164,7 @@ name = "my-package"
 version = "1.0.0"
 entrypoint = "lib.typ"
 `)
-		got, err := internal.LoadManifest(dir)
+		got, err := manifest.LoadFrom(dir)
 		require.NoError(t, err)
 		assert.Equal(t, "my-package", got.Package.Name)
 		assert.Equal(t, "1.0.0", got.Package.Version)
@@ -173,14 +173,14 @@ entrypoint = "lib.typ"
 	t.Run("no manifest returns not found error", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		_, err := internal.LoadManifest(dir)
-		assert.ErrorIs(t, err, internal.ErrManifestNotFound)
+		_, err := manifest.LoadFrom(dir)
+		assert.ErrorIs(t, err, manifest.ErrManifestNotFound)
 	})
 	t.Run("malformed toml returns invalid error", func(t *testing.T) {
 		t.Parallel()
 		dir := writeManifest(t, `this is not valid [ toml`)
-		_, err := internal.LoadManifest(dir)
-		assert.ErrorIs(t, err, internal.ErrInvalidManifest)
+		_, err := manifest.LoadFrom(dir)
+		assert.ErrorIs(t, err, manifest.ErrInvalidManifest)
 	})
 	t.Run("missing name returns invalid error", func(t *testing.T) {
 		t.Parallel()
@@ -189,8 +189,8 @@ entrypoint = "lib.typ"
 version = "1.0.0"
 entrypoint = "lib.typ"
 `)
-		_, err := internal.LoadManifest(dir)
-		assert.ErrorIs(t, err, internal.ErrInvalidManifest)
+		_, err := manifest.LoadFrom(dir)
+		assert.ErrorIs(t, err, manifest.ErrInvalidManifest)
 	})
 	t.Run("missing version returns invalid error", func(t *testing.T) {
 		t.Parallel()
@@ -199,8 +199,8 @@ entrypoint = "lib.typ"
 name = "my-package"
 entrypoint = "lib.typ"
 `)
-		_, err := internal.LoadManifest(dir)
-		assert.ErrorIs(t, err, internal.ErrInvalidManifest)
+		_, err := manifest.LoadFrom(dir)
+		assert.ErrorIs(t, err, manifest.ErrInvalidManifest)
 	})
 	t.Run("missing entrypoint returns invalid error", func(t *testing.T) {
 		t.Parallel()
@@ -209,14 +209,14 @@ entrypoint = "lib.typ"
 name = "my-package"
 version = "1.0.0"
 `)
-		_, err := internal.LoadManifest(dir)
-		assert.ErrorIs(t, err, internal.ErrInvalidManifest)
+		_, err := manifest.LoadFrom(dir)
+		assert.ErrorIs(t, err, manifest.ErrInvalidManifest)
 	})
 	t.Run("all fields missing reports all errors", func(t *testing.T) {
 		t.Parallel()
 		dir := writeManifest(t, `[package]`)
-		_, err := internal.LoadManifest(dir)
-		require.ErrorIs(t, err, internal.ErrInvalidManifest)
+		_, err := manifest.LoadFrom(dir)
+		require.ErrorIs(t, err, manifest.ErrInvalidManifest)
 		require.ErrorContains(t, err, "package.name")
 		require.ErrorContains(t, err, "package.version")
 		assert.ErrorContains(t, err, "package.entrypoint")
@@ -339,9 +339,9 @@ func assertHasPrefix(t *testing.T, path, prefix string) {
 	}
 }
 
-func newManifest(name, version, entrypoint string) internal.Manifest {
-	return internal.Manifest{
-		Package: internal.PackageMeta{
+func newManifest(name, version, entrypoint string) *manifest.Manifest {
+	return &manifest.Manifest{
+		Package: manifest.PackageMeta{
 			Name:       name,
 			Version:    version,
 			Entrypoint: entrypoint,

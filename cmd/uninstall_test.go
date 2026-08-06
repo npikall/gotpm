@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -77,7 +77,7 @@ entrypoint = "lib.typ"
 		t.Parallel()
 		dir := t.TempDir()
 		_, _, err := ResolvePackageIdentityFromWorkingDir([]string{}, "", false, dir)
-		assert.ErrorIs(t, err, internal.ErrManifestNotFound)
+		assert.ErrorIs(t, err, manifest.ErrManifestNotFound)
 	})
 }
 

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -202,9 +203,9 @@ func ResolvePackageIdentityFromWorkingDir(args []string, version string, deleteA
 		}
 		return args[0], version, nil
 	}
-	manifest, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	if err != nil {
 		return "", "", fmt.Errorf("could not load typst manifest: %w", err)
 	}
-	return manifest.Package.Name, manifest.Package.Version, nil
+	return m.Package.Name, m.Package.Version, nil
 }

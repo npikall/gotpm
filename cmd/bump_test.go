@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	. "github.com/npikall/gotpm/cmd"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/semver"
 	"github.com/spf13/cobra"
@@ -61,7 +60,7 @@ func TestBumpRunner_Patch(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"patch"}))
 
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "1.2.4", m.Package.Version)
 }
@@ -71,7 +70,7 @@ func TestBumpRunner_Minor(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"minor"}))
 
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "1.3.0", m.Package.Version)
 }
@@ -81,7 +80,7 @@ func TestBumpRunner_Major(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"major"}))
 
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "2.0.0", m.Package.Version)
 }
@@ -91,7 +90,7 @@ func TestBumpRunner_ExactVersion(t *testing.T) { //nolint: paralleltest
 	t.Chdir(dir)
 	require.NoError(t, BumpRunner(newBumpCmd(t), []string{"9.8.7"}))
 
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "9.8.7", m.Package.Version)
 }
@@ -111,7 +110,7 @@ func TestBumpRunner_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: parallelte
 	require.NoError(t, BumpRunner(cmd, []string{"patch"}))
 
 	// File must still contain original version
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "1.2.3", m.Package.Version)
 }
@@ -124,7 +123,7 @@ func TestBumpRunner_ShowNext_DoesNotWriteFile(t *testing.T) { //nolint: parallel
 	require.NoError(t, BumpRunner(cmd, []string{"patch"}))
 
 	// File must still contain original version
-	m, err := internal.LoadManifest(dir)
+	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "1.2.3", m.Package.Version)
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
@@ -65,13 +66,18 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 	}
 	logger.Debug("operating in source", "path", sourceDir)
 
-	manifest, err := internal.LoadManifest(sourceDir)
+	manifestFile, err := manifest.FindFile(sourceDir)
 	if err != nil {
 		return fmt.Errorf("could not load manifest: %w", err)
 	}
-	logger.Debug("found package", "name", manifest.Package.Name, "version", manifest.Package.Version)
+	m, err := manifest.LoadFile(manifestFile)
+	if err != nil {
+		return fmt.Errorf("could not load manifest: %w", err)
+	}
+	sourceDir = filepath.Dir(manifestFile)
+	logger.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
 
-	dest, err := resolveInstallDestination(manifest, opts)
+	dest, err := resolveInstallDestination(m, opts)
 	if err != nil {
 		return err
 	}
@@ -120,20 +126,20 @@ func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
 
 // resolveInstallDestination routes to the appropriate destination resolver based
 // on whether an install-dir override was provided.
-func resolveInstallDestination(manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
+func resolveInstallDestination(m *manifest.Manifest, opts *InstallOptions) (Destination, error) {
 	dataDir, overridden, err := paths.InstallDir(opts.InstallDir)
 	if err != nil {
 		return Destination{}, fmt.Errorf("could not resolve package directory: %w", err)
 	}
 	if overridden {
-		return ResolveOverriddenDestination(dataDir, manifest, opts)
+		return ResolveOverriddenDestination(dataDir, m, opts)
 	}
-	return ResolveDefaultDestination(dataDir, manifest, opts)
+	return ResolveDefaultDestination(dataDir, m, opts)
 }
 
 // ResolveOverriddenDestination is used when --install-dir or $GOTPM_INSTALL_DIR is set.
 // dataDir is used as the final install path without appending namespace/name/version.
-func ResolveOverriddenDestination(dataDir string, manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
+func ResolveOverriddenDestination(dataDir string, m *manifest.Manifest, opts *InstallOptions) (Destination, error) {
 	if !opts.Force {
 		if err := ValidateDestinationConflict(dataDir); err != nil {
 			return Destination{}, err
@@ -141,22 +147,22 @@ func ResolveOverriddenDestination(dataDir string, manifest internal.Manifest, op
 	}
 	return Destination{
 		Namespace: opts.Namespace,
-		Name:      manifest.Package.Name,
-		Version:   manifest.Package.Version,
+		Name:      m.Package.Name,
+		Version:   m.Package.Version,
 		Path:      dataDir,
 	}, nil
 }
 
 // ResolveDefaultDestination is used for the standard install path.
 // It appends namespace/name/version sub-directories to dataDir.
-func ResolveDefaultDestination(dataDir string, manifest internal.Manifest, opts *InstallOptions) (Destination, error) {
+func ResolveDefaultDestination(dataDir string, m *manifest.Manifest, opts *InstallOptions) (Destination, error) {
 	if err := paths.EnsureDir(dataDir); err != nil {
 		return Destination{}, fmt.Errorf("could not ensure directory %q: %w", dataDir, err)
 	}
 	if err := ValidateNamespace(opts.Namespace); err != nil {
 		return Destination{}, err
 	}
-	dest := BuildDestination(dataDir, manifest, opts.Namespace)
+	dest := BuildDestination(dataDir, m, opts.Namespace)
 	if !opts.Force {
 		if err := ValidateDestinationConflict(dest.Path); err != nil {
 			return Destination{}, err
@@ -379,17 +385,17 @@ type Destination struct {
 	Path      string
 }
 
-func BuildDestination(dataDir string, manifest internal.Manifest, namespace string) Destination {
+func BuildDestination(dataDir string, m *manifest.Manifest, namespace string) Destination {
 	path := filepath.Join(
 		dataDir,
 		namespace,
-		manifest.Package.Name,
-		manifest.Package.Version,
+		m.Package.Name,
+		m.Package.Version,
 	)
 	return Destination{
 		Namespace: namespace,
-		Name:      manifest.Package.Name,
-		Version:   manifest.Package.Version,
+		Name:      m.Package.Name,
+		Version:   m.Package.Version,
 		Path:      path,
 	}
 }
