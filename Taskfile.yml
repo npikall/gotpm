@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  BIN_NAME: gotpm
+  GO_URL:
+    sh: go list -m
+  BUILD_OS:
+    sh: go env GOOS
+  BUILD_ARCH:
+    sh: go env GOARCH
+  LATEST_TAG:
+    sh: git describe --tags --dirty --always --abbrev=0
+  COMMIT_HASH:
+    sh: git rev-parse --short HEAD
+  INSTALLER:
+    sh: echo "${INSTALLER:-source}"
+  LDFLAGS: >-
+    -s -w
+    -X {{.GO_URL}}/cmd.gitTag={{.LATEST_TAG}}
+    -X {{.GO_URL}}/cmd.gitCommit={{.COMMIT_HASH}}
+    -X {{.GO_URL}}/cmd.buildOS={{.BUILD_OS}}
+    -X {{.GO_URL}}/cmd.buildARCH={{.BUILD_ARCH}}
+    -X {{.GO_URL}}/cmd.installer={{.INSTALLER}}
+
+env:
+  CGO_ENABLED: '0'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  mod:
+    desc: Download and tidy Go modules
+    aliases: [m]
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  lint:
+    desc: Run golangci-lint
+    aliases: [l]
+    sources:
+      - '**/*.go'
+      - .golangci.yml
+      - go.mod
+    cmds:
+      - golangci-lint run
+
+  lint:fix:
+    desc: Run golangci-lint and fix any issues
+    sources:
+      - '**/*.go'
+      - .golangci.yml
+      - go.mod
+    cmds:
+      - golangci-lint run --fix
+
+  format:
+    desc: Run golangci-lint and format any Go files
+    aliases: [fmt, f]
+    sources:
+      - '**/*.go'
+      - .golangci.yml
+    cmds:
+      - golangci-lint fmt
+
+  test:
+    desc: Run the test suite
+    aliases: [t]
+    sources:
+      - '**/*.go'
+    cmds:
+      - go test {{.CLI_ARGS}} ./...
+
+  test:cover:
+    desc: Run test suite with code coverage
+    sources:
+      - '**/*.go'
+    cmds:
+      - go test -coverprofile=c.out ./...
+      - go tool cover -html=c.out
+
+  build:
+    desc: Build the binary
+    aliases: [b]
+    sources:
+      - '**/*.go'
+      - go.mod
+    cmds:
+      - go build -ldflags="{{.LDFLAGS}}" -o {{.BIN_NAME}}
+
+  install:
+    desc: Install gotpm
+    aliases: [i]
+    sources:
+      - './**/*.go'
+      - go.mod
+    cmds:
+      - go install -ldflags="{{.LDFLAGS}}"
+
+  release:*:
+    desc: Prepare the project for a new release
+    summary: |
+      This task will do the following:
+
+      - Update the CHANGELOG.md file
+      - Commit the changes
+      - Create a new tag
+
+      To use the task, run "task release:<version>" where "<version>" is is one of:
+
+      - "major" - Bumps the major number
+      - "minor" - Bumps the minor number
+      - "patch" - Bumps the patch number
+      - "next"  - Bumps the version automatically
+    vars:
+      VERSION:
+        sh: "svu {{index .MATCH 0}}"
+      COMPLETE_MESSAGE: |
+        Release complete. Run the following:
+        
+        git push && git push --tags
+
+    preconditions:
+      - sh: test $(git rev-parse --abbrev-ref HEAD) = "main"
+        msg: "You must be on the main branch to release"
+      - sh: "[[ -z $(git diff --shortstat main) ]]"
+        msg: "You must have a clean working tree to release"
+    prompt: "Are you sure you want to release version {{.VERSION}}?"
+    cmds:
+      - cmd: echo "Releasing {{.VERSION}}"
+        silent: true
+      - "git-cliff -o --tag {{.VERSION}}"
+      - "git add CHANGELOG.md"
+      - "git commit -m 'chore(release): {{.VERSION}}'"
+      - "git tag -a {{.VERSION}} -m {{.VERSION}}"
+      - cmd: printf "%s" '{{.COMPLETE_MESSAGE}}'
+        silent: true
+
