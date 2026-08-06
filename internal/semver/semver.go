@@ -45,6 +45,21 @@ func (v *Version) Bump(increment string) error {
 	return nil
 }
 
+// Compare orders v against other, for sorting and for picking the latest of a
+// set. Returns 1 if v > other, -1 if v < other and 0 if both are equal.
+func (v *Version) Compare(other *Version) int {
+	switch {
+	case v.Major != other.Major:
+		return sign(v.Major - other.Major)
+	case v.Minor != other.Minor:
+		return sign(v.Minor - other.Minor)
+	case v.Patch != other.Patch:
+		return sign(v.Patch - other.Patch)
+	default:
+		return 0
+	}
+}
+
 func Parse(version string) (*Version, error) {
 	parts := strings.Split(version, ".")
 	allowedParts := 3
@@ -66,6 +81,13 @@ func Parse(version string) (*Version, error) {
 	}
 
 	return &Version{Major: major, Minor: minor, Patch: patch}, nil
+}
+
+func sign(diff int) int {
+	if diff > 0 {
+		return 1
+	}
+	return -1
 }
 
 func parseComponent(s string) (int, error) {

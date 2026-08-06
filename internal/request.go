@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"charm.land/log/v2"
+	"github.com/npikall/gotpm/internal/semver"
 )
 
 const (
@@ -54,18 +55,14 @@ func FetchDataFromGitHub(url string, ctx context.Context) ([]*ResponseModel, err
 }
 
 func GetLatestVersion(versions []*ResponseModel) (string, error) {
-	candidate := NewVersion()
+	candidate := &semver.Version{}
 	for _, v := range versions {
-		currentVersion, err := ParseVersion(v.Name)
+		currentVersion, err := semver.Parse(v.Name)
 		if err != nil {
 			return "", err
 		}
-		res := CompareVersions(candidate, currentVersion)
-		switch res {
-		case -1:
+		if candidate.Compare(currentVersion) < 0 {
 			candidate = currentVersion
-		default:
-			continue
 		}
 	}
 	return candidate.String(), nil
@@ -112,15 +109,15 @@ func BuildVersionIndex(entries []TypstIndexEntry) map[string]string {
 			index[entry.Name] = entry.Version
 			continue
 		}
-		currentV, err := ParseVersion(current)
+		currentV, err := semver.Parse(current)
 		if err != nil {
 			continue
 		}
-		entryV, err := ParseVersion(entry.Version)
+		entryV, err := semver.Parse(entry.Version)
 		if err != nil {
 			continue
 		}
-		if CompareVersions(entryV, currentV) > 0 {
+		if entryV.Compare(currentV) > 0 {
 			index[entry.Name] = entry.Version
 		}
 	}
