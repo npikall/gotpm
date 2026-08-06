@@ -4,14 +4,12 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    just.url = "github:casey/just";
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
-    just,
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -26,6 +24,7 @@
             gopls # Go language server
             golangci-lint # Linter
             gofumpt # Formatter (stricter than gofmt)
+            go-task # Taskrunner
 
             # Additional tools
             git # Version control
