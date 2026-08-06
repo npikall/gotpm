@@ -57,7 +57,7 @@ func init() {
 }
 
 func InstallRunner(cmd *cobra.Command, args []string) error {
-	logger := internal.SetupLogger(cmd)
+	logger := newLogger(cmd)
 	opts := ReadInstallOptions(cmd)
 
 	sourceDir, err := ResolveSourceDir(args, opts)
@@ -108,12 +108,12 @@ type InstallOptions struct {
 }
 
 func ReadInstallOptions(cmd *cobra.Command) *InstallOptions {
-	rev := internal.Must(cmd.Flags().GetString("rev"))
-	force := internal.Must(cmd.Flags().GetBool("force"))
-	remote := internal.Must(cmd.Flags().GetString("remote"))
-	editable := internal.Must(cmd.Flags().GetBool("editable"))
-	namespace := internal.Must(cmd.Flags().GetString("namespace"))
-	installDir := internal.Must(cmd.Flags().GetString(paths.InstallDirFlag))
+	rev := Must(cmd.Flags().GetString("rev"))
+	force := Must(cmd.Flags().GetBool("force"))
+	remote := Must(cmd.Flags().GetString("remote"))
+	editable := Must(cmd.Flags().GetBool("editable"))
+	namespace := Must(cmd.Flags().GetString("namespace"))
+	installDir := Must(cmd.Flags().GetString(paths.InstallDirFlag))
 	return &InstallOptions{
 		Force:      force,
 		Editable:   editable,

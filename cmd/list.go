@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -152,7 +151,7 @@ func ScanPackages(root string) ([]packageNamespace, error) {
 }
 
 func listRunner(cmd *cobra.Command, args []string) error {
-	logger := internal.SetupLogger(cmd)
+	logger := newLogger(cmd)
 
 	typstPackagePath, err := paths.TypstPackagesDir()
 	if err != nil {

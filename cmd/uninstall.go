@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
@@ -63,7 +62,7 @@ type UninstallFlags struct {
 }
 
 func uninstallRunner(cmd *cobra.Command, args []string) error {
-	logger := internal.SetupLogger(cmd)
+	logger := newLogger(cmd)
 
 	flags, err := ReadUninstallFlags(cmd)
 	if err != nil {
@@ -78,7 +77,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	logger.Debug("resolved package", "name", pkgName, "version", pkgVersion)
 
 	// Intentionally does not create the directory if it doesn't exist yet.
-	installDir := internal.Must(cmd.Flags().GetString(paths.InstallDirFlag))
+	installDir := Must(cmd.Flags().GetString(paths.InstallDirFlag))
 	localPkgDir, overridden, err := paths.InstallDir(installDir)
 	if err != nil {
 		return fmt.Errorf("could not resolve local package directory: %w", err)

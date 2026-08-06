@@ -42,7 +42,7 @@ func CacheClearRunner(cmd *cobra.Command, args []string) error {
 
 	size := cacheClearSizeMB(remotesDir, cachePath)
 
-	if isDryRun := internal.Must(cmd.Flags().GetBool("dry-run")); isDryRun {
+	if isDryRun := Must(cmd.Flags().GetBool("dry-run")); isDryRun {
 		ui.Warnf("dry-run, would clear %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
 		return nil
 	}

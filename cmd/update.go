@@ -86,7 +86,7 @@ func emitLogEvent(e logEvent, logger *log.Logger) {
 }
 
 func updateRunner(cmd *cobra.Command, args []string) error {
-	logger := internal.SetupLogger(cmd)
+	logger := newLogger(cmd)
 	ctx := context.Background()
 	outputPath, _ := cmd.Flags().GetString("output")
 	noCache, _ := cmd.Flags().GetBool("no-cache")

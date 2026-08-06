@@ -7,11 +7,9 @@ import (
 
 	lg "charm.land/lipgloss/v2"
 	"charm.land/log/v2"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/semver"
 	"github.com/npikall/gotpm/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 type Options struct {
@@ -21,26 +19,16 @@ type Options struct {
 	Indent   bool
 }
 
-func GetOptions(cmd *cobra.Command) *Options {
-	dryRun := internal.Must(cmd.Flags().GetBool("dry-run"))
-	indent := internal.Must(cmd.Flags().GetBool("indent"))
-	showCur := internal.Must(cmd.Flags().GetBool("show-current"))
-	showNext := internal.Must(cmd.Flags().GetBool("show-next"))
-	return &Options{
-		DryRun:   dryRun,
-		ShowCur:  showCur,
-		ShowNext: showNext,
-		Indent:   indent,
-	}
-}
-
 var (
 	ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 	ErrInvalidVersion  = errors.New("invalid version")
 )
 
 func Run(increment string, opts *Options, log *log.Logger) error {
-	cwd := internal.Must(os.Getwd())
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not get the current working directory: %w", err)
+	}
 	manifestFile, err := manifest.FindFile(cwd)
 	if err != nil {
 		return err

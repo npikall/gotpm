@@ -10,7 +10,6 @@ import (
 
 	"charm.land/log/v2"
 	git "github.com/go-git/go-git/v6"
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
 	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/manifest"
@@ -50,8 +49,8 @@ func init() {
 }
 
 func publishRunner(cmd *cobra.Command, _ []string) error {
-	local := internal.Must(cmd.Flags().GetBool("local"))
-	logger := internal.SetupLogger(cmd)
+	local := Must(cmd.Flags().GetBool("local"))
+	logger := newLogger(cmd)
 
 	forkURL, forkPath, err := resolvePublishTarget()
 	if err != nil {
@@ -196,8 +195,7 @@ func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 		return err
 	}
 	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)
-	spin := ui.Spinner("")
-	spin.Suffix = " Cloning fork (first publish, this can take a while)..."
+	spin := ui.Spinner(" Cloning fork (first publish, this can take a while)...")
 	spin.Start()
 	err := gitcli.Clone(forkURL, forkPath)
 	spin.Stop()
@@ -220,8 +218,7 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	branchExisted := gitcli.BranchExists(forkPath, branchName)
 	logger.Debug("resolved package branch", "branch", branchName, "existed", branchExisted)
 
-	spin := ui.Spinner("")
-	spin.Suffix = " Checking out package branch..."
+	spin := ui.Spinner(" Checking out package branch...")
 	spin.Start()
 	defer spin.Stop()
 

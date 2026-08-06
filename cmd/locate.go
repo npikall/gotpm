@@ -9,7 +9,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -23,7 +22,7 @@ var locateCmd = &cobra.Command{
 	Example: `# Locate Typst Packages
 gotpm locate`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := internal.SetupLogger(cmd)
+		logger := newLogger(cmd)
 		target, err := paths.EnsureTypstPackagesDir()
 		if err != nil {
 			return fmt.Errorf("could not resolve package directory: %w", err)

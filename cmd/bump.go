@@ -10,7 +10,6 @@ import (
 	"errors"
 
 	"github.com/npikall/gotpm/internal/cmds/bump"
-	"github.com/npikall/gotpm/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -47,12 +46,12 @@ func init() {
 var ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 
 func BumpRunner(cmd *cobra.Command, args []string) error {
-	logLevel, err := cmd.Flags().GetCount("verbose")
-	if err != nil {
-		return err
+	opts := &bump.Options{
+		DryRun:   Must(cmd.Flags().GetBool("dry-run")),
+		ShowCur:  Must(cmd.Flags().GetBool("show-current")),
+		ShowNext: Must(cmd.Flags().GetBool("show-next")),
+		Indent:   Must(cmd.Flags().GetBool("indent")),
 	}
-	log := logger.Setup(logLevel)
-	opts := bump.GetOptions(cmd)
 
 	increment := ""
 	if len(args) > 0 {
@@ -60,5 +59,5 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 	} else if !opts.ShowCur {
 		return ErrMissingArgument
 	}
-	return bump.Run(increment, opts, log)
+	return bump.Run(increment, opts, newLogger(cmd))
 }
