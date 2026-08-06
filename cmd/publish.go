@@ -14,6 +14,7 @@ import (
 	"github.com/npikall/gotpm/internal/config"
 	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/remote"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -129,7 +130,7 @@ func publishToFork(
 	if err := commitFork(logger, forkPath, relDestDir, msg); err != nil {
 		return "", internal.Manifest{}, err
 	}
-	internal.PrintInfof("committed %q on branch %s", msg, branchName)
+	ui.Infof("committed %q on branch %s", msg, branchName)
 	return branchName, manifest, nil
 }
 
@@ -186,7 +187,7 @@ func ensureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 		return err
 	}
 	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)
-	spin := internal.SetupSpinner()
+	spin := ui.Spinner("")
 	spin.Suffix = " Cloning fork (first publish, this can take a while)..."
 	spin.Start()
 	err := gitcli.Clone(forkURL, forkPath)
@@ -210,7 +211,7 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	branchExisted := gitcli.BranchExists(forkPath, branchName)
 	logger.Debug("resolved package branch", "branch", branchName, "existed", branchExisted)
 
-	spin := internal.SetupSpinner()
+	spin := ui.Spinner("")
 	spin.Suffix = " Checking out package branch..."
 	spin.Start()
 	defer spin.Stop()
@@ -303,6 +304,6 @@ func pushAndSuggestPR(
 		"gh pr create --repo typst/packages --base main --head %s:%s --draft --title %q",
 		owner, branchName, title,
 	)
-	internal.PrintInfof("pushed %s. Open a PR with:\n%s", branchName, ghCmd)
+	ui.Infof("pushed %s. Open a PR with:\n%s", branchName, ghCmd)
 	return nil
 }

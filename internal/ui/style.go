@@ -1,4 +1,6 @@
-package style
+// Package ui owns everything gotpm writes to a terminal: colors, message
+// prefixes and the spinner. No other internal package prints.
+package ui
 
 import (
 	"charm.land/lipgloss/v2"

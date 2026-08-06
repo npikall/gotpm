@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +43,7 @@ func CacheClearRunner(cmd *cobra.Command, args []string) error {
 	size := cacheClearSizeMB(remotesDir, cachePath)
 
 	if isDryRun := internal.Must(cmd.Flags().GetBool("dry-run")); isDryRun {
-		internal.PrintWarnf("dry-run, would clear %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
+		ui.Warnf("dry-run, would clear %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
 		return nil
 	}
 
@@ -53,7 +54,7 @@ func CacheClearRunner(cmd *cobra.Command, args []string) error {
 		return err //nolint: wrapcheck
 	}
 
-	internal.PrintInfof("Cleared %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
+	ui.Infof("Cleared %s (remotes: %q, index cache: %q)", size, remotesDir, cachePath)
 	return nil
 }
 

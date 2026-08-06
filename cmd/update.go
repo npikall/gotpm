@@ -22,6 +22,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -96,7 +97,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("could not read from stdin: %w", err)
 		}
-		str := lipgloss.Sprintln(internal.StyleANSIGreen.Render("Updating"), "\"stdin\"")
+		str := lipgloss.Sprintln(ui.ANSIGreenBold.Render("Updating"), "\"stdin\"")
 		_, _ = lipgloss.Fprint(os.Stderr, str)
 		content = runUpdate(ctx, logger, content, noCache)
 		return WriteOutputContent(content, "", outputPath)
@@ -115,7 +116,7 @@ func updateRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, file := range files {
-		str := lipgloss.Sprintln(internal.StyleANSIGreen.Render("Updating"), fmt.Sprintf("%q", file))
+		str := lipgloss.Sprintln(ui.ANSIGreenBold.Render("Updating"), fmt.Sprintf("%q", file))
 		_, _ = lipgloss.Fprint(os.Stderr, str)
 		content, err := os.ReadFile(file) //nolint: gosec
 		if err != nil {
@@ -153,7 +154,7 @@ func collectInputFiles(args []string, exts []string, recursive bool) ([]string, 
 func runUpdate(ctx context.Context, logger *log.Logger, content []byte, noCache bool) []byte {
 	imports := ExtractImportStatements(content)
 
-	s := internal.SetupSpinner()
+	s := ui.Spinner("")
 	s.Start()
 	updates, logEvents := fetchLatestVersions(ctx, imports, noCache)
 	s.Stop()
@@ -170,13 +171,13 @@ func runUpdate(ctx context.Context, logger *log.Logger, content []byte, noCache 
 
 func printUpdateSummary(updates map[string]Result) {
 	if len(updates) == 0 {
-		prefix := internal.StyleBlueBold.Render("info")
-		text := internal.StyleNormal.Render("all dependencies are up to date")
+		prefix := ui.BlueBold.Render("info")
+		text := ui.Normal.Render("all dependencies are up to date")
 		_, _ = lipgloss.Fprintf(os.Stderr, "%s: %s\n", prefix, text)
 		return
 	}
 	for pkg, res := range updates {
-		str := lipgloss.Sprintln(internal.StyleGreen.Render(" ", pkg), res.Current, "->", res.Latest)
+		str := lipgloss.Sprintln(ui.Green.Render(" ", pkg), res.Current, "->", res.Latest)
 		_, _ = lipgloss.Fprint(os.Stderr, str)
 	}
 }

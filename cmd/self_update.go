@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/creativeprojects/go-selfupdate"
-	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -57,8 +57,8 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create updater: %w", err)
 	}
 
-	s := internal.SetupSpinner()
-	s.Suffix = internal.StyleMuted.Render(" Checking for updates...")
+	s := ui.Spinner("")
+	s.Suffix = ui.Muted.Render(" Checking for updates...")
 	s.Start()
 	release, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug("npikall/gotpm"))
 	s.Stop()
@@ -67,20 +67,20 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 	if !found {
-		internal.PrintWarnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
+		ui.Warnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
 		return nil
 	}
 
 	latestVersion := release.Version()
 	if latestVersion == currentVersion {
-		internal.PrintInfof("already up to date (%s)", gitTag)
+		ui.Infof("already up to date (%s)", gitTag)
 		return nil
 	}
 
 	if checkOnly {
-		internal.PrintInfof("update available: %s → %s",
-			internal.StyleAccent.Render(gitTag),
-			internal.StyleAccent.Render("v"+latestVersion))
+		ui.Infof("update available: %s → %s",
+			ui.AccentBold.Render(gitTag),
+			ui.AccentBold.Render("v"+latestVersion))
 		return nil
 	}
 
@@ -88,7 +88,7 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 		return ErrUpdateBrewBuild
 	}
 
-	s.Suffix = internal.StyleMuted.Render(" Downloading update...")
+	s.Suffix = ui.Muted.Render(" Downloading update...")
 	s.Start()
 	_, err = updater.UpdateSelf(ctx, currentVersion, selfupdate.ParseSlug("npikall/gotpm"))
 	s.Stop()
@@ -97,8 +97,8 @@ func selfUpdateRunner(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("update failed: %w", err)
 	}
 
-	internal.PrintInfof("updated gotpm %s → %s",
-		internal.StyleAccent.Render(gitTag),
-		internal.StyleAccent.Render("v"+latestVersion))
+	ui.Infof("updated gotpm %s → %s",
+		ui.AccentBold.Render(gitTag),
+		ui.AccentBold.Render("v"+latestVersion))
 	return nil
 }

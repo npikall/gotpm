@@ -10,8 +10,7 @@ import (
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/semver"
-	"github.com/npikall/gotpm/internal/style"
-	"github.com/npikall/gotpm/internal/write"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -83,10 +82,10 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 		return fmt.Errorf("could not update %q: %w", manifestFile, err)
 	}
 
-	write.Infof(
+	ui.Infof(
 		"updated version %s -> %s",
-		style.AccentBold.Render(oldVersion),
-		style.AccentBold.Render(m.Package.Version),
+		ui.AccentBold.Render(oldVersion),
+		ui.AccentBold.Render(m.Package.Version),
 	)
 	return nil
 }

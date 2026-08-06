@@ -19,6 +19,7 @@ import (
 	"github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/remote"
+	"github.com/npikall/gotpm/internal/ui"
 	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 )
@@ -187,7 +188,7 @@ func installEditable(sourceDir string, dest Destination) error {
 	if err := SymlinkPackage(sourceDir, dest.Path); err != nil {
 		return err
 	}
-	internal.PrintInfof("installed %s (editable)", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
+	ui.Infof("installed %s (editable)", ui.Import(dest.Namespace, dest.Name, dest.Version))
 	return nil
 }
 
@@ -195,7 +196,7 @@ func installCopy(sourceDir string, dest Destination) error {
 	if err := CopyPackageFiles(sourceDir, dest.Path); err != nil {
 		return err
 	}
-	internal.PrintInfof("installed %s", internal.FormatImportStmt(dest.Namespace, dest.Name, dest.Version))
+	ui.Infof("installed %s", ui.Import(dest.Namespace, dest.Name, dest.Version))
 	return nil
 }
 
@@ -225,7 +226,7 @@ func CopyPackageFiles(src, dest string) error {
 }
 
 func runTransferJobsWithSpinner(jobs []TransferJob) error {
-	spinner := internal.SetupSpinner()
+	spinner := ui.Spinner("")
 	spinner.Start()
 	defer spinner.Stop()
 	return RunTransferJobs(jobs)
@@ -427,7 +428,7 @@ func CloneRepoIntoDataDir(opts *InstallOptions) (string, error) {
 		return repoDir, nil
 	}
 
-	internal.PrintInfof("Cloning %q", url)
+	ui.Infof("Cloning %q", url)
 	cleanedURL := remote.DefaultHTTPCloneURL(url)
 	err = remote.CloneRepo(cleanedURL, repoDir, opts.Revision)
 	if err != nil {

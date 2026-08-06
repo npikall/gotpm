@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/npikall/gotpm/internal"
 	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -74,7 +74,7 @@ func ConfigSetRunner(cmd *cobra.Command, args []string) error {
 	if err := config.Save(cfg); err != nil {
 		return err
 	}
-	internal.PrintInfof("%s = %s", key, value)
+	ui.Infof("%s = %s", key, value)
 	return nil
 }
 
@@ -88,7 +88,7 @@ func ConfigGetRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	internal.PrintInfof("%s = %s", key, value)
+	ui.Infof("%s = %s", key, value)
 	return nil
 }
 
@@ -104,7 +104,7 @@ func ConfigUnsetRunner(cmd *cobra.Command, args []string) error {
 	if err := config.Save(cfg); err != nil {
 		return err
 	}
-	internal.PrintInfof("%s = ", key)
+	ui.Infof("%s = ", key)
 	return nil
 }
 
@@ -117,7 +117,7 @@ func ConfigListRunner(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	internal.PrintInfof("current config at %s\n", configPath)
+	ui.Infof("current config at %s\n", configPath)
 	for _, kv := range cfg.Entries() {
 		fmt.Printf("%s = %s\n", kv.Key, kv.Value)
 	}

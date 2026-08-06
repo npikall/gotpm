@@ -17,6 +17,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -174,7 +175,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	totalPackages := 0
 	for _, ns := range namespaces {
-		_, _ = lipgloss.Println(internal.StyleGreen.Render("@" + ns.Name))
+		_, _ = lipgloss.Println(ui.Green.Render("@" + ns.Name))
 
 		for _, pkg := range ns.Packages {
 			totalPackages++
@@ -184,7 +185,7 @@ func listRunner(cmd *cobra.Command, args []string) error {
 
 	footer := fmt.Sprintf("Total: %d packages across %d namespaces", totalPackages, len(namespaces))
 	_, _ = lipgloss.Println()
-	_, _ = lipgloss.Println(internal.StyleMuted.Render(footer))
+	_, _ = lipgloss.Println(ui.Muted.Render(footer))
 	return nil
 }
 
@@ -200,15 +201,15 @@ func printPackageWithVersions(pkg installedPackage) {
 	var parts []string
 	for _, v := range versions {
 		if v.Editable {
-			parts = append(parts, internal.StyleYellow.Render(v.Name+" (editable)"))
+			parts = append(parts, ui.YellowBold.Render(v.Name+" (editable)"))
 		} else {
-			parts = append(parts, internal.StyleMuted.Render(v.Name))
+			parts = append(parts, ui.Muted.Render(v.Name))
 		}
 	}
 
 	_, _ = lipgloss.Printf("  %s %s%s\n",
-		internal.StyleNormal.Render(pkg.Name),
-		strings.Join(parts, internal.StyleMuted.Render(", ")),
-		internal.StyleMuted.Render(truncated),
+		ui.Normal.Render(pkg.Name),
+		strings.Join(parts, ui.Muted.Render(", ")),
+		ui.Muted.Render(truncated),
 	)
 }

@@ -2,10 +2,9 @@ package internal
 
 import (
 	"os"
-	"time"
 
 	"charm.land/log/v2"
-	"github.com/briandowns/spinner"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -29,18 +28,10 @@ func SetupLogger(cmd *cobra.Command) *log.Logger {
 	return logger
 }
 
-// SetupSpinner returns a spinner ready to start.
-func SetupSpinner() *spinner.Spinner {
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) //nolint: mnd
-	s.Suffix = StyleMuted.Render(" Loading...")
-	_ = s.Color("cyan")
-	return s
-}
-
 // Must returns t, or exits the process with a fatal log entry if err is non-nil.
 func Must[T any](t T, err error) T { //nolint: ireturn
 	if err != nil {
-		PrintError(err)
+		ui.Error(err)
 		os.Exit(1)
 	}
 	return t

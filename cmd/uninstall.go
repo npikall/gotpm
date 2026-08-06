@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -95,7 +96,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 	}
 
 	if flags.IsDryRun {
-		internal.PrintWarnf("dryrun would delete %q", target)
+		ui.Warnf("dryrun would delete %q", target)
 		return nil
 	}
 
@@ -103,7 +104,7 @@ func uninstallRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	importStmt := formatImportWithWildcard(flags, pkgVersion, pkgName)
-	internal.PrintInfof("uninstalled %s", importStmt)
+	ui.Infof("uninstalled %s", importStmt)
 	return nil
 }
 
@@ -111,7 +112,7 @@ func formatImportWithWildcard(flags UninstallFlags, pkgVersion string, pkgName s
 	if flags.DeleteAll {
 		pkgVersion = "*.*.*"
 	}
-	importStmt := internal.FormatImportStmt(flags.Namespace, pkgName, pkgVersion)
+	importStmt := ui.Import(flags.Namespace, pkgName, pkgVersion)
 	return importStmt
 }
 

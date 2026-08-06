@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +28,7 @@ gotpm locate`,
 			return fmt.Errorf("could not resolve package directory: %w", err)
 		}
 		logger.Debug("resolved", "path", target)
-		internal.PrintInfof("packages located at \"%s\"", internal.StyleAccent.Render(target))
+		ui.Infof("packages located at \"%s\"", ui.AccentBold.Render(target))
 		return nil
 	},
 }

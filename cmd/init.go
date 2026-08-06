@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -65,6 +66,6 @@ entrypoint = "lib.typ"`, pkgName)},
 		}
 	}
 
-	internal.PrintInfof("initialize package %q", pkgName)
+	ui.Infof("initialize package %q", pkgName)
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +65,7 @@ type VersionWarning struct {
 }
 
 func (w VersionWarning) Print() {
-	internal.PrintWarnf("package %q: requested %s, latest is %s", w.Package, w.Requested, w.Latest)
+	ui.Warnf("package %q: requested %s, latest is %s", w.Package, w.Requested, w.Latest)
 }
 func (w VersionWarning) IsError() bool { return false }
 
@@ -90,7 +91,7 @@ func (r *CheckResult) Print() {
 		item.Print()
 	}
 	if !r.HasIssues() {
-		internal.PrintInfof("all imports ok")
+		ui.Infof("all imports ok")
 	}
 }
 
@@ -101,7 +102,7 @@ func CheckRunner(cmd *cobra.Command, args []string) error {
 	importCh := make(chan string)
 	resultCh := make(chan *CheckResult, 1)
 
-	s := internal.SetupSpinner()
+	s := ui.Spinner("")
 	s.Start()
 
 	go CheckImports(importCh, resultCh)
@@ -256,8 +257,8 @@ func ScanFileForImports(path string, importCh chan<- string) error {
 }
 
 func PrintMissingf(format string, a ...any) {
-	prefix := internal.StyleRedBold.Render("missing")
-	text := internal.StyleNormal.Render(fmt.Sprintf(format, a...))
+	prefix := ui.RedBold.Render("missing")
+	text := ui.Normal.Render(fmt.Sprintf(format, a...))
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
 
