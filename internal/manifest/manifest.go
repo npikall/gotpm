@@ -27,6 +27,20 @@ var (
 type Manifest struct {
 	Package  PackageMeta `toml:"package"`
 	Template Template    `toml:"template,omitempty"`
+	Tool     Tool        `toml:"tool,omitempty"`
+}
+
+// Tool holds the sections the typst manifest format reserves for third-party
+// tooling. The typst compiler ignores them.
+type Tool struct {
+	Gotpm Gotpm `toml:"gotpm,omitempty"`
+}
+
+// Gotpm is the section gotpm itself owns in a manifest.
+type Gotpm struct {
+	// Dependencies lists packages the way they are imported in typst source,
+	// e.g. "@gotpm/cetz:0.3.1".
+	Dependencies []string `toml:"dependencies,omitempty"`
 }
 
 type PackageMeta struct {
