@@ -21,6 +21,10 @@ var (
 	ErrNotInstalled     = errors.New("package not installed")
 )
 
+// stagingPrefix names the directory an install is assembled in. The leading
+// dot keeps a leftover from a crashed install out of Scan.
+const stagingPrefix = ".gotpm-staging-"
+
 // Store is a directory holding installed packages.
 //
 // A store is normally laid out as <root>/<namespace>/<name>/<version>, but when
@@ -80,12 +84,42 @@ func (s Store) HasPackage(namespace, name string) bool {
 }
 
 // Install copies a package from srcDir into the store.
+//
+// The copy is staged in a sibling directory and moved into place in one step,
+// so an interrupted install cannot leave a half-written package behind that
+// the typst compiler would then happily import. The staging directory is
+// hidden, which keeps it out of Scan if the process dies before the move.
 func (s Store) Install(ref pkg.Ref, srcDir string) error {
 	dest := s.Dir(ref)
-	if err := paths.EnsureDir(filepath.Dir(dest)); err != nil {
+	parent := filepath.Dir(dest)
+	if err := paths.EnsureDir(parent); err != nil {
 		return err
 	}
-	return pkgfiles.CopyTree(srcDir, dest)
+
+	// An overridden store writes straight into a directory the user named,
+	// which may already hold unrelated files. Replacing it wholesale is not
+	// what they asked for.
+	if s.flat {
+		return pkgfiles.CopyTree(srcDir, dest)
+	}
+
+	staging, err := os.MkdirTemp(parent, stagingPrefix)
+	if err != nil {
+		return fmt.Errorf("could not create staging directory in %q: %w", parent, err)
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+
+	// MkdirTemp is deliberately restrictive; installed packages are readable.
+	if err := os.Chmod(staging, paths.DirPerm); err != nil {
+		return fmt.Errorf("could not set permissions on %q: %w", staging, err)
+	}
+	if err := pkgfiles.CopyTree(srcDir, staging); err != nil {
+		return err
+	}
+	if err := os.Rename(staging, dest); err != nil {
+		return fmt.Errorf("could not move staged package into %q: %w", dest, err)
+	}
+	return nil
 }
 
 // Link installs a package as a symlink to srcDir, so edits to the source are
@@ -155,7 +189,7 @@ func (s Store) Scan() ([]Namespace, error) {
 
 	var namespaces []Namespace
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || hidden(entry.Name()) {
 			continue
 		}
 		packages := scanPackages(filepath.Join(s.root, entry.Name()))
@@ -178,7 +212,7 @@ func scanPackages(namespaceDir string) []Package {
 
 	var packages []Package
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || hidden(entry.Name()) {
 			continue
 		}
 		versions := scanVersions(filepath.Join(namespaceDir, entry.Name()))
@@ -201,6 +235,9 @@ func scanVersions(packageDir string) []Version {
 
 	var versions []Version
 	for _, entry := range entries {
+		if hidden(entry.Name()) {
+			continue
+		}
 		// Follows symlinks, so an editable install still counts as a version.
 		if !isDirFollowingLinks(filepath.Join(packageDir, entry.Name())) {
 			continue
@@ -212,6 +249,12 @@ func scanVersions(packageDir string) []Version {
 	}
 	slices.SortFunc(versions, func(a, b Version) int { return strings.Compare(a.Name, b.Name) })
 	return versions
+}
+
+// hidden reports whether a directory entry is one the store keeps to itself,
+// such as a staging directory left behind by an interrupted install.
+func hidden(name string) bool {
+	return strings.HasPrefix(name, ".")
 }
 
 func isDir(path string) bool {

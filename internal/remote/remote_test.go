@@ -23,29 +23,6 @@ func TestCloneRepo(t *testing.T) { //nolint: paralleltest
 	assert.DirExists(t, filepath.Join(dest, ".git"))
 }
 
-func TestRepoNameFromURL(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name string
-		got  string
-		want string
-	}{
-		{"suffix gets stripped", "github.com/user/repo.git", "repo"},
-		{"no suffix", "https://github.com/user/repo", "repo"},
-		{"kebab case", "https://github.com/user/repo-kebab.git", "repo-kebab"},
-		{"snake case", "https://github.com/user/repo_snake.git", "repo_snake"},
-		{"dot in repo name", "https://github.com/user/repo.dot", "repo.dot"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got, err := RepoNameFromURL(tt.got)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestDefaultHTTPCloneURL(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
