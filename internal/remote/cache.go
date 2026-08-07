@@ -1,15 +1,27 @@
 package remote
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/paths"
 )
 
-const cacheDirName = "remotes"
+const (
+	cacheDirName = "remotes"
+	// localCacheDir holds clones of repositories that live on this machine
+	// rather than on a host, keeping them apart from hosted ones.
+	localCacheDir = "local"
+	// fileScheme marks such a repository.
+	fileScheme = "file://"
+)
+
+var ErrInvalidCacheKey = errors.New("cannot derive a cache location")
 
 // CacheDir returns the directory holding cloned remote repositories, without
 // creating it.
@@ -19,6 +31,66 @@ func CacheDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(base, cacheDirName), nil
+}
+
+// CachePath returns the directory a repository is cached in.
+//
+// The location mirrors the canonical url — host, owner, then repository — so
+// two repositories that happen to share a name, whether on different hosts or
+// under different owners, do not end up in the same clone.
+func CachePath(canonicalURL string) (string, error) {
+	cacheDir, err := CacheDir()
+	if err != nil {
+		return "", err
+	}
+	segments := cacheSegments(canonicalURL)
+	if len(segments) == 0 {
+		return "", fmt.Errorf("%w for %q", ErrInvalidCacheKey, canonicalURL)
+	}
+	return filepath.Join(append([]string{cacheDir}, segments...)...), nil
+}
+
+// cacheSegments turns a canonical url into the path segments it is cached
+// under, dropping anything that cannot safely name a directory.
+func cacheSegments(canonicalURL string) []string {
+	trimmed := strings.TrimSpace(canonicalURL)
+
+	var prefix []string
+	if after, found := strings.CutPrefix(trimmed, fileScheme); found {
+		prefix, trimmed = []string{localCacheDir}, after
+	}
+
+	segments := prefix
+	for raw := range strings.SplitSeq(trimmed, "/") {
+		if segment := sanitizeSegment(raw); segment != "" {
+			segments = append(segments, segment)
+		}
+	}
+	return segments
+}
+
+// sanitizeSegment reduces one path segment to characters that name a directory
+// on every platform gotpm runs on, and refuses the ones that would escape the
+// cache directory.
+func sanitizeSegment(raw string) string {
+	if raw == "" || raw == "." || raw == ".." {
+		return ""
+	}
+	return strings.Map(func(r rune) rune {
+		if isSafeRune(r) {
+			return r
+		}
+		return '_'
+	}, raw)
+}
+
+// safePunctuation is what may appear in a directory name besides letters and
+// digits. Hosts and repository names are full of dots and dashes.
+const safePunctuation = ".-_"
+
+func isSafeRune(r rune) bool {
+	return r <= unicode.MaxASCII &&
+		(unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune(safePunctuation, r))
 }
 
 // Clone is a repository present in the cache.
@@ -38,15 +110,10 @@ type Clone struct {
 // The cache is keyed on canonicalURL. The caller owns the returned repository
 // and must close it.
 func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
-	cacheDir, err := CacheDir()
+	repoDir, err := CachePath(canonicalURL)
 	if err != nil {
 		return nil, err
 	}
-	name, err := RepoNameFromURL(canonicalURL)
-	if err != nil {
-		return nil, err
-	}
-	repoDir := filepath.Join(cacheDir, name)
 
 	if paths.IsDir(repoDir) {
 		repo, err := git.PlainOpen(repoDir)

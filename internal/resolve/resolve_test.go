@@ -58,9 +58,9 @@ func seedCachedRepo(t *testing.T) *fixture {
 	t.Helper()
 	isolateDataDir(t)
 
-	cacheDir, err := remote.CacheDir()
+	dir, err := remote.CachePath(testURL)
 	require.NoError(t, err)
-	return newRepo(t, filepath.Join(cacheDir, "my-pkg"))
+	return newRepo(t, dir)
 }
 
 // release commits a package at a version and returns the commit.

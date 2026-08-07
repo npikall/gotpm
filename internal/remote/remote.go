@@ -91,17 +91,6 @@ func CheckoutRevision(repo *git.Repository, revision string) error {
 	return nil
 }
 
-func RepoNameFromURL(remoteURL string) (string, error) {
-	trimmed := strings.TrimSuffix(strings.TrimSpace(remoteURL), ".git")
-	if u, err := url.Parse(trimmed); err == nil && u.Path != "" {
-		return path.Base(u.Path), nil
-	}
-	if _, after, found := strings.Cut(trimmed, ":"); found {
-		return path.Base(after), nil
-	}
-	return "", ErrParseRepoName
-}
-
 // OwnerFromURL returns the owner/organisation segment of a repository URL,
 // e.g. "npikall" for "https://github.com/npikall/packages".
 func OwnerFromURL(remoteURL string) (string, error) {
