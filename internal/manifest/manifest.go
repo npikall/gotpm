@@ -14,7 +14,8 @@ import (
 	"github.com/npikall/gotpm/internal/paths"
 )
 
-const manifestFileName = "typst.toml"
+// FileName is the name of a typst package manifest.
+const FileName = "typst.toml"
 
 var (
 	ErrInvalidManifest   = errors.New("invalid 'typst.toml'")
@@ -77,7 +78,7 @@ func FindFile(dir string) (string, error) {
 	}
 
 	for {
-		candidate := filepath.Join(currentDir, manifestFileName)
+		candidate := filepath.Join(currentDir, FileName)
 		if err := paths.FileExists(candidate); err == nil {
 			return candidate, nil
 		}
