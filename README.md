@@ -14,6 +14,8 @@ and use it.
 - Install Packages into `{data-dir}/typst/packages/`
 - Uninstall Packages
 - List Packages
+- Declare git repositories as dependencies of a project, pinned in a committed
+  `gotpm.lock`, so `gotpm sync` reproduces them anywhere
 - Manage the Version of a Package
 - Use it in `GitHub Actions` for publishing Packages to the `Typst Universe`
 
