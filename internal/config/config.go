@@ -1,3 +1,4 @@
+// Package config reads and writes gotpm's own configuration file.
 package config
 
 import (

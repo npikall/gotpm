@@ -107,26 +107,60 @@ FLAGS
 
 ## `uninstall`
 
-Uninstall a package.
+Uninstall a package, or a whole namespace.
 
 ```console
 $ gotpm help uninstall
-Uninstall a Typst Package from the local Storage
+Removes a locally installed Typst package from the package directory.
+
+Naming a namespace and nothing else removes the whole namespace, after asking
+for confirmation. Adding a package, a version or --all narrows the removal back
+to a package inside that namespace.
+
+The package directory can be overridden via the --install-dir flag
+or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
+A namespace cannot be removed from an overridden directory, which holds a
+single package rather than a namespace layout.
 
 USAGE
     gotpm uninstall [name] [--flags]
 
 EXAMPLES
-    gotpm uninstall # get name and version from typst.toml
+    # get package metadata from typst.toml
+    gotpm uninstall
     gotpm uninstall foo
-    gotpm uninstall foo --namespace preview
-    gotpm uninstall foo --namespace preview --dry-run
+
+    # uninstall specific package from 'local' or 'preview'
+    gotpm uninstall foo -V 0.1.2
+    gotpm uninstall foo -V 0.1.2 -n preview
+
+    # all versions of foo in namespace 'local' or 'preview'
+    gotpm uninstall foo --all
+    gotpm uninstall foo -n preview --all
+
+    # the whole 'preview' namespace, with and without the prompt
+    gotpm uninstall -n preview
+    gotpm uninstall -n preview --yes
 
 FLAGS
     --all           Uninstall all Packages from a given namespace or all versions of a package.
     --dry-run       Perform a dry run.
     -h --help       Help for uninstall
-    -n --namespace  The namespace from which the package should be removed from. (local)
-    -V --verbose    Print Debug Level Information
-    -v --version    The specific version of a package that should be removed.
+    --install-dir   Override the package directory (env: $GOTPM_INSTALL_DIR)
+    -n --namespace  The namespace from which the package should be removed from. On its own, removes the whole namespace. (local)
+    -v --verbose    Enable verbose output
+    -V --version    The specific version of a package that should be removed.
+    -y --yes        Skip the confirmation prompt when removing a namespace.
+```
+
+Removing a namespace asks before it deletes anything, and refuses outright when
+there is no terminal to answer:
+
+```console
+$ gotpm uninstall -n preview
+warning: will delete @preview: 2 packages, 3 versions
+delete the whole namespace? [y/N]
+
+$ gotpm uninstall -n preview --dry-run
+warning: dryrun would delete "~/.local/share/typst/packages/preview": 2 packages, 3 versions
 ```
