@@ -18,8 +18,14 @@ var uninstallCmd = &cobra.Command{
 	Short: "Uninstall a Typst Package from the local Storage",
 	Long: `Removes a locally installed Typst package from the package directory.
 
+Naming a namespace and nothing else removes the whole namespace, after asking
+for confirmation. Adding a package, a version or --all narrows the removal back
+to a package inside that namespace.
+
 The package directory can be overridden via the --install-dir flag
 or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
+A namespace cannot be removed from an overridden directory, which holds a
+single package rather than a namespace layout.
 `,
 	Example: `# get package metadata from typst.toml
 gotpm uninstall
@@ -33,27 +39,32 @@ gotpm uninstall foo -V 0.1.2 -n preview
 gotpm uninstall foo --all
 gotpm uninstall foo -n preview --all
 
-`,
+# the whole 'preview' namespace, with and without the prompt
+gotpm uninstall -n preview
+gotpm uninstall -n preview --yes`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: UninstallRunner,
 }
 
 func init() {
 	rootCmd.AddCommand(uninstallCmd)
-	uninstallCmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "The namespace from which the package should be removed from.")
+	uninstallCmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "The namespace from which the package should be removed from. On its own, removes the whole namespace.")
 	uninstallCmd.Flags().StringP("version", "V", "", "The specific version of a package that should be removed.")
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
+	uninstallCmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt when removing a namespace.")
 	uninstallCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
 }
 
 func UninstallRunner(cmd *cobra.Command, args []string) error {
 	opts := &uninstall.Options{
-		Namespace:  Must(cmd.Flags().GetString("namespace")),
-		Version:    Must(cmd.Flags().GetString("version")),
-		All:        Must(cmd.Flags().GetBool("all")),
-		DryRun:     Must(cmd.Flags().GetBool("dry-run")),
-		InstallDir: Must(cmd.Flags().GetString(paths.InstallDirFlag)),
+		Namespace:    Must(cmd.Flags().GetString("namespace")),
+		NamespaceSet: cmd.Flags().Changed("namespace"),
+		Version:      Must(cmd.Flags().GetString("version")),
+		All:          Must(cmd.Flags().GetBool("all")),
+		DryRun:       Must(cmd.Flags().GetBool("dry-run")),
+		Yes:          Must(cmd.Flags().GetBool("yes")),
+		InstallDir:   Must(cmd.Flags().GetString(paths.InstallDirFlag)),
 	}
 
 	name := ""

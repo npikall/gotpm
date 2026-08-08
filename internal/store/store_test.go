@@ -163,3 +163,64 @@ func TestRemove_MissingPackageIsNotAnError(t *testing.T) {
 	s := store.At(t.TempDir())
 	assert.NoError(t, s.Remove(ref(t)))
 }
+
+func TestNamespaceDir(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, filepath.Join("/data", "local"), store.At("/data").NamespaceDir("local"))
+}
+
+func TestHasNamespace(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	s := store.At(root)
+	require.NoError(t, s.Install(ref(t), sourcePackage(t, "x")))
+
+	assert.True(t, s.HasNamespace("local"))
+	assert.False(t, s.HasNamespace("preview"))
+}
+
+func TestRemoveNamespace(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	install(t, root, "local", "one", "0.1.0")
+	install(t, root, "local", "two", "0.2.0")
+	install(t, root, "preview", "three", "0.3.0")
+	s := store.At(root)
+
+	require.NoError(t, s.RemoveNamespace("local"))
+
+	assert.False(t, s.HasNamespace("local"))
+	assert.True(t, s.HasNamespace("preview"), "other namespaces must survive")
+}
+
+func TestRemoveNamespace_LeavesLinkTargetsAlone(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	s := store.At(root)
+	src := sourcePackage(t, "content")
+	require.NoError(t, s.Link(ref(t), src))
+
+	require.NoError(t, s.RemoveNamespace("local"))
+
+	assert.False(t, s.HasNamespace("local"))
+	assert.FileExists(t, filepath.Join(src, "lib.typ"), "removing a namespace must not follow editable installs")
+}
+
+func TestRemoveNamespace_MissingIsNotAnError(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, store.At(t.TempDir()).RemoveNamespace("local"))
+}
+
+func TestRemoveNamespace_RejectedOnAFlatStore(t *testing.T) {
+	t.Setenv(paths.InstallDirEnvVar, "")
+	override := t.TempDir()
+
+	s, err := store.Open(override)
+	require.NoError(t, err)
+	require.True(t, s.Flat())
+
+	require.ErrorIs(t, s.RemoveNamespace("local"), store.ErrFlatStore)
+	assert.DirExists(t, override, "an overridden directory holds no namespace to delete")
+	assert.False(t, s.HasNamespace("local"))
+	assert.Empty(t, s.NamespaceDir("local"))
+}

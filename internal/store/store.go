@@ -19,6 +19,9 @@ import (
 var (
 	ErrAlreadyInstalled = errors.New("package already installed at destination")
 	ErrNotInstalled     = errors.New("package not installed")
+	// ErrFlatStore is returned by operations that need the namespace layer of
+	// the layout, which an overridden store directory does not have.
+	ErrFlatStore = errors.New("the package directory points at a single package; there are no namespaces to delete")
 )
 
 // Store is a directory holding installed packages.
@@ -52,6 +55,12 @@ func (s Store) Root() string {
 	return s.root
 }
 
+// Flat reports whether the store directory is the destination itself rather
+// than the root of a namespace/name/version layout.
+func (s Store) Flat() bool {
+	return s.flat
+}
+
 // Dir returns the directory a package version occupies in this store.
 func (s Store) Dir(ref pkg.Ref) string {
 	if s.flat {
@@ -68,6 +77,16 @@ func (s Store) PackageDir(namespace, name string) string {
 	return filepath.Join(s.root, namespace, name)
 }
 
+// NamespaceDir returns the directory holding every package of a namespace. A
+// flat store has no namespace layer, so it has no such directory and the
+// empty string is returned.
+func (s Store) NamespaceDir(namespace string) string {
+	if s.flat {
+		return ""
+	}
+	return filepath.Join(s.root, namespace)
+}
+
 // Has reports whether something is already installed at the package's
 // destination. A symlink counts as installed even when its target is gone.
 func (s Store) Has(ref pkg.Ref) bool {
@@ -77,6 +96,12 @@ func (s Store) Has(ref pkg.Ref) bool {
 // HasPackage reports whether any version of a package is installed.
 func (s Store) HasPackage(namespace, name string) bool {
 	return exists(s.PackageDir(namespace, name))
+}
+
+// HasNamespace reports whether a namespace is present. A flat store never has
+// one.
+func (s Store) HasNamespace(namespace string) bool {
+	return !s.flat && exists(s.NamespaceDir(namespace))
 }
 
 // Install copies a package from srcDir into the store.
@@ -115,6 +140,16 @@ func (s Store) Remove(ref pkg.Ref) error {
 // package is not an error.
 func (s Store) RemovePackage(namespace, name string) error {
 	return remove(s.PackageDir(namespace, name))
+}
+
+// RemoveNamespace deletes a namespace with every package in it. A missing
+// namespace is not an error, but a flat store is: it has nothing that a
+// namespace could name.
+func (s Store) RemoveNamespace(namespace string) error {
+	if s.flat {
+		return ErrFlatStore
+	}
+	return remove(s.NamespaceDir(namespace))
 }
 
 // Namespace is one namespace of a store and the packages installed under it.
