@@ -89,20 +89,64 @@ FLAGS
 
 ## `locate`
 
-Locate the Root Path, where all Typst Packages get installed into.
+Show every path and directory gotpm reads or writes.
 
 ```console
 $ gotpm help locate
-Locate the root directory, where the Typst Packages are stored.
+Show the paths and directories gotpm reads and writes.
+
+Without a key, every path is listed, grouped by what it belongs to. The
+project group is only shown when the working directory belongs to a typst
+project.
+
+With a key, only that path is printed, unstyled and on its own, so it can be
+used directly in a shell.
+
+Nothing is created: a path that does not exist yet is still where gotpm would
+look for it.
 
 USAGE
-    gotpm locate [--flags]
+    gotpm locate [key] [--flags]
 
 EXAMPLES
+    # Show every path
     gotpm locate
 
+    # Print one path, for use in a shell
+    cd "$(gotpm locate packages)"
+
 FLAGS
-    -h --help  Help for locate
+    -h --help     Help for locate
+    -v --verbose  Enable verbose output
+```
+
+### Keys
+
+| Key | Points at |
+| --- | --- |
+| `packages` | The Typst package directory packages are installed into |
+| `data-dir` | gotpm's own data directory |
+| `config-dir` | gotpm's own config directory |
+| `config` | `config.toml`, gotpm's configuration file |
+| `index` | `index-cache.json`, the cached package index |
+| `remotes` | The cache of cloned remote repositories |
+| `root` | The directory of the current project |
+| `manifest` | The project's `typst.toml` |
+| `lock` | The project's `gotpm.lock` |
+
+`root`, `manifest` and `lock` describe the project the working directory
+belongs to. Without one, they are left out of the listing, and asking for them
+by name is an error.
+
+The `packages` path follows the same overrides the install commands do —
+`$GOTPM_INSTALL_DIR` first, then `$TYPST_PACKAGE_PATH` — and the listing notes
+which one applied:
+
+```console
+$ GOTPM_INSTALL_DIR=/tmp/scratch gotpm locate
+Typst
+  packages   /tmp/scratch (via $GOTPM_INSTALL_DIR)
+...
 ```
 
 ## `uninstall`
