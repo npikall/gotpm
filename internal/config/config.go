@@ -20,12 +20,12 @@ var (
 )
 
 type Config struct {
-	Fork ForkConfig `toml:"fork"`
+	Fork ForkConfig `toml:"fork,omitempty"`
 }
 
 type ForkConfig struct {
-	Path string `toml:"path"`
-	URL  string `toml:"url"`
+	Path string `toml:"path,omitempty"`
+	URL  string `toml:"url,omitempty"`
 }
 
 func (cfg *Config) Set(key, value string) error {

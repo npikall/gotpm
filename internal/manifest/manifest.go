@@ -25,13 +25,35 @@ var (
 )
 
 type Manifest struct {
-	Package PackageMeta `toml:"package"`
+	Package  PackageMeta `toml:"package"`
+	Template Template    `toml:"template,omitempty"`
 }
 
 type PackageMeta struct {
+	// required for typst compiler
 	Name       string `toml:"name"`
 	Version    string `toml:"version"`
 	Entrypoint string `toml:"entrypoint"`
+
+	// required for submissions to typst/packages
+	Authors     []string `toml:"authors,omitempty"`
+	License     string   `toml:"license,omitempty"`
+	Description string   `toml:"description,omitempty"`
+
+	// optional fields
+	Homepage    string   `toml:"homepage,omitempty"`
+	Repository  string   `toml:"repository,omitempty"`
+	Keywords    []string `toml:"keywords,omitempty"`
+	Categories  []string `toml:"categories,omitempty"`
+	Disciplines []string `toml:"disciplines,omitempty"`
+	Compiler    string   `toml:"compiler,omitempty"`
+	Exclude     []string `toml:"exclude,omitempty"`
+}
+
+type Template struct {
+	Path       string `toml:"path,omitempty"`
+	Entrypoint string `toml:"entrypoint,omitempty"`
+	Thumbnail  string `toml:"thumbnail,omitempty"`
 }
 
 func FindFile(dir string) (string, error) {
