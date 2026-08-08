@@ -241,15 +241,15 @@ func announce(name string) {
 
 func summarise(updates map[string]Result) {
 	if len(updates) == 0 {
-		prefix := ui.BlueBold.Render("info")
-		text := ui.Normal.Render("all dependencies are up to date")
-		_, _ = lipgloss.Fprintf(os.Stderr, "%s: %s\n", prefix, text)
+		text := ui.Normal.Render("All dependencies are up to date")
+		_, _ = lipgloss.Fprintf(os.Stderr, "  %s\n\n", text)
 		return
 	}
 	for name, result := range updates {
 		line := lipgloss.Sprintln(ui.Green.Render(" ", name), result.Current, "->", result.Latest)
 		_, _ = lipgloss.Fprint(os.Stderr, line)
 	}
+	_, _ = lipgloss.Fprint(os.Stderr, "\n")
 }
 
 func isStdinPiped() bool {

@@ -54,6 +54,11 @@ func Update(info BuildInfo, opts *Options) error {
 	if info.IsDevelopment() {
 		return ErrUpdateDevelopmentBuild
 	}
+
+	if info.Installer == "brew" {
+		return ErrUpdateBrewBuild
+	}
+
 	currentVersion := strings.TrimPrefix(info.Version, "v")
 
 	filter := fmt.Sprintf("gotpm-%s-%s", runtime.GOOS, runtime.GOARCH)
@@ -90,10 +95,6 @@ func Update(info BuildInfo, opts *Options) error {
 			ui.AccentBold.Render(info.Version),
 			ui.AccentBold.Render("v"+latestVersion))
 		return nil
-	}
-
-	if info.Installer == "brew" {
-		return ErrUpdateBrewBuild
 	}
 
 	spin = ui.Spinner(" Downloading update...")

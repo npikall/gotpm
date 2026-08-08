@@ -35,9 +35,6 @@ func Run(path string, opts *Options, log *log.Logger) error {
 	}
 	log.Debug("operating in source", "path", sourceDir)
 
-	// The package root is wherever typst.toml lives, which may be a parent of
-	// the directory we were pointed at. Installing must copy that root, not the
-	// sub-directory the search started from.
 	manifestFile, err := manifest.FindFile(sourceDir)
 	if err != nil {
 		return fmt.Errorf("could not load manifest: %w", err)

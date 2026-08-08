@@ -28,8 +28,6 @@ Valid arguments can be:
 	- patch
 	- a valid semantic version (e.g. 0.1.2)`,
 	RunE: BumpRunner,
-	// --show-current needs no increment, everything else does; the check
-	// lives in BumpRunner rather than in Args.
 	Args: cobra.MaximumNArgs(1),
 }
 

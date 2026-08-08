@@ -22,14 +22,11 @@ type Options struct {
 }
 
 var (
-	// ErrMissingArgument is returned when no increment is given and none can
-	// be left out, i.e. anything but --show-current.
 	ErrMissingArgument = errors.New("argument must be provided, can be one of [major|minor|patch] or a valid semver")
 	ErrInvalidVersion  = errors.New("invalid version")
 )
 
 func Run(increment string, opts *Options, log *log.Logger) error {
-	// Showing the current version is the one mode that needs no increment.
 	if increment == "" && !opts.ShowCur {
 		return ErrMissingArgument
 	}

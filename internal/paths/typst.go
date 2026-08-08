@@ -8,8 +8,6 @@ import (
 const (
 	typstPackagesRelPath = "typst/packages"
 
-	// DefaultNamespace is the namespace a package is installed into unless
-	// another one is requested.
 	DefaultNamespace = "local"
 
 	// InstallDirEnvVar is the environment variable that overrides the package directory.

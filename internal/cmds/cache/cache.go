@@ -38,7 +38,7 @@ func Clear(opts *Options, log *log.Logger) error {
 	}
 
 	if opts.DryRun {
-		ui.Warnf("dry-run, would clear %s (remotes: %q, index cache: %q)", format(size), remotesDir, cachePath)
+		ui.Warnf("dry-run, would clear %s \n remotes: %q\n index cache: %q", format(size), remotesDir, cachePath)
 		return nil
 	}
 
@@ -49,7 +49,7 @@ func Clear(opts *Options, log *log.Logger) error {
 		return err
 	}
 
-	ui.Infof("cleared %s (remotes: %q, index cache: %q)", format(size), remotesDir, cachePath)
+	ui.Infof("cleared %s \n remotes: %q\n index cache: %q", format(size), remotesDir, cachePath)
 	return nil
 }
 

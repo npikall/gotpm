@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/index"
@@ -107,7 +106,7 @@ func checkImport(imp typstsrc.Import, s store.Store, idx index.Index, indexErr e
 	if err != nil {
 		return err
 	}
-	if strings.HasPrefix(ref.Namespace, previewNamespace) {
+	if ref.Namespace == previewNamespace {
 		return checkUniverse(ref, idx, indexErr, result)
 	}
 	if !s.Has(ref) {
