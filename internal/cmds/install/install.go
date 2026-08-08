@@ -11,7 +11,7 @@ import (
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
-	"github.com/npikall/gotpm/internal/remote"
+	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/ui"
 )
@@ -98,12 +98,11 @@ func clearDestination(s store.Store, ref pkg.Ref, force bool) error {
 // clone of a remote repository, the given path, or the working directory.
 func resolveSourceDir(path string, opts *Options, log *log.Logger) (string, error) {
 	if opts.Remote != "" {
-		dir, cloned, err := remote.Ensure(opts.Remote, opts.Revision)
+		resolved, err := resolve.Resolve(resolve.Request{URL: opts.Remote, Revision: opts.Revision}, log)
 		if err != nil {
 			return "", err
 		}
-		log.Debug("resolved remote", "url", opts.Remote, "path", dir, "cloned", cloned)
-		return dir, nil
+		return resolved.Dir, nil
 	}
 	if path == "" {
 		cwd, err := os.Getwd()

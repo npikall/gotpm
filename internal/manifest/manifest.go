@@ -14,7 +14,8 @@ import (
 	"github.com/npikall/gotpm/internal/paths"
 )
 
-const manifestFileName = "typst.toml"
+// FileName is the name of a typst package manifest.
+const FileName = "typst.toml"
 
 var (
 	ErrInvalidManifest   = errors.New("invalid 'typst.toml'")
@@ -27,6 +28,20 @@ var (
 type Manifest struct {
 	Package  PackageMeta `toml:"package"`
 	Template Template    `toml:"template,omitempty"`
+	Tool     Tool        `toml:"tool,omitempty"`
+}
+
+// Tool holds the sections the typst manifest format reserves for third-party
+// tooling. The typst compiler ignores them.
+type Tool struct {
+	Gotpm Gotpm `toml:"gotpm,omitempty"`
+}
+
+// Gotpm is the section gotpm itself owns in a manifest.
+type Gotpm struct {
+	// Dependencies lists packages the way they are imported in typst source,
+	// e.g. "@gotpm/cetz:0.3.1".
+	Dependencies []string `toml:"dependencies,omitempty"`
 }
 
 type PackageMeta struct {
@@ -63,7 +78,7 @@ func FindFile(dir string) (string, error) {
 	}
 
 	for {
-		candidate := filepath.Join(currentDir, manifestFileName)
+		candidate := filepath.Join(currentDir, FileName)
 		if err := paths.FileExists(candidate); err == nil {
 			return candidate, nil
 		}
