@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -27,7 +28,7 @@ func Spinner(suffix string) *spinner.Spinner {
 // fn is garbled by it: work that has something to say has to collect it and say
 // it afterwards.
 func WithSpinner[T any](suffix string, fn func() (T, error)) (T, error) { //nolint: ireturn // T is the caller's own result type, not an abstraction being returned
-	s := Spinner(suffix)
+	s := Spinner(" " + strings.TrimSpace(suffix))
 	defer s.Stop()
 	s.Start()
 	return fn()
