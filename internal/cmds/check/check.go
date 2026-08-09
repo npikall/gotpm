@@ -48,10 +48,9 @@ type Result struct {
 
 // Run checks every dependency imported by a file.
 func Run(file string, log *log.Logger) error {
-	spin := ui.Spinner("")
-	spin.Start()
-	result, err := Analyze(file, log)
-	spin.Stop()
+	result, err := ui.WithSpinner("", func() (Result, error) {
+		return Analyze(file, log)
+	})
 	if err != nil {
 		return err
 	}

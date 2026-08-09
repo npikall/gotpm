@@ -80,6 +80,35 @@ type Installer struct {
 	Force bool
 }
 
+// OpenInstaller opens the package store and returns an installer writing into
+// it. An empty installDir uses the store every project on the machine shares.
+func OpenInstaller(installDir string, force bool, logger *log.Logger) (Installer, error) {
+	s, err := store.Open(installDir)
+	if err != nil {
+		return Installer{}, err
+	}
+	return Installer{Store: s, Logger: logger, Force: force}, nil
+}
+
+// EnsureAll makes the store hold every package version a set of entries pins,
+// in the order they are given.
+//
+// It stops at the first entry it cannot install and reports nothing about the
+// ones before it: a lock describes a set of packages, and a half-installed set
+// is not a state worth reporting on. Running the command again picks up where
+// this one stopped, because Ensure leaves what is already installed alone.
+func (i Installer) EnsureAll(entries []lockfile.Entry) ([]Result, error) {
+	results := make([]Result, 0, len(entries))
+	for _, entry := range entries {
+		result, err := i.Ensure(entry)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
 // Ensure makes the store hold exactly the package version an entry pins,
 // fetching it when it is missing or is not the commit that was locked.
 //

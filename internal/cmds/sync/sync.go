@@ -17,7 +17,6 @@ import (
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
-	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/ui"
 )
 
@@ -69,7 +68,13 @@ func Run(opts *Options, logger *log.Logger) error {
 		return err
 	}
 
-	results, err := install(lock, opts, logger)
+	installer, err := deps.OpenInstaller(opts.InstallDir, opts.Force, logger)
+	if err != nil {
+		return err
+	}
+	results, err := ui.WithSpinner("installing", func() ([]deps.Result, error) {
+		return installer.EnsureAll(lock.Packages)
+	})
 	if err != nil {
 		return err
 	}
@@ -131,29 +136,6 @@ func obsolete(removed []lockfile.Entry) string {
 		return ""
 	}
 	return " (no longer required: " + strings.Join(importsOf(removed), ", ") + ")"
-}
-
-// install puts every locked package into the store.
-func install(lock *lockfile.Lock, opts *Options, logger *log.Logger) ([]deps.Result, error) {
-	s, err := store.Open(opts.InstallDir)
-	if err != nil {
-		return nil, err
-	}
-	installer := deps.Installer{Store: s, Logger: logger, Force: opts.Force}
-
-	spin := ui.Spinner("installing")
-	defer spin.Stop()
-	spin.Start()
-
-	results := make([]deps.Result, 0, len(lock.Packages))
-	for _, entry := range lock.Packages {
-		result, err := installer.Ensure(entry)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, result)
-	}
-	return results, nil
 }
 
 // report prints what sync had to change, and says so plainly when it had to
