@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-09
+
+### 🚀 Features
+
+- *(add)* adding dependencies to projects (#30)
+
+### 🐛 Bug Fixes
+
+- consider manifest exclude field when packaging (#29)
+
+### 🚜 Refactor
+
+- domain layer (#26)
+- *(publish)* fetch remote changes before adding new changes (#27)
+- locate cmd (#31)
+- duplicated install and spinner logic (#35)
+
+### 💼 Other
+
+- add taskfile (#24)
+- add nix flake (#25)
+- add clean task (#36)
+- use go-task instead of just (#37)
+
 ## [0.4.0] - 2026-08-03
 
 ### 🚀 Features
@@ -626,6 +650,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.5.0]: https://github.com/npikall/gotpm/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/npikall/gotpm/compare/v0.3.13..v0.4.0
 [0.3.13]: https://github.com/npikall/gotpm/compare/v0.3.12..v0.3.13
 [0.3.12]: https://github.com/npikall/gotpm/compare/v0.3.11..v0.3.12
