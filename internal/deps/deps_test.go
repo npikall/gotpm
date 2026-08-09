@@ -2,10 +2,12 @@ package deps_test
 
 import (
 	"io"
+	"path/filepath"
 	"testing"
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/deps"
+	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/testrepo"
@@ -88,6 +90,59 @@ func TestEnsure_RefusesACoordinateInstalledFromElsewhere(t *testing.T) { //nolin
 	_, err = i.Ensure(theirs.LockEntry())
 
 	require.ErrorIs(t, err, deps.ErrSourceConflict)
+}
+
+func TestEnsureAll_InstallsEveryEntryInOrder(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	cetz := testrepo.New(t, "cetz", "0.3.1").Release()
+	fletcher := testrepo.New(t, "fletcher", "0.5.0").Release()
+
+	results, err := installer(t).EnsureAll([]lockfile.Entry{cetz.LockEntry(), fletcher.LockEntry()})
+
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "@gotpm/cetz:0.3.1", results[0].Ref.String())
+	assert.Equal(t, "@gotpm/fletcher:0.5.0", results[1].Ref.String())
+}
+
+func TestEnsureAll_StopsAtTheFirstEntryItCannotInstall(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	cetz := testrepo.New(t, "cetz", "0.3.1").Release()
+	missing := lockfile.Entry{
+		Import: "@gotpm/gone:0.1.0", Namespace: "gotpm", Name: "gone", Version: "0.1.0",
+		URL: "file://" + filepath.Join(t.TempDir(), "no-such-repository"), Hash: cetz.Hash(),
+	}
+	after := testrepo.New(t, "fletcher", "0.5.0").Release()
+
+	results, err := installer(t).EnsureAll([]lockfile.Entry{cetz.LockEntry(), missing, after.LockEntry()})
+
+	require.Error(t, err)
+	assert.Nil(t, results, "a half-installed set is not reported on")
+}
+
+func TestOpenInstaller_UsesTheOverriddenPackageDirectory(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	override := t.TempDir()
+
+	i, err := deps.OpenInstaller(override, false, discardLogger())
+
+	require.NoError(t, err)
+	assert.Equal(t, override, i.Store.Root())
+}
+
+func TestOpenInstaller_PassesForceToTheInstaller(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mine := testrepo.New(t, "cetz", "0.3.1").Release()
+	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
+	i, err := deps.OpenInstaller("", true, discardLogger())
+	require.NoError(t, err)
+	_, err = i.Ensure(mine.LockEntry())
+	require.NoError(t, err)
+
+	result, err := i.Ensure(theirs.LockEntry())
+
+	require.NoError(t, err, "force replaces a coordinate held by another repository")
+	assert.Equal(t, deps.Replaced, result.Outcome)
 }
 
 func TestEnsure_RefusesAPackageItDidNotInstall(t *testing.T) { //nolint: paralleltest

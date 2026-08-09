@@ -11,7 +11,6 @@ import (
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/resolve"
-	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/ui"
 )
 
@@ -34,13 +33,21 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
-	entries, err := resolveGraph(url, opts.Revision, logger)
+	entries, err := ui.WithSpinner("resolving "+url, func() ([]lockfile.Entry, error) {
+		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, logger)
+	})
 	if err != nil {
 		return err
 	}
 	direct := entries[0]
 
-	results, err := install(entries, opts, logger)
+	installer, err := deps.OpenInstaller(opts.InstallDir, opts.Force, logger)
+	if err != nil {
+		return err
+	}
+	results, err := ui.WithSpinner("installing", func() ([]deps.Result, error) {
+		return installer.EnsureAll(entries)
+	})
 	if err != nil {
 		return err
 	}
@@ -58,39 +65,6 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 
 	report(results)
 	return nil
-}
-
-// resolveGraph expands the requested repository into every package version it
-// pulls in.
-func resolveGraph(url, revision string, logger *log.Logger) ([]lockfile.Entry, error) {
-	spin := ui.Spinner("resolving " + url)
-	spin.Start()
-	entries, err := depgraph.Walk(resolve.Request{URL: url, Revision: revision}, logger)
-	spin.Stop()
-	return entries, err
-}
-
-// install puts every resolved package into the store.
-func install(entries []lockfile.Entry, opts *Options, logger *log.Logger) ([]deps.Result, error) {
-	s, err := store.Open(opts.InstallDir)
-	if err != nil {
-		return nil, err
-	}
-	installer := deps.Installer{Store: s, Logger: logger, Force: opts.Force}
-
-	spin := ui.Spinner("installing")
-	defer spin.Stop()
-	spin.Start()
-
-	results := make([]deps.Result, 0, len(entries))
-	for _, entry := range entries {
-		result, err := installer.Ensure(entry)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, result)
-	}
-	return results, nil
 }
 
 // updateLock records every resolved package in the project's lock.

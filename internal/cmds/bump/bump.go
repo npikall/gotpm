@@ -5,10 +5,10 @@ package bump
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	lg "charm.land/lipgloss/v2"
 	"charm.land/log/v2"
+	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/semver"
 	"github.com/npikall/gotpm/internal/ui"
@@ -31,11 +31,13 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 		return ErrMissingArgument
 	}
 
-	manifestFile, m, err := load(log)
+	project, err := deps.OpenProject()
 	if err != nil {
 		return err
 	}
+	log.Debug("load", "manifest", project.File)
 
+	m := project.Manifest
 	oldVersion := m.Package.Version
 	log.Debug("manifest", "version", oldVersion)
 	if opts.ShowCur {
@@ -61,8 +63,8 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 	}
 
 	m.Package.Version = newVersion
-	if err := manifest.Update(manifestFile, m, opts.Indent); err != nil {
-		return fmt.Errorf("could not update %q: %w", manifestFile, err)
+	if err := manifest.Update(project.File, m, opts.Indent); err != nil {
+		return fmt.Errorf("could not update %q: %w", project.File, err)
 	}
 
 	ui.Infof(
@@ -71,26 +73,6 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 		ui.AccentBold.Render(newVersion),
 	)
 	return nil
-}
-
-// load reads the manifest of the package the working directory belongs to,
-// returning its path alongside it so it can be written back.
-func load(log *log.Logger) (string, *manifest.Manifest, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", nil, fmt.Errorf("could not get the current working directory: %w", err)
-	}
-	manifestFile, err := manifest.FindFile(cwd)
-	if err != nil {
-		return "", nil, err
-	}
-	log.Debug("load", "manifest", manifestFile)
-
-	m, err := manifest.LoadFile(manifestFile)
-	if err != nil {
-		return "", nil, err
-	}
-	return manifestFile, m, nil
 }
 
 func bumpVersion(version, increment string) (string, error) {

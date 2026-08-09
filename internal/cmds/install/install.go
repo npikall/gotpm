@@ -35,6 +35,9 @@ func Run(path string, opts *Options, log *log.Logger) error {
 	}
 	log.Debug("operating in source", "path", sourceDir)
 
+	// The manifest is read directly rather than through deps.OpenProject: this
+	// directory may be a throwaway clone of a remote repository, where "run
+	// 'gotpm init' to start a project here" is the wrong thing to suggest.
 	manifestFile, err := manifest.FindFile(sourceDir)
 	if err != nil {
 		return fmt.Errorf("could not load manifest: %w", err)
@@ -68,11 +71,7 @@ func Run(path string, opts *Options, log *log.Logger) error {
 		return nil
 	}
 
-	spin := ui.Spinner("")
-	spin.Start()
-	err = s.Install(ref, sourceDir)
-	spin.Stop()
-	if err != nil {
+	if err := ui.Spin("", func() error { return s.Install(ref, sourceDir) }); err != nil {
 		return err
 	}
 	ui.Infof("installed %s", ui.Package(ref.String()))
