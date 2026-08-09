@@ -102,6 +102,17 @@ tasks:
     cmds:
       - go install -ldflags="{{.LDFLAGS}}"
 
+  clean:
+    desc: Clean repo from generated files
+    aliases: [c]
+    cmds:
+      - rm -fr site/
+      - rm -fr .task/
+      - rm -fr .cache/
+      - rm -fr lib.typ
+      - rm -fr typst.toml
+      - rm -fr gotpm.lock
+
   release:*:
     desc: Prepare the project for a new release
     summary: |
