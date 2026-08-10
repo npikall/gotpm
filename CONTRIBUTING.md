@@ -10,7 +10,7 @@ You can contribute in many ways:
 - Write Documentation
 - Submit Feedback
 
-## Get Started!
+## Get Started
 
 Ready to contribute? Here's how to set up `gotpm` for local development.
 
@@ -32,16 +32,16 @@ Ready to contribute? Here's how to set up `gotpm` for local development.
 4. When you're done making changes, check that your changes are formatted correctly and the tests are passing.
 
    > [!TIP]
-   > Install the [Just][just] Taskrunner.
+   > Install the [`go-task`][go-task] Taskrunner.
 
    ```sh
    # format the code
-   just format
+   task format
 
    # run the tests
-   just test
+   task test
    ```
 
 5. Commit your changes and push your branch to GitHub:
 6. Submit a pull request through the GitHub website.
-   [just]: https://github.com/casey/just
+   [go-task]: <https://github.com/go-task/task>
