@@ -64,7 +64,7 @@ Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/rele
 ```bash
 git clone https://github.com/npikall/gotpm.git
 cd gotpm
-just install # or read the justfile to do build and install manually
+task install # or read the Taskfile.yml to do build and install manually
 ```
 
 ## Alternatives
