@@ -11,12 +11,11 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	git "github.com/go-git/go-git/v6"
+	gogit "github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/config"
-	"github.com/npikall/gotpm/internal/gitcli"
+	"github.com/npikall/gotpm/internal/git"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
-	"github.com/npikall/gotpm/internal/pkgfiles"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/ui"
 )
@@ -56,24 +55,24 @@ func Run(opts *Options, logger *log.Logger) error {
 		return fmt.Errorf("could not get current working directory: %w", err)
 	}
 
-	branchName, m, err := commitToFork(logger, sourceDir, fork, opts.Message)
+	clone, branchName, m, err := commitToFork(logger, sourceDir, fork, opts.Message)
 	if err != nil {
 		return err
 	}
 
 	if opts.Local {
-		ui.Infof("push it when you are ready:\n%s", pushCommand(fork.path, branchName))
+		ui.Infof("push it when you are ready:\n%s", pushCommand(clone, branchName))
 		return nil
 	}
-	return pushAndSuggestPR(logger, fork, branchName, m)
+	return pushAndSuggestPR(logger, clone, fork, branchName, m)
 }
 
-// pushCommand returns the command that pushes branchName from forkPath
-func pushCommand(forkPath, branchName string) string {
-	if gitcli.TracksOwnBranch(forkPath, branchName) {
-		return fmt.Sprintf("cd %s && git push", forkPath)
+// pushCommand returns the command that pushes branchName from the fork clone.
+func pushCommand(clone *git.Fork, branchName string) string {
+	if clone.TracksOwnBranch(branchName) {
+		return fmt.Sprintf("cd %s && git push", clone.Path())
 	}
-	return fmt.Sprintf("git -C %s push origin %s", forkPath, branchName)
+	return fmt.Sprintf("git -C %s push origin %s", clone.Path(), branchName)
 }
 
 // resolveTarget loads the fork configuration, erroring if fork.url is unset,
@@ -114,20 +113,21 @@ func resolveForkPath(cfg *config.Config) (string, error) {
 	return filepath.Join(dataDir, "fork"), nil
 }
 
-// commitToFork loads the package manifest, checks out its branch in the fork
-// clone, copies the package files in, and commits them.
+// commitToFork loads the package manifest, resolves the base its branch builds
+// on in the fork clone, and commits the package files onto it. It returns the
+// clone so the caller can push from it.
 func commitToFork(
 	logger *log.Logger, sourceDir string, fork *fork, msg string,
-) (string, *manifest.Manifest, error) {
+) (*git.Fork, string, *manifest.Manifest, error) {
 	// Publishing copies the package root, which is the directory holding
 	// typst.toml rather than the directory the command was run from.
 	manifestFile, err := manifest.FindFile(sourceDir)
 	if err != nil {
-		return "", nil, fmt.Errorf("could not load manifest: %w", err)
+		return nil, "", nil, fmt.Errorf("could not load manifest: %w", err)
 	}
 	m, err := manifest.LoadFile(manifestFile)
 	if err != nil {
-		return "", nil, fmt.Errorf("could not load manifest: %w", err)
+		return nil, "", nil, fmt.Errorf("could not load manifest: %w", err)
 	}
 	sourceDir = filepath.Dir(manifestFile)
 	logger.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
@@ -135,33 +135,37 @@ func commitToFork(
 	pkgDir := path.Join("packages", previewNamespace, m.Package.Name)
 	branchName := m.Package.Name + "-" + m.Package.Version
 
-	if err := EnsureForkRepo(logger, fork.url, fork.path); err != nil {
-		return "", nil, err
-	}
-	branchExisted, err := CheckoutPackageBranch(logger, fork.path, branchName, pkgDir)
+	clone, err := EnsureForkRepo(logger, fork.url, fork.path)
 	if err != nil {
-		return "", nil, err
+		return nil, "", nil, err
+	}
+	base, err := PreparePackageBranch(logger, clone, branchName)
+	if err != nil {
+		return nil, "", nil, err
 	}
 
-	relDestDir := filepath.Join(filepath.FromSlash(pkgDir), m.Package.Version)
-	destDir := filepath.Join(fork.path, relDestDir)
-	if err := paths.Remove(destDir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", nil, fmt.Errorf("clearing previous version directory: %w", err)
+	// The version directory is written whole, so a file dropped from the
+	// package since the last publish disappears from the fork too.
+	files, err := collectFiles(sourceDir)
+	if err != nil {
+		return nil, "", nil, err
 	}
-	logger.Debug("copying package files", "src", sourceDir, "dest", destDir)
-	if err := pkgfiles.CopyTree(sourceDir, destDir); err != nil {
-		return "", nil, err
-	}
-	logger.Debug("copied package files")
+	logger.Debug("collected package files", "src", sourceDir, "count", len(files))
 
 	if msg == "" {
-		msg = commitMessage(sourceDir, m, branchExisted)
+		msg = commitMessage(sourceDir, m, base.Existed)
 	}
-	if err := commitFork(logger, fork.path, relDestDir, msg); err != nil {
-		return "", nil, err
+	pub := git.Publication{
+		Branch:  branchName,
+		Dir:     path.Join(pkgDir, m.Package.Version),
+		Files:   files,
+		Message: msg,
+	}
+	if err := commitFork(logger, clone, pub, base); err != nil {
+		return nil, "", nil, err
 	}
 	ui.Infof("committed %q on branch %s", msg, branchName)
-	return branchName, m, nil
+	return clone, branchName, m, nil
 }
 
 // commitMessage returns "release: name version" for a fresh branch. For a
@@ -174,7 +178,7 @@ func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) s
 	if !branchExisted {
 		return fallback
 	}
-	repo, err := git.PlainOpenWithOptions(sourceDir, &git.PlainOpenOptions{DetectDotGit: true})
+	repo, err := gogit.PlainOpenWithOptions(sourceDir, &gogit.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		return fallback
 	}
@@ -197,10 +201,10 @@ func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) s
 // success it prints a ready-to-run `gh pr create` suggestion; gotpm never
 // talks to GitHub itself.
 func pushAndSuggestPR(
-	logger *log.Logger, fork *fork, branchName string, m *manifest.Manifest,
+	logger *log.Logger, clone *git.Fork, fork *fork, branchName string, m *manifest.Manifest,
 ) error {
 	logger.Debug("pushing branch to origin", "branch", branchName)
-	if err := Push(logger, fork.path, branchName); err != nil {
+	if err := Push(logger, clone, branchName); err != nil {
 		manual := fmt.Sprintf("git -C %s push origin %s", fork.path, branchName)
 		return fmt.Errorf("%w: %w\nRun manually: %s", ErrPushFailed, err, manual)
 	}
