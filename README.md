@@ -87,7 +87,7 @@ August 2026:
 | Version bump                  | ✅ `gotpm bump`                     | ✅ `utpm prj bump`                         | ❌                                      |
 | Publish to Typst Universe     | ✅ `gotpm publish`                  | 🚧 planned (`utpm prj publish`)            | ✅ `typship publish`                    |
 | Update deps to latest version | ✅ `gotpm update` [^1]              | ✅ `utpm prj sync` [^2]                    | ❌                                      |
-| External binaries required [^3] | `git` — publish only          | `git` — remote install & publish     | `git` — remote install only            |
+| External binaries required [^3] | ❌ none                        | `git` — remote install & publish     | `git` — remote install only            |
 
 [^1]: Fetches the Typst Universe version index once, then resolves all
     import statements in that file concurrently (goroutines) against the
@@ -98,11 +98,14 @@ August 2026:
     `@preview` import seems to trigger a fresh, uncached HTTP request to the Typst
     Universe registry, so N imports means N sequential round-trips.
 
-[^3]: Only `gotpm publish` shells out to a system `git` binary via
-    [`internal/gitcli`](https://github.com/npikall/gotpm/blob/main/internal/gitcli/gitcli.go),
-    needed for sparse checkout and commit signing that the pure-Go `go-git`
-    library can't do. Every other command, including `gotpm install -r`,
-    uses `go-git` and needs no external binary. utpm's `pkg install`
+[^3]: gotpm needs no external binary at all: every command, `gotpm publish`
+    included, runs on the pure-Go `go-git` library. Publishing keeps its fork
+    clone blobless and without a worktree
+    ([`internal/git`](https://github.com/npikall/gotpm/blob/main/internal/git/git.go)),
+    building each commit from tree objects rather than checking files out —
+    which sidesteps the sparse checkout of a filtered clone that `go-git`
+    cannot perform. Commits are not GPG-signed as a result; amend with
+    `git commit --amend -S` in the fork if you need that. utpm's `pkg install`
     (doc-commented "requires git to be installed") and `prj publish` both
     shell out to a system `git` binary via
     [`utils/git.rs`](https://github.com/typst-community/utpm/blob/main/src/utils/git.rs)
