@@ -43,7 +43,7 @@ type Options struct {
 
 // Version prints what this binary is.
 func Version(info BuildInfo) {
-	ui.Infof("gotpm version=%s hash=%s os=%s arch=%s installer=%s",
+	ui.Printf("version=%s\nhash=%s\nos=%s\narch=%s\ninstaller=%s\n",
 		info.Version, info.Commit, info.OS, info.Arch, info.Installer)
 }
 

@@ -8,6 +8,7 @@ package cmd
 
 import (
 	"github.com/npikall/gotpm/internal/cmds/self"
+	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +23,7 @@ var selfVersionCmd = &cobra.Command{
 	Short: "Print build information for the gotpm binary",
 	Args:  cobra.NoArgs,
 	Run: func(_ *cobra.Command, _ []string) {
+		ui.Print(asciiArt)
 		self.Version(buildInfo())
 	},
 }
