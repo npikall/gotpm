@@ -48,6 +48,7 @@ func Execute() {
 		rootCmd,
 		fang.WithVersion(gitTag),
 		fang.WithCommit(gitCommit),
+		fang.WithColorSchemeFunc(fang.AnsiColorScheme),
 	); err != nil {
 		os.Exit(1)
 	}
