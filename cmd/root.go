@@ -8,6 +8,7 @@ package cmd
 
 import (
 	"context"
+	_ "embed"
 	"os"
 
 	"charm.land/fang/v2"
@@ -17,18 +18,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var asciiArt string = ui.Logo.Render(`┌──────────────────────────────┐
-│ _____     ______________  ___│
-│|  __ \   |_   _| ___ \  \/  |│
-│| |  \/ ___ | | | |_/ / .  . |│
-│| | __ / _ \| | |  __/| |\/| |│
-│| |_\ \ (_) | | | |   | |  | |│
-│ \____/\___/\_/ \_|   \_|  |_/│
-└──────────────────────────────┘`)
+//go:embed art.txt
+var asciiArt string
 
-var description string = ui.Description.Render(`
+var description string = `
 GoTPM is a minimal Package Manager for Typst. Install the packages you write to
-your disk, to make them installable via a local import.`)
+your disk, to make them installable via a local import.`
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
