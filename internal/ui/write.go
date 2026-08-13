@@ -15,7 +15,7 @@ func Printf(format string, a ...any) {
 }
 
 func Infof(format string, a ...any) {
-	prefix := BlueBold.Render("info")
+	prefix := Green.Render("info")
 	text := Normal.Render(fmt.Sprintf(format, a...))
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
