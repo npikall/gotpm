@@ -17,7 +17,7 @@ Available keys:
 }
 
 var configSetCmd = &cobra.Command{
-	Use:   "set [key] [value]",
+	Use:   "set <key> <value>",
 	Short: "Set the value of a config key",
 	Example: `# set the local path a fork gets cloned into
 gotpm config set fork.path /home/user/typst-packages`,
@@ -26,7 +26,7 @@ gotpm config set fork.path /home/user/typst-packages`,
 }
 
 var configGetCmd = &cobra.Command{
-	Use:   "get [key]",
+	Use:   "get <key>",
 	Short: "Print the value of a config key",
 	Example: `# print the configured fork path
 gotpm config get fork.path`,
@@ -35,7 +35,7 @@ gotpm config get fork.path`,
 }
 
 var configUnsetCmd = &cobra.Command{
-	Use:   "unset [key]",
+	Use:   "unset <key>",
 	Short: "Clear the value of a config key",
 	Example: `# clear the configured fork path
 gotpm config unset fork.path`,

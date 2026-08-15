@@ -14,7 +14,7 @@ import (
 
 // addCmd represents the add command
 var addCmd = &cobra.Command{
-	Use:   "add [repository]",
+	Use:   "add <repository>",
 	Short: "Add a repository as a dependency of this project.",
 	Long: `The package is installed under the @gotpm namespace, together with
 everything it depends on, and recorded in two files next to typst.toml:

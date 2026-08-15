@@ -13,7 +13,7 @@ import (
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
-	Use: "update [file|directory]",
+	Use: "update [path...]",
 	Example: `# update import statements in a file (writes back in place)
 gotpm update foo.typ
 
@@ -36,6 +36,7 @@ cat foo.typ | gotpm update -o foo.typ
 gotpm update foo.typ -o bar.typ`,
 	Short: "Update all dependencies from a file or directory to their latest version.",
 	Long:  "Update all dependencies from a file or directory to their latest version.",
+	Args:  cobra.ArbitraryArgs,
 	RunE:  UpdateRunner,
 }
 

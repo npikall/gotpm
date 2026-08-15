@@ -13,9 +13,12 @@ import (
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use: "init",
+	Use: "init [name]",
 	Example: `# initialize a new Package
-gotpm init`,
+gotpm init
+
+# scaffold into a new directory
+gotpm init mypkg`,
 	Short: "Initialize a new minimal Typst Package",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  InitRunner,

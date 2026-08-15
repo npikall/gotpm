@@ -14,7 +14,7 @@ import (
 
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
-	Use:     "remove [@gotpm/name:version]",
+	Use:     "remove <@namespace/name:version>",
 	Aliases: []string{"rm"},
 	Short:   "Remove a dependency from this project.",
 	Long: `Takes the import string exactly as it appears in typst.toml, so the

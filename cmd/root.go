@@ -27,7 +27,7 @@ your disk, to make them installable via a local import.`
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "gotpm [command] [--flags]",
+	Use:   "gotpm",
 	Short: "A Package Manager for Typst written in Go.",
 	Long:  asciiArt + description,
 }
