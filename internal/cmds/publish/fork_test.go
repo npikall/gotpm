@@ -11,7 +11,6 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/cmds/publish"
-	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,7 +67,7 @@ func TestCheckoutPackageBranchSetsUpstream(t *testing.T) {
 
 	assert.Equal(t, "origin", gitOut(t, forkPath, "config", "branch.foo-0.1.0.remote"))
 	assert.Equal(t, "refs/heads/foo-0.1.0", gitOut(t, forkPath, "config", "branch.foo-0.1.0.merge"))
-	assert.True(t, gitcli.TracksOwnBranch(forkPath, "foo-0.1.0"))
+	assert.True(t, tracksOwnBranch(t, forkPath, "foo-0.1.0"))
 }
 
 // TestCheckoutPackageBranchRepairsUpstream covers a branch created by an older
@@ -80,14 +79,14 @@ func TestCheckoutPackageBranchRepairsUpstream(t *testing.T) {
 	origin := setupOriginRepo(t, []string{pkgDir})
 	forkPath := cloneFork(t, origin)
 
-	require.NoError(t, gitcli.CheckoutNewBranch(forkPath, "foo-0.1.0", "origin/main"))
+	runGit(t, forkPath, "checkout", "--force", "-B", "foo-0.1.0", "origin/main")
 	require.Equal(t, "refs/heads/main", gitOut(t, forkPath, "config", "branch.foo-0.1.0.merge"),
 		"precondition: git points the new branch at origin/main")
 
 	branchExisted, err := publish.CheckoutPackageBranch(testLogger(), forkPath, "foo-0.1.0", pkgDir)
 	require.NoError(t, err)
 	assert.True(t, branchExisted)
-	assert.True(t, gitcli.TracksOwnBranch(forkPath, "foo-0.1.0"))
+	assert.True(t, tracksOwnBranch(t, forkPath, "foo-0.1.0"))
 }
 
 // TestEnsureForkRepoFetchesMain covers the stale base: a fork cloned once and
@@ -122,7 +121,7 @@ func TestCheckoutPackageBranchAdoptsForkBranch(t *testing.T) {
 	forkTip := gitOut(t, origin, "rev-parse", "foo-0.1.0")
 	forkPath := cloneFork(t, origin)
 
-	require.False(t, gitcli.BranchExists(forkPath, "foo-0.1.0"), "precondition: not cloned locally")
+	require.False(t, branchExists(t, forkPath, "foo-0.1.0"), "precondition: not cloned locally")
 
 	branchExisted, err := publish.CheckoutPackageBranch(testLogger(), forkPath, "foo-0.1.0", pkgDir)
 	require.NoError(t, err)
@@ -210,7 +209,7 @@ func commitOn(t *testing.T, dir, branch, msg string) {
 
 func branch2base(t *testing.T, dir, branch string) string {
 	t.Helper()
-	if gitcli.BranchExists(dir, branch) {
+	if branchExists(t, dir, branch) {
 		return branch
 	}
 	return "main"
@@ -227,14 +226,40 @@ func cloneURL(dir string) string {
 }
 
 // cloneFork clones dir the way a publish does and configures an identity, so
-// that commits made in the clone during a test succeed.
+// that commits made in the clone during a test succeed. It clones with the git
+// binary rather than with gotpm's own SparseClone, so that what the code under
+// test is handed is a repository git made, not one it made for itself.
 func cloneFork(t *testing.T, origin string) string {
 	t.Helper()
 	forkPath := t.TempDir()
-	require.NoError(t, gitcli.Clone(cloneURL(origin), forkPath))
+	runGit(t, forkPath,
+		"clone", "--single-branch", "--branch", "main",
+		"--filter=blob:none", "--no-checkout", cloneURL(origin), ".",
+	)
 	runGit(t, forkPath, "config", "user.email", "test@test.com")
 	runGit(t, forkPath, "config", "user.name", "test")
 	return forkPath
+}
+
+// branchExists reports whether branch exists locally in dir, asked of git.
+func branchExists(t *testing.T, dir, branch string) bool {
+	t.Helper()
+	cmd := exec.CommandContext(context.Background(), "git",
+		"-C", dir, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	return cmd.Run() == nil
+}
+
+// tracksOwnBranch reports whether branch is configured to merge from the
+// branch of the same name on origin, rather than from main or nothing.
+func tracksOwnBranch(t *testing.T, dir, branch string) bool {
+	t.Helper()
+	cmd := exec.CommandContext(context.Background(), "git",
+		"-C", dir, "config", "--get", "branch."+branch+".merge")
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "refs/heads/"+branch
 }
 
 func runGit(t *testing.T, dir string, args ...string) {

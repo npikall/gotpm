@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"strings"
 
 	gogit "github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
@@ -30,6 +31,28 @@ func Open(dir string) (*Repo, error) {
 // Close releases the repository.
 func (r *Repo) Close() error {
 	return r.repo.Close() //nolint: wrapcheck
+}
+
+// HeadMessage returns the message of the commit at the HEAD of the repository
+// dir belongs to, searching upwards for it. The empty string means there was
+// nothing to read: dir is not in a repository, or the repository has no
+// commits yet.
+func HeadMessage(dir string) string {
+	repo, err := gogit.PlainOpenWithOptions(dir, &gogit.PlainOpenOptions{DetectDotGit: true})
+	if err != nil {
+		return ""
+	}
+	defer repo.Close() //nolint: errcheck
+
+	head, err := repo.Head()
+	if err != nil {
+		return ""
+	}
+	commit, err := repo.CommitObject(head.Hash())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(commit.Message)
 }
 
 // HasMain reports whether origin/main resolves, i.e. whether the clone this

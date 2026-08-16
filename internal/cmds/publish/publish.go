@@ -8,11 +8,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"charm.land/log/v2"
-	git "github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/git"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkgfiles"
@@ -173,19 +172,7 @@ func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) s
 	if !branchExisted {
 		return fallback
 	}
-	repo, err := git.PlainOpenWithOptions(sourceDir, &git.PlainOpenOptions{DetectDotGit: true})
-	if err != nil {
-		return fallback
-	}
-	head, err := repo.Head()
-	if err != nil {
-		return fallback
-	}
-	commit, err := repo.CommitObject(head.Hash())
-	if err != nil {
-		return fallback
-	}
-	if msg := strings.TrimSpace(commit.Message); msg != "" {
+	if msg := git.HeadMessage(sourceDir); msg != "" {
 		return msg
 	}
 	return fallback
