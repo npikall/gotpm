@@ -29,8 +29,14 @@ tree and touches no blob it does not have.
   binary feature and are unreachable, so a user who pushes over HTTPS today
   with a Keychain-stored token must supply a token or switch the fork to an
   SSH URL.
-- Commits are no longer signed. gitcli committed through git and inherited the
-  user's `commit.gpgsign`; go-git signs only when handed a signer.
+- Commits are no longer signed, and gotpm has to say so out loud. go-git signs
+  only when handed a signer and refuses to commit at all when `commit.gpgsign`
+  is set without one, so publishing writes `commit.gpgsign=false` into the Fork
+  Clone's own config. It overrides the user's global setting for that clone and
+  reaches nothing else on the machine, which is what makes it acceptable: the
+  Fork Clone is a staging area holding no work that does not exist elsewhere.
+  A submission is therefore an unsigned commit where the git binary would have
+  signed it.
 - The Fork Clone is blobless but no longer shallow. Blobs are what make the
   repository large, and shallow history is where go-git is weakest, so the
   depth limit bought little and cost every fetch, merge and push an edge case.

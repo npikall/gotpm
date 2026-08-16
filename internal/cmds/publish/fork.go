@@ -148,15 +148,22 @@ func positionBranch(
 }
 
 func commitFork(logger *log.Logger, forkPath, relDestDir, msg string) error {
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return err
+	}
+	defer repo.Close() //nolint: errcheck
+
 	logger.Debug("staging package files", "path", relDestDir)
-	if err := gitcli.Add(forkPath, relDestDir); err != nil {
+	if err := repo.Add(relDestDir); err != nil {
 		return fmt.Errorf("staging package files: %w", err)
 	}
 	logger.Debug("committing to fork")
-	if err := gitcli.Commit(forkPath, msg); err != nil {
+	hash, err := repo.Commit(msg)
+	if err != nil {
 		return fmt.Errorf("committing to fork: %w", err)
 	}
-	logger.Debug("committed to fork")
+	logger.Debug("committed to fork", "commit", hash)
 	return nil
 }
 

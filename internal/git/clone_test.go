@@ -1,7 +1,6 @@
 package git_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -36,8 +35,7 @@ func setupTestRepo(t *testing.T) string {
 	wt, err := repo.Worktree()
 	require.NoError(t, err)
 
-	err = writeFile(dir, "README.md", "hello")
-	require.NoError(t, err)
+	writeFile(t, dir, "README.md", "hello")
 
 	_, err = wt.Add("README.md")
 	require.NoError(t, err)
@@ -47,8 +45,4 @@ func setupTestRepo(t *testing.T) string {
 	})
 	require.NoError(t, err)
 	return dir
-}
-
-func writeFile(dir, name, content string) error {
-	return os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644) //nolint: wrapcheck
 }
