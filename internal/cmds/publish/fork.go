@@ -16,8 +16,12 @@ import (
 // brings an existing clone's origin/main up to date.
 func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	if paths.IsDir(filepath.Join(forkPath, ".git")) {
-		if hasMain(forkPath) {
-			return fetchFork(logger, forkPath)
+		complete, err := fetchExistingFork(logger, forkPath)
+		if err != nil {
+			return err
+		}
+		if complete {
+			return nil
 		}
 		logger.Debug("fork clone is incomplete (no origin/main), re-cloning", "path", forkPath)
 		if err := paths.Remove(forkPath); err != nil {
@@ -39,18 +43,30 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	return nil
 }
 
-// fetchFork updates an existing clone's origin/main.
-func fetchFork(logger *log.Logger, forkPath string) error {
+// fetchExistingFork brings the clone at forkPath up to date, reporting whether
+// it was a complete clone to begin with. An incomplete one - no origin/main,
+// so its initial clone never finished - is left for the caller to replace.
+func fetchExistingFork(logger *log.Logger, forkPath string) (bool, error) {
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return false, err
+	}
+	defer repo.Close() //nolint: errcheck
+
+	if !repo.HasMain() {
+		return false, nil
+	}
+
 	logger.Debug("fetching fork", "path", forkPath)
 	spin := ui.Spinner(" Fetching fork...")
 	spin.Start()
-	err := gitcli.Fetch(forkPath)
+	err = repo.Fetch()
 	spin.Stop()
 	if err != nil {
-		return fmt.Errorf("fetching fork at %q: %w", forkPath, err)
+		return false, fmt.Errorf("fetching fork at %q: %w", forkPath, err)
 	}
 	logger.Debug("fetched fork")
-	return nil
+	return true, nil
 }
 
 // ErrForkBranchDiverged is returned when the local package branch and the
@@ -61,11 +77,17 @@ var ErrForkBranchDiverged = errors.New("local branch and fork branch have diverg
 // checkout, and makes it track origin/branchName. It reports whether the
 // branch already existed - locally or on the fork - before this call.
 func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir string) (bool, error) {
-	onFork := gitcli.FetchBranch(forkPath, branchName) == nil
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return false, err
+	}
+	defer repo.Close() //nolint: errcheck
+
+	onFork := repo.FetchBranch(branchName) == nil
 	if !onFork {
 		logger.Debug("branch not on fork yet", "branch", branchName)
 	}
-	local := branchExists(forkPath, branchName)
+	local := repo.BranchExists(branchName)
 	logger.Debug("resolved package branch", "branch", branchName, "local", local, "fork", onFork)
 
 	spin := ui.Spinner(" Checking out package branch...")
@@ -129,32 +151,6 @@ func commitFork(logger *log.Logger, forkPath, relDestDir, msg string) error {
 	}
 	logger.Debug("committed to fork")
 	return nil
-}
-
-// The three questions below are the first the fork clone answers through
-// go-git rather than the git binary. Each opens it for the length of one
-// answer, which a git subprocess did too; once the operations that write to
-// the clone follow, it is opened once for a whole publish instead.
-
-// hasMain reports whether the clone at forkPath has a resolvable origin/main,
-// i.e. whether its initial clone actually completed.
-func hasMain(forkPath string) bool {
-	repo, err := git.Open(forkPath)
-	if err != nil {
-		return false
-	}
-	defer repo.Close() //nolint: errcheck
-	return repo.HasMain()
-}
-
-// branchExists reports whether branch already exists locally in forkPath.
-func branchExists(forkPath, branch string) bool {
-	repo, err := git.Open(forkPath)
-	if err != nil {
-		return false
-	}
-	defer repo.Close() //nolint: errcheck
-	return repo.BranchExists(branch)
 }
 
 // tracksOwnBranch reports whether branch tracks origin/<branch> rather than

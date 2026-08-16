@@ -40,14 +40,6 @@ func CloneWithoutCheckout(remote, dest string) (*Repo, error) {
 	return &Repo{repo: repo}, nil
 }
 
-// FetchAll updates every branch and tag from origin.
-func (r *Repo) FetchAll() error {
-	if err := r.repo.Fetch(&gogit.FetchOptions{Tags: gogit.AllTags, Progress: io.Discard}); err != nil {
-		return fmt.Errorf("fetching: %w", err)
-	}
-	return nil
-}
-
 // ResolveHash returns the commit a revision points at.
 func (r *Repo) ResolveHash(revision string) (string, error) {
 	hash, err := r.repo.ResolveRevision(plumbing.Revision(revision))
