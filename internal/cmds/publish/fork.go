@@ -7,7 +7,6 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/git"
-	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 )
@@ -180,7 +179,13 @@ func tracksOwnBranch(forkPath, branch string) bool {
 
 // Push sends a branch to the fork's origin remote.
 func Push(logger *log.Logger, forkPath, branchName string) error {
-	if err := gitcli.Push(forkPath, branchName); err != nil {
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return err
+	}
+	defer repo.Close() //nolint: errcheck
+
+	if err := repo.Push(branchName); err != nil {
 		return err
 	}
 	logger.Debug("pushed branch to origin", "branch", branchName)

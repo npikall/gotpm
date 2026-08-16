@@ -61,6 +61,42 @@ func TestSparseCommitKeepsUnscopedPackages(t *testing.T) {
 	assert.Contains(t, after, published+"/0.2.0/typst.toml")
 }
 
+// TestSparsePushSendsOnlyTheChange covers the other half of the sparse scheme:
+// a push works out what to send by walking the new commit against what the
+// remote already has. The walk has to prune the packages that did not change
+// by comparing subtree hashes - reading through them would mean wanting objects
+// a blobless clone deliberately never fetched.
+func TestSparsePushSendsOnlyTheChange(t *testing.T) {
+	t.Parallel()
+	origin := setupPackagesOrigin(t)
+	dst := filepath.Join(t.TempDir(), "fork")
+
+	repo, err := git.SparseClone(dst, "file://"+origin)
+	require.NoError(t, err)
+	defer repo.Close()
+
+	const branch = "alpha-0.2.0"
+	require.NoError(t, repo.SetBranchTo(branch, "origin/main"))
+	require.NoError(t, repo.SparseCheckout(branch, published))
+
+	writeFile(t, dst, published+"/0.2.0/typst.toml", "name = \"alpha\"\n")
+	require.NoError(t, repo.Add(published))
+	_, err = repo.Commit("release: alpha 0.2.0")
+	require.NoError(t, err)
+
+	require.NoError(t, repo.Push(branch))
+
+	// The origin is the oracle: it has to end up with the new package version
+	// and every package that was never materialized in the clone.
+	pushed := treeOf(t, origin, branch)
+	assert.Contains(t, pushed, published+"/0.2.0/typst.toml")
+	assert.Contains(t, pushed, bystander+"/0.1.0/typst.toml")
+	assert.Contains(t, pushed, othertoo+"/0.1.0/typst.toml")
+
+	// Pushing again has nothing to send and must not be reported as failure.
+	require.NoError(t, repo.Push(branch))
+}
+
 // TestSparseCheckoutRescopes covers publishing a second package out of the same
 // clone: the previous package's files have to leave the worktree, because the
 // index says they are not part of the checkout any more.
