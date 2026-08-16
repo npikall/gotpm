@@ -42,6 +42,36 @@ func TestDefaultHTTPCloneURL(t *testing.T) {
 	}
 }
 
+// TestCanonicalURL covers the spellings of one repository users actually type.
+// Anything that reduces two of them to different strings makes gotpm treat one
+// repository as two.
+func TestCanonicalURL(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		got  string
+		want string
+	}{
+		{"no scheme", "github.com/me/packages", "github.com/me/packages"},
+		{"https", "https://github.com/me/packages", "github.com/me/packages"},
+		{"https with .git", "https://github.com/me/packages.git", "github.com/me/packages"},
+		{"http", "http://github.com/me/packages", "github.com/me/packages"},
+		{"trailing slash", "https://github.com/me/packages/", "github.com/me/packages"},
+		{"surrounding space", "  github.com/me/packages  ", "github.com/me/packages"},
+		{"scp form", "git@github.com:me/packages.git", "github.com/me/packages"},
+		{"ssh scheme", "ssh://git@github.com/me/packages", "github.com/me/packages"},
+		{"credentials", "https://token@github.com/me/packages", "github.com/me/packages"},
+		{"another owner stays apart", "github.com/acme/packages", "github.com/acme/packages"},
+		{"file url keeps its scheme", "file:///tmp/fork", "file:///tmp/fork"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, CanonicalURL(tt.got))
+		})
+	}
+}
+
 // setupTestRepo sets up a repo for testing purposes. It does NOT work in parallel tests
 func setupTestRepo(t *testing.T) string {
 	t.Helper()

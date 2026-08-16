@@ -104,6 +104,33 @@ func OwnerFromURL(remoteURL string) (string, error) {
 	return "", ErrParseRepoName
 }
 
+// CanonicalURL reduces the spellings of one repository url to a single form —
+// host, owner and repository, with no scheme, no credentials and no ".git"
+// suffix — so that "https://github.com/me/packages" and
+// "git@github.com:me/packages.git" are recognisably the same repository.
+//
+// A file:// url keeps its scheme: that is what marks a repository living on
+// this machine, and dropping it would make a local path indistinguishable from
+// a host.
+func CanonicalURL(rawURL string) string {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(rawURL), ".git")
+	if strings.HasPrefix(trimmed, fileScheme) {
+		return trimmed
+	}
+	if u, err := url.Parse(trimmed); err == nil && u.Host != "" {
+		return strings.TrimSuffix(u.Host+u.Path, "/")
+	}
+	// The scp-like form git uses for ssh, which is not a url: the colon
+	// separates the host from the path rather than naming a port.
+	if host, repoPath, found := strings.Cut(trimmed, ":"); found {
+		if _, afterUser, hasUser := strings.Cut(host, "@"); hasUser {
+			host = afterUser
+		}
+		return strings.TrimSuffix(host+"/"+strings.TrimPrefix(repoPath, "/"), "/")
+	}
+	return strings.TrimSuffix(trimmed, "/")
+}
+
 func DefaultHTTPCloneURL(path string) string {
 	if hasScheme(path) {
 		return path

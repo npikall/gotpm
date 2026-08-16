@@ -43,11 +43,23 @@ func CachePath(canonicalURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	segments := cacheSegments(canonicalURL)
-	if len(segments) == 0 {
-		return "", fmt.Errorf("%w for %q", ErrInvalidCacheKey, canonicalURL)
+	segments, err := Segments(canonicalURL)
+	if err != nil {
+		return "", err
 	}
 	return filepath.Join(append([]string{cacheDir}, segments...)...), nil
+}
+
+// Segments turns a canonical url into the path segments a clone of it is laid
+// out under — host, owner, then repository. Callers supply the directory those
+// segments hang off, which is what keeps clones of different purposes apart
+// while they agree on where one url belongs.
+func Segments(canonicalURL string) ([]string, error) {
+	segments := cacheSegments(canonicalURL)
+	if len(segments) == 0 {
+		return nil, fmt.Errorf("%w for %q", ErrInvalidCacheKey, canonicalURL)
+	}
+	return segments, nil
 }
 
 // cacheSegments turns a canonical url into the path segments it is cached

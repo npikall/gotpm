@@ -15,6 +15,9 @@ import (
 // brings an existing clone's origin/main up to date.
 func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	if paths.IsDir(filepath.Join(forkPath, ".git")) {
+		if err := verifyOrigin(forkURL, forkPath); err != nil {
+			return err
+		}
 		if gitcli.HasMain(forkPath) {
 			return fetchFork(logger, forkPath)
 		}
