@@ -38,7 +38,7 @@ func init() {
 	rootCmd.AddCommand(syncCmd)
 	syncCmd.Flags().Bool("frozen", false, "Fail instead of updating gotpm.lock.")
 	syncCmd.Flags().BoolP("force", "f", false, "Replace a package installed from a different repository.")
-	syncCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
+	syncCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func SyncRunner(cmd *cobra.Command, _ []string) error {

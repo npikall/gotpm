@@ -22,10 +22,14 @@ Naming a namespace and nothing else removes the whole namespace, after asking
 for confirmation. Adding a package, a version or --all narrows the removal back
 to a package inside that namespace.
 
-The package directory can be overridden via the --install-dir flag
-or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
-A namespace cannot be removed from an overridden directory, which holds a
-single package rather than a namespace layout.
+Which package directory is read follows $TYPST_PACKAGE_PATH, keeping the
+namespace/name/version layout inside it.
+
+--install-dir, and the GOTPM_INSTALL_DIR environment variable behind it, point
+somewhere else entirely: at a directory holding one package's files directly,
+without that layout. The flag takes precedence over the environment variable.
+A namespace cannot be removed from such a directory, since there is no
+namespace layout in it to remove.
 `,
 	Example: `# get package metadata from typst.toml
 gotpm uninstall
@@ -53,7 +57,7 @@ func init() {
 	uninstallCmd.Flags().Bool("all", false, "Uninstall all Packages from a given namespace or all versions of a package.")
 	uninstallCmd.Flags().Bool("dry-run", false, "Perform a dry run.")
 	uninstallCmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt when removing a namespace.")
-	uninstallCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
+	uninstallCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func UninstallRunner(cmd *cobra.Command, args []string) error {

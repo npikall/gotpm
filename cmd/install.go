@@ -16,12 +16,19 @@ import (
 var installCmd = &cobra.Command{
 	Use:   "install [path]",
 	Short: "Install a Typst Package locally.",
-	Long: `All files that are not specifically excluded get copied to
-$DATA_DIR/typst/packages, where the $DATA_DIR is dependent on
-the machine's operating system.
+	Long: `All files that are not specifically excluded get copied into the package
+directory, $DATA_DIR/typst/packages, where the $DATA_DIR is dependent on the
+machine's operating system, under namespace/name/version. Set
+$TYPST_PACKAGE_PATH to put that package directory somewhere else: the layout
+inside it is unchanged, and typst imports from it the same way.
 
-The destination directory can be overridden via the --install-dir flag
-or the GOTPM_INSTALL_DIR environment variable. The flag takes precedence.
+--install-dir, and the GOTPM_INSTALL_DIR environment variable behind it, are a
+different thing. The directory named there receives the package's files
+directly, with no namespace/name/version layout around them, which is not a
+directory typst imports from and not one gotpm scans. It is an output
+destination — vendoring one package into a build directory, or looking at what
+an install would produce. The flag takes precedence over the environment
+variable.
 `,
 	Example: `gotpm install
 gotpm install . -e
@@ -38,7 +45,7 @@ func init() {
 	installCmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
-	installCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
+	installCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 	installCmd.Flags().StringP("remote", "r", "", "The remote repository which should be installed.")
 	installCmd.Flags().StringP("rev", "t", "HEAD", "The revision (hash or tag) that should be checked out.")
 }
