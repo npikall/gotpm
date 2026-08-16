@@ -1,3 +1,7 @@
+// Package git is the only place gotpm talks to a git repository. It offers two
+// clones: CloneRepo, for a package's own repository, and SparseClone, for one
+// too large to fetch whole - the Typst Universe package repository, of which a
+// publish needs a single package directory out of a thousand.
 package git
 
 import (

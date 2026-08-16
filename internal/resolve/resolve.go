@@ -16,7 +16,8 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/go-git/go-git/v6"
+	gogit "github.com/go-git/go-git/v6"
+	"github.com/npikall/gotpm/internal/git"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/remote"
@@ -79,13 +80,13 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 	if err != nil {
 		return nil, err
 	}
-	hash, err := remote.ResolveHash(clone.Repo, revision)
+	hash, err := git.ResolveHash(clone.Repo, revision)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", src.Canonical, err)
 	}
 	// Checking out the commit rather than the revision keeps an install
 	// reproducible when a tag is later moved.
-	if err := remote.CheckoutRevision(clone.Repo, hash); err != nil {
+	if err := git.CheckoutRevision(clone.Repo, hash); err != nil {
 		return nil, fmt.Errorf("checking out %s of %s: %w", revision, src.Canonical, err)
 	}
 	logger.Debug("checked out", "url", src.Canonical, "revision", revision, "hash", hash)
@@ -101,12 +102,12 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 
 // pickRevision decides what to check out: what the caller asked for, or the
 // newest release when they did not ask for anything in particular.
-func pickRevision(repo *git.Repository, requested string, src Source, logger *log.Logger) (string, error) {
+func pickRevision(repo *gogit.Repository, requested string, src Source, logger *log.Logger) (string, error) {
 	if requested != "" && requested != Latest {
 		return requested, nil
 	}
 
-	tags, err := remote.Tags(repo)
+	tags, err := git.Tags(repo)
 	if err != nil {
 		return "", err
 	}

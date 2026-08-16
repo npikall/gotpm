@@ -8,7 +8,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/go-git/go-git/v6"
+	gogit "github.com/go-git/go-git/v6"
+	"github.com/npikall/gotpm/internal/git"
 	"github.com/npikall/gotpm/internal/paths"
 )
 
@@ -96,7 +97,7 @@ func isSafeRune(r rune) bool {
 // Clone is a repository present in the cache.
 type Clone struct {
 	Dir  string
-	Repo *git.Repository
+	Repo *gogit.Repository
 	// Cloned reports whether the repository was fetched from scratch rather
 	// than found in the cache.
 	Cloned bool
@@ -116,17 +117,17 @@ func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
 	}
 
 	if paths.IsDir(repoDir) {
-		repo, err := git.PlainOpen(repoDir)
+		repo, err := git.Open(repoDir)
 		if err != nil {
-			return nil, fmt.Errorf("opening cached clone %q: %w", repoDir, err)
+			return nil, err
 		}
 		// A failed fetch is not fatal: the cached clone may already hold the
 		// revision that was asked for, and that keeps gotpm usable offline.
-		_ = repo.Fetch(&git.FetchOptions{Tags: git.AllTags})
+		_ = git.FetchAll(repo)
 		return &Clone{Dir: repoDir, Repo: repo}, nil
 	}
 
-	repo, err := CloneWithoutCheckout(cloneURL, repoDir)
+	repo, err := git.CloneWithoutCheckout(cloneURL, repoDir)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +145,7 @@ func Ensure(remoteURL, rev string) (string, bool, error) {
 	defer clone.Repo.Close() //nolint: errcheck
 
 	if rev != "" {
-		if err := CheckoutRevision(clone.Repo, rev); err != nil {
+		if err := git.CheckoutRevision(clone.Repo, rev); err != nil {
 			return "", false, err
 		}
 	}
