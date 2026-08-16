@@ -35,7 +35,7 @@ gotpm rm @gotpm/cetz:0.3.1 --prune
 func init() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.Flags().Bool("prune", false, "Delete the removed packages from the package store as well.")
-	removeCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
+	removeCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func RemoveRunner(cmd *cobra.Command, args []string) error {

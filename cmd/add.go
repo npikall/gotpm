@@ -41,7 +41,7 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	addCmd.Flags().StringP("rev", "t", "", "The revision (hash or tag) to pin. Defaults to the newest release.")
 	addCmd.Flags().BoolP("force", "f", false, "Replace a package installed from a different repository.")
-	addCmd.Flags().String(paths.InstallDirFlag, "", "Override the package directory (env: $"+paths.InstallDirEnvVar+")")
+	addCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func AddRunner(cmd *cobra.Command, args []string) error {

@@ -24,6 +24,12 @@ project.
 With a key, only that path is printed, unstyled and on its own, so it can be
 used directly in a shell.
 
+The packages path answers to $GOTPM_INSTALL_DIR first and $TYPST_PACKAGE_PATH
+second, and the note beside it says which one applied. They are not the same
+kind of path: $TYPST_PACKAGE_PATH moves the package directory typst imports
+from, keeping its namespace/name/version layout, while $GOTPM_INSTALL_DIR names
+a directory that receives one package's files directly, without that layout.
+
 Nothing is created: a path that does not exist yet is still where gotpm would
 look for it.`,
 	Example: `# Show every path

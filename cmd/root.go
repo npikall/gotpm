@@ -14,6 +14,7 @@ import (
 	"charm.land/fang/v2"
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/logger"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +32,10 @@ var rootCmd = &cobra.Command{
 	Short: "A Package Manager for Typst written in Go.",
 	Long:  asciiArt + description,
 }
+
+// installDirUsage is the help text of the --install-dir flag
+const installDirUsage = "A directory holding one package's files, without namespace/name/version layout (env: $" +
+	paths.InstallDirEnvVar + ")"
 
 var (
 	gitTag    string = "dev"

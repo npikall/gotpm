@@ -61,11 +61,20 @@ func entries(log *log.Logger) []Group {
 
 func packagesEntry() Entry {
 	dir, origin, err := paths.PackagesDir()
-	entry := Entry{Key: "packages", Path: dir, Err: err}
-	if env := origin.EnvVar(); env != "" {
-		entry.Note = "via $" + env
+	return Entry{Key: "packages", Path: dir, Note: packagesNote(origin), Err: err}
+}
+
+// packagesNote says which environment variable moved the path
+func packagesNote(origin paths.Origin) string {
+	env := origin.EnvVar()
+	if env == "" {
+		return ""
 	}
-	return entry
+	note := "via $" + env
+	if origin == paths.OriginInstallEnv {
+		note += ", one package's files, no namespace/name/version layout"
+	}
+	return note
 }
 
 func gotpmEntries() []Entry {
