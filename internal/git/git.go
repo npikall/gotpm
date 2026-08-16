@@ -31,7 +31,17 @@ var ErrNoOrigin = errors.New("repository has no origin remote")
 // scope changes repeatedly: gotpm keeps one clone of a fork and publishes a
 // different package, into a different directory, from it every time.
 func SparseClone(dst, url string) (*Repo, error) {
-	repo, err := gogit.PlainClone(dst, sparseCloneOptions(url))
+	opts := sparseCloneOptions(url)
+	repo, err := gogit.PlainClone(dst, opts)
+
+	// The blob filter is an optimization, not a requirement: it is what makes
+	// a clone of a repository the size of the Typst Universe's bearable, and a
+	// server that cannot honour it can still be cloned whole. Anything gotpm
+	// would have fetched later is simply already there.
+	if errors.Is(err, transport.ErrFilterNotSupported) {
+		opts.Filter = ""
+		repo, err = gogit.PlainClone(dst, opts)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cloning %q into %q: %w", url, dst, err)
 	}
@@ -56,9 +66,8 @@ func (r *Repo) SparseCheckout(branch, path string) error {
 	// Reset moves whatever HEAD points at, so HEAD has to name the branch
 	// before the worktree is scoped. Checkout would do both at once but has no
 	// way to skip its check that the sparse directory already exists.
-	symbolic := plumbing.NewSymbolicReference(plumbing.HEAD, ref)
-	if err := r.repo.Storer.SetReference(symbolic); err != nil {
-		return fmt.Errorf("pointing HEAD at %q: %w", branch, err)
+	if err := r.setHEAD(branch); err != nil {
+		return err
 	}
 
 	wt, err := r.repo.Worktree()
@@ -158,12 +167,16 @@ func fetchObjects(ctx context.Context, st storage.Storer, rawURL string, wants [
 // sparsely checked out clone needs the contents of one package. The history is
 // fetched in full: it is comparatively cheap, and a shallow clone would put
 // every later fetch, merge and push on go-git's weakest path.
+// The branch is named rather than left to the remote's HEAD: a single-branch
+// clone that follows HEAD tracks it as origin/HEAD, and every later operation
+// asks about origin/main.
 func sparseCloneOptions(url string) *gogit.CloneOptions {
 	return &gogit.CloneOptions{
-		URL:          url,
-		NoCheckout:   true,
-		SingleBranch: true,
-		Filter:       packp.FilterBlobNone(),
-		Progress:     io.Discard,
+		URL:           url,
+		NoCheckout:    true,
+		SingleBranch:  true,
+		ReferenceName: plumbing.NewBranchReferenceName(defaultBranch),
+		Filter:        packp.FilterBlobNone(),
+		Progress:      io.Discard,
 	}
 }

@@ -23,7 +23,7 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 		if complete {
 			return nil
 		}
-		logger.Debug("fork clone is incomplete (no origin/main), re-cloning", "path", forkPath)
+		logger.Debug("fork clone is incomplete or shallow, re-cloning", "path", forkPath)
 		if err := paths.Remove(forkPath); err != nil {
 			return fmt.Errorf("removing incomplete fork clone at %q: %w", forkPath, err)
 		}
@@ -34,11 +34,12 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)
 	spin := ui.Spinner(" Cloning fork (first publish, this can take a while)...")
 	spin.Start()
-	err := gitcli.Clone(forkURL, forkPath)
+	repo, err := git.SparseClone(forkPath, forkURL)
 	spin.Stop()
 	if err != nil {
 		return fmt.Errorf("cloning fork %q: %w", forkURL, err)
 	}
+	defer repo.Close() //nolint: errcheck
 	logger.Debug("cloned fork")
 	return nil
 }
@@ -53,7 +54,10 @@ func fetchExistingFork(logger *log.Logger, forkPath string) (bool, error) {
 	}
 	defer repo.Close() //nolint: errcheck
 
-	if !repo.HasMain() {
+	// A shallow clone is one an older gotpm made with --depth 1. Its truncated
+	// history is not enough to tell a fast-forward from a divergence, so it is
+	// replaced rather than worked with.
+	if !repo.HasMain() || repo.IsShallow() {
 		return false, nil
 	}
 
@@ -94,15 +98,19 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	spin.Start()
 	defer spin.Stop()
 
-	if err := gitcli.SparseCheckoutSet(forkPath, pkgDir); err != nil {
-		return false, fmt.Errorf("setting sparse-checkout scope %q: %w", pkgDir, err)
-	}
-
-	if err := checkoutFrom(logger, forkPath, branchName, local, onFork); err != nil {
+	// Where the branch sits is settled first and moves references only, so a
+	// clone that holds the contents of no package yet never has to materialize
+	// one; the sparse checkout that follows puts pkgDir, and nothing else, on
+	// disk.
+	if err := positionBranch(logger, repo, forkPath, branchName, local, onFork); err != nil {
 		return false, err
 	}
 
-	if err := gitcli.SetUpstream(forkPath, branchName); err != nil {
+	if err := repo.SparseCheckout(branchName, pkgDir); err != nil {
+		return false, fmt.Errorf("scoping fork clone to %q: %w", pkgDir, err)
+	}
+
+	if err := repo.SetUpstream(branchName); err != nil {
 		logger.Warn("could not set branch upstream", "branch", branchName, "err", err)
 	}
 
@@ -110,30 +118,29 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	return local || onFork, nil
 }
 
-// checkoutFrom checks out branchName from whichever base the branch's
-// local/fork existence calls for, fast-forwarding onto the fork's tip when the
-// branch exists in both places.
-func checkoutFrom(logger *log.Logger, forkPath, branchName string, local, onFork bool) error {
+// positionBranch puts branchName at the commit this publish should build on:
+// the fork's tip when the fork has the branch, the fork's main when nobody has
+// it yet, and where it already is when only this machine has it.
+func positionBranch(
+	logger *log.Logger, repo *git.Repo, forkPath, branchName string, local, onFork bool,
+) error {
 	if !local {
 		base := "origin/main"
 		if onFork {
 			base = "origin/" + branchName
 		}
 		logger.Debug("creating branch", "branch", branchName, "base", base)
-		if err := gitcli.CheckoutNewBranch(forkPath, branchName, base); err != nil {
-			return fmt.Errorf("checking out %q: %w", branchName, err)
+		if err := repo.SetBranchTo(branchName, base); err != nil {
+			return fmt.Errorf("creating %q: %w", branchName, err)
 		}
 		return nil
 	}
 
-	if err := gitcli.CheckoutBranch(forkPath, branchName); err != nil {
-		return fmt.Errorf("checking out %q: %w", branchName, err)
-	}
 	if !onFork {
 		return nil
 	}
 	logger.Debug("fast-forwarding onto fork branch", "branch", branchName)
-	if err := gitcli.MergeFFOnly(forkPath, branchName); err != nil {
+	if err := repo.MergeFFOnly(branchName); err != nil {
 		manual := fmt.Sprintf("git -C %s log --oneline %s..origin/%s", forkPath, branchName, branchName)
 		return fmt.Errorf("%w: %w\nInspect and reconcile them: %s", ErrForkBranchDiverged, err, manual)
 	}
