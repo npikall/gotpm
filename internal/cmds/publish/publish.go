@@ -46,7 +46,7 @@ type fork struct {
 // Run publishes the package of the current working directory to the
 // configured fork.
 func Run(opts *Options, logger *log.Logger) error {
-	fork, err := resolveTarget()
+	fork, err := resolveTarget(logger)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func pushCommand(forkPath, branchName string) string {
 
 // resolveTarget loads the fork configuration, erroring if fork.url is unset,
 // and resolving fork.path to its default when unset.
-func resolveTarget() (*fork, error) {
+func resolveTarget(logger *log.Logger) (*fork, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return &fork{}, err
@@ -90,28 +90,12 @@ func resolveTarget() (*fork, error) {
 	if forkURL == "" {
 		return &fork{}, fmt.Errorf("%w\nRun: `gotpm config set fork.url <repo>`", ErrMissingForkURL)
 	}
-	forkPath, err := resolveForkPath(cfg)
+	forkPath, err := ResolveForkPath(logger, cfg, forkURL)
 	if err != nil {
 		return &fork{}, err
 	}
+	logger.Debug("resolved fork", "url", forkURL, "path", forkPath)
 	return &fork{url: forkURL, path: forkPath}, nil
-}
-
-// resolveForkPath returns the configured fork.path, defaulting to
-// $APP_DATA_DIR/fork when unset.
-func resolveForkPath(cfg *config.Config) (string, error) {
-	forkPath, err := cfg.Get("fork.path")
-	if err != nil {
-		return "", err
-	}
-	if forkPath != "" {
-		return forkPath, nil
-	}
-	dataDir, err := paths.GotpmDataDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dataDir, "fork"), nil
 }
 
 // commitToFork loads the package manifest, checks out its branch in the fork
