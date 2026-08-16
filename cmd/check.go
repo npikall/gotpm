@@ -13,7 +13,7 @@ import (
 
 // checkCmd represents the check command
 var checkCmd = &cobra.Command{
-	Use:   "check [file]",
+	Use:   "check <file>",
 	Short: "Check if all dependencies are available",
 	Long:  `Check if all dependencies, that are imported by a file are available on the system`,
 	Args:  cobra.ExactArgs(1),

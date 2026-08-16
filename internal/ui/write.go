@@ -6,8 +6,16 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+func Print(v ...any) {
+	_, _ = lipgloss.Print(v...)
+}
+
+func Printf(format string, a ...any) {
+	_, _ = lipgloss.Printf(format, a...)
+}
+
 func Infof(format string, a ...any) {
-	prefix := BlueBold.Render("info")
+	prefix := Green.Render("info")
 	text := Normal.Render(fmt.Sprintf(format, a...))
 	_, _ = lipgloss.Printf("%s: %s\n", prefix, text)
 }
