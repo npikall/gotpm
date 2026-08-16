@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"charm.land/log/v2"
+	"github.com/npikall/gotpm/internal/git"
 	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/ui"
@@ -15,7 +16,7 @@ import (
 // brings an existing clone's origin/main up to date.
 func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	if paths.IsDir(filepath.Join(forkPath, ".git")) {
-		if gitcli.HasMain(forkPath) {
+		if hasMain(forkPath) {
 			return fetchFork(logger, forkPath)
 		}
 		logger.Debug("fork clone is incomplete (no origin/main), re-cloning", "path", forkPath)
@@ -64,7 +65,7 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	if !onFork {
 		logger.Debug("branch not on fork yet", "branch", branchName)
 	}
-	local := gitcli.BranchExists(forkPath, branchName)
+	local := branchExists(forkPath, branchName)
 	logger.Debug("resolved package branch", "branch", branchName, "local", local, "fork", onFork)
 
 	spin := ui.Spinner(" Checking out package branch...")
@@ -128,6 +129,43 @@ func commitFork(logger *log.Logger, forkPath, relDestDir, msg string) error {
 	}
 	logger.Debug("committed to fork")
 	return nil
+}
+
+// The three questions below are the first the fork clone answers through
+// go-git rather than the git binary. Each opens it for the length of one
+// answer, which a git subprocess did too; once the operations that write to
+// the clone follow, it is opened once for a whole publish instead.
+
+// hasMain reports whether the clone at forkPath has a resolvable origin/main,
+// i.e. whether its initial clone actually completed.
+func hasMain(forkPath string) bool {
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return false
+	}
+	defer repo.Close() //nolint: errcheck
+	return repo.HasMain()
+}
+
+// branchExists reports whether branch already exists locally in forkPath.
+func branchExists(forkPath, branch string) bool {
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return false
+	}
+	defer repo.Close() //nolint: errcheck
+	return repo.BranchExists(branch)
+}
+
+// tracksOwnBranch reports whether branch tracks origin/<branch> rather than
+// origin/main or nothing at all.
+func tracksOwnBranch(forkPath, branch string) bool {
+	repo, err := git.Open(forkPath)
+	if err != nil {
+		return false
+	}
+	defer repo.Close() //nolint: errcheck
+	return repo.TracksOwnBranch(branch)
 }
 
 // Push sends a branch to the fork's origin remote.

@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"charm.land/log/v2"
-	gogit "github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/git"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/pkg"
@@ -196,7 +195,7 @@ func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 	defer clone.Repo.Close() //nolint: errcheck
 
 	moved := movedTag(clone.Repo, entry)
-	if err := git.CheckoutRevision(clone.Repo, entry.Hash); err != nil {
+	if err := clone.Repo.CheckoutRevision(entry.Hash); err != nil {
 		return "", fmt.Errorf("could not check out %s of %s: %w", entry.Hash, entry.URL, err)
 	}
 	if err := i.Store.Install(ref, clone.Dir); err != nil {
@@ -216,11 +215,11 @@ func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 // releases, cannot drift in a way worth reporting, and one that has since
 // disappeared is not something the install needs to care about: the lock names
 // a commit, and that is what gets installed either way.
-func movedTag(repo *gogit.Repository, entry lockfile.Entry) string {
+func movedTag(repo *git.Repo, entry lockfile.Entry) string {
 	if entry.Revision == "" || entry.Revision == "HEAD" || entry.Revision == entry.Hash {
 		return ""
 	}
-	hash, err := git.ResolveHash(repo, entry.Revision)
+	hash, err := repo.ResolveHash(entry.Revision)
 	if err != nil || hash == entry.Hash {
 		return ""
 	}

@@ -13,7 +13,6 @@ import (
 	"charm.land/log/v2"
 	git "github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/config"
-	"github.com/npikall/gotpm/internal/gitcli"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkgfiles"
@@ -70,7 +69,7 @@ func Run(opts *Options, logger *log.Logger) error {
 
 // pushCommand returns the command that pushes branchName from forkPath
 func pushCommand(forkPath, branchName string) string {
-	if gitcli.TracksOwnBranch(forkPath, branchName) {
+	if tracksOwnBranch(forkPath, branchName) {
 		return fmt.Sprintf("cd %s && git push", forkPath)
 	}
 	return fmt.Sprintf("git -C %s push origin %s", forkPath, branchName)
