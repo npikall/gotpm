@@ -95,10 +95,15 @@ func resolveTree(repo *git.Repository, path string) (*object.TreeEntry, error) {
 	return entry, nil
 }
 
+// sparseCloneOptions describes a blobless, single-branch, checkout-less clone.
+// The blob filter is what keeps a clone of the Typst Universe package
+// repository small - its size is overwhelmingly package contents, and a
+// sparsely checked out clone needs the contents of one package. The history is
+// fetched in full: it is comparatively cheap, and a shallow clone would put
+// every later fetch, merge and push on go-git's weakest path.
 func sparseCloneOptions(url string, branch plumbing.ReferenceName) *git.CloneOptions {
 	return &git.CloneOptions{
 		URL:           url,
-		Depth:         1,
 		NoCheckout:    true,
 		SingleBranch:  true,
 		ReferenceName: branch,
