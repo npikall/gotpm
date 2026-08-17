@@ -27,13 +27,18 @@ func (c *Cache) IsValid() bool {
 	return time.Since(c.Timestamp) < CacheTTL
 }
 
+// CachePathIn returns the path of the cache file inside dir.
+func CachePathIn(dir string) string {
+	return filepath.Join(dir, cacheFileName)
+}
+
 // CachePath returns the path of the cache file, without creating it.
 func CachePath() (string, error) {
 	base, err := paths.GotpmDataDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, cacheFileName), nil
+	return CachePathIn(base), nil
 }
 
 // LoadCache reads the cache from disk.
@@ -56,12 +61,11 @@ func LoadCache() (*Cache, error) {
 	return &cache, nil
 }
 
-// SaveCache writes the index to disk with the current timestamp.
-func SaveCache(idx Index) error {
-	path, err := CachePath()
-	if err != nil {
-		return err
-	}
+// SaveCacheAt writes the index into dir with the current timestamp. It takes
+// the directory rather than reading it from the environment, so a test can
+// seed a cache for a gotpm running in another process.
+func SaveCacheAt(dir string, idx Index) error {
+	path := CachePathIn(dir)
 	if err := paths.EnsureDir(filepath.Dir(path)); err != nil {
 		return err
 	}
@@ -70,6 +74,15 @@ func SaveCache(idx Index) error {
 		return fmt.Errorf("could not marshal index: %w", err)
 	}
 	return paths.WriteFile(path, data)
+}
+
+// SaveCache writes the index to disk with the current timestamp.
+func SaveCache(idx Index) error {
+	base, err := paths.GotpmDataDir()
+	if err != nil {
+		return err
+	}
+	return SaveCacheAt(base, idx)
 }
 
 // ClearCache removes the cache file. A missing file is not an error.

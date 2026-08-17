@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
@@ -23,36 +24,138 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Isolate points gotpm's data directory and package store at temporary ones,
-// so a test never touches the developer's real clone cache or installed
-// packages. It returns the root of the package store.
+const (
+	packagesRelPath = "typst-packages"
+	configRelPath   = "config"
+)
+
+// Packages is the package store inside an isolated root.
+func Packages(root string) string { return filepath.Join(root, packagesRelPath) }
+
+// GitConfigPath is the global git config inside an isolated root. Nothing
+// creates it: git reads a missing config as an empty one, so isolation holds
+// whether or not a test has written anything there.
+func GitConfigPath(root string) string { return filepath.Join(root, "gitconfig") }
+
+// WriteGitIdentity gives the isolated root a git identity, for the tests that
+// exercise gotpm committing on the user's behalf. It is written rather than
+// assumed because isolation removed the real one, and a machine with no
+// identity is a machine those commands correctly refuse to work on.
+func WriteGitIdentity(t *testing.T, root string) {
+	t.Helper()
+	content := "[user]\n\tname = test\n\temail = test@example.com\n"
+	require.NoError(t, paths.WriteFile(GitConfigPath(root), []byte(content)))
+}
+
+// Env is what isolation consists of, as KEY=VALUE pairs rooted at root: every
+// variable gotpm or go-git reads to find state on the machine, pointed
+// somewhere disposable.
+//
+// It is the whole list, not an addition to the ambient environment. A test
+// running gotpm as a subprocess passes exactly these (plus PATH), so nothing
+// the developer or the runner exports can reach it — GITHUB_TOKEN and
+// SSH_AUTH_SOCK above all, which would otherwise hand a publish test real push
+// credentials.
+func Env(root string) []string {
+	return []string{
+		"HOME=" + root,
+		"APPDATA=" + root,
+		"XDG_DATA_HOME=" + root,
+		"XDG_CONFIG_HOME=" + filepath.Join(root, configRelPath),
+		"TYPST_PACKAGE_PATH=" + Packages(root),
+		// Empty reads as unset everywhere gotpm consults it.
+		"GOTPM_INSTALL_DIR=",
+		"GIT_CONFIG_GLOBAL=" + GitConfigPath(root),
+		"GIT_CONFIG_SYSTEM=" + os.DevNull,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+}
+
+// Isolate applies Env to the running process for the duration of t, so a test
+// calling gotpm in-process never touches the developer's real clone cache,
+// config or installed packages. It returns the root of the package store.
 //
 // A test calling this cannot be parallel: t.Setenv is process-wide.
 func Isolate(t *testing.T) string {
 	t.Helper()
-	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
-	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
-
-	data := t.TempDir()
-	t.Setenv("XDG_DATA_HOME", data)
-	t.Setenv("HOME", data)
-	t.Setenv("APPDATA", data)
-
-	packages := filepath.Join(data, "typst-packages")
-	t.Setenv("TYPST_PACKAGE_PATH", packages)
-	return packages
+	root := t.TempDir()
+	for _, pair := range Env(root) {
+		key, value, _ := strings.Cut(pair, "=")
+		t.Setenv(key, value)
+	}
+	return Packages(root)
 }
 
-// Project writes a minimal typst.toml into a new directory, makes it the
-// working directory, and returns it. This is the project the dependency
-// commands operate on.
-func Project(t *testing.T, name string) string {
+// ProjectAt writes a minimal typst.toml into a new directory and returns it,
+// without changing where the test is running. This is the project the
+// dependency commands operate on; a test driving gotpm as a subprocess points
+// its working directory here instead of moving its own.
+func ProjectAt(t *testing.T, name string) string {
 	t.Helper()
 	dir := t.TempDir()
 	content := fmt.Sprintf("[package]\nname = %q\nversion = \"0.1.0\"\nentrypoint = \"main.typ\"\n", name)
 	require.NoError(t, paths.WriteFile(filepath.Join(dir, manifest.FileName), []byte(content)))
+	return dir
+}
+
+// Project is ProjectAt, made the working directory. A test calling this cannot
+// be parallel: t.Chdir is process-wide.
+func Project(t *testing.T, name string) string {
+	t.Helper()
+	dir := ProjectAt(t, name)
 	t.Chdir(dir)
 	return dir
+}
+
+// initRepo creates a repository on main that can be committed to whatever the
+// machine running the test is configured to do.
+//
+// go-git refuses to commit at all when commit.gpgSign is set without a signer,
+// and it reads the user's global config unless the process was told otherwise.
+// A fixture that only works for developers who do not sign their commits is
+// not a fixture, so the setting is turned off in the repository itself — the
+// same thing publishing does to a Fork Clone, and for the same reason.
+//
+// The branch is named explicitly because go-git still defaults to master,
+// which is not what the repositories gotpm is pointed at in the world are
+// called.
+func initRepo(t *testing.T, dir string) *git.Repository {
+	t.Helper()
+	repo, err := git.PlainInit(dir, false, git.WithDefaultBranch(plumbing.Main))
+	require.NoError(t, err)
+
+	cfg, err := repo.Config()
+	require.NoError(t, err)
+	cfg.Raw.Section("commit").SetOption("gpgsign", "false")
+	require.NoError(t, repo.SetConfig(cfg))
+	return repo
+}
+
+// Fork creates a bare repository standing in for a fork of the Typst Universe
+// package repository, and returns the URL it is reachable at.
+//
+// It is seeded with a commit, because that is what makes it a fork rather than
+// an empty repository: publishing positions a branch before it scopes a
+// worktree, and a repository with no commits has no branch to position against.
+func Fork(t *testing.T) string {
+	t.Helper()
+	seed := filepath.Join(t.TempDir(), "seed")
+	require.NoError(t, paths.EnsureDir(seed))
+	repo := initRepo(t, seed)
+
+	require.NoError(t, paths.WriteFile(filepath.Join(seed, "README.md"), []byte("# packages\n")))
+	wt, err := repo.Worktree()
+	require.NoError(t, err)
+	require.NoError(t, wt.AddGlob("."))
+	_, err = wt.Commit("seed", &git.CommitOptions{
+		Author: &object.Signature{Name: "test", Email: "test@example.com", When: time.Now()},
+	})
+	require.NoError(t, err)
+
+	bare := filepath.Join(t.TempDir(), "fork.git")
+	_, err = git.PlainClone(bare, &git.CloneOptions{URL: "file://" + seed, Bare: true})
+	require.NoError(t, err)
+	return "file://" + bare
 }
 
 // Package is a git repository holding one typst package.
@@ -75,9 +178,7 @@ func New(t *testing.T, name, version string) *Package {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), name)
 	require.NoError(t, paths.EnsureDir(dir))
-	repo, err := git.PlainInit(dir, false)
-	require.NoError(t, err)
-	return &Package{t: t, dir: dir, repo: repo, name: name, version: version}
+	return &Package{t: t, dir: dir, repo: initRepo(t, dir), name: name, version: version}
 }
 
 // Dir is the working tree of the repository.
