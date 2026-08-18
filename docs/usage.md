@@ -120,6 +120,29 @@ Typst installs every version at its own path, so both remain importable. Once
 your source no longer mentions the old one, take it out with
 `gotpm remove @gotpm/cetz:0.3.1`.
 
+## Project commands and standalone commands
+
+The commands below fall into two groups, and the difference decides which flags
+they take.
+
+**Project commands** — `add`, `sync`, `remove` — take the current project as
+their subject. They read `typst.toml` and `gotpm.lock`, and install or delete
+the whole dependency graph those two describe. Run one outside a project and it
+says so. `bump` and `locate` read the project as well, but change no dependency.
+
+**Standalone commands** — `install`, `uninstall`, `list`, `check`, `publish`,
+`init`, `update`, `cache`, `config`, `self` — need no project. `install` and
+`uninstall` act on a single package version, which is why they are the only two
+that accept `--install-dir`: that flag names a directory to receive one
+package's files directly, and a dependency graph does not fit in one. A project
+command always works on the package directory.
+
+`$GOTPM_INSTALL_DIR` is the ambient form of `--install-dir` — the same
+single-package destination, set once instead of typed each time. It is not a
+setting for where gotpm keeps its data, and it is ignored by every command that
+does not offer the flag. To move the package directory itself, layout and all,
+set Typst's own `$TYPST_PACKAGE_PATH`; every command honours that.
+
 ## `add`
 
 Add a repository as a dependency of the current project.
@@ -150,7 +173,6 @@ EXAMPLES
 FLAGS
     -f --force     Replace a package installed from a different repository.
     -h --help      Help for add
-    --install-dir  Override the package directory (env: $GOTPM_INSTALL_DIR)
     -t --rev       The revision (hash or tag) to pin. Defaults to the newest release.
     -v --verbose   Enable verbose output
 ```
@@ -294,7 +316,7 @@ FLAGS
 belongs to. Without one, they are left out of the listing, and asking for them
 by name is an error.
 
-The `packages` path follows the same overrides the install commands do —
+The `packages` path follows the same overrides `gotpm install` does —
 `$GOTPM_INSTALL_DIR` first, then `$TYPST_PACKAGE_PATH` — and the listing notes
 which one applied:
 
@@ -304,6 +326,12 @@ Typst
   packages   /tmp/scratch (via $GOTPM_INSTALL_DIR)
 ...
 ```
+
+`$GOTPM_INSTALL_DIR` is reported deliberately, as a warning rather than a fact
+about where dependencies go: a variable left set in your shell will send the
+next `gotpm install` into a flat directory Typst cannot import from. `add`,
+`sync` and `remove` ignore it and keep using the package directory, so the two
+can disagree — that is what the annotation is for.
 
 ## `remove`
 
@@ -328,7 +356,6 @@ EXAMPLES
 
 FLAGS
     -h --help      Help for remove
-    --install-dir  Override the package directory (env: $GOTPM_INSTALL_DIR)
     --prune        Delete the removed packages from the package store as well.
     -v --verbose   Enable verbose output
 ```
@@ -372,7 +399,6 @@ FLAGS
     -f --force     Replace a package installed from a different repository.
     --frozen       Fail instead of updating gotpm.lock.
     -h --help      Help for sync
-    --install-dir  Override the package directory (env: $GOTPM_INSTALL_DIR)
     -v --verbose   Enable verbose output
 ```
 
