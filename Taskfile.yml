@@ -39,6 +39,7 @@ tasks:
     cmds:
       - go mod download
       - go mod tidy
+      - go mod vendor
 
   lint:
     desc: Run golangci-lint
