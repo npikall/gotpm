@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"github.com/npikall/gotpm/internal/cmds/sync"
-	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -38,14 +37,12 @@ func init() {
 	rootCmd.AddCommand(syncCmd)
 	syncCmd.Flags().Bool("frozen", false, "Fail instead of updating gotpm.lock.")
 	syncCmd.Flags().BoolP("force", "f", false, "Replace a package installed from a different repository.")
-	syncCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func SyncRunner(cmd *cobra.Command, _ []string) error {
 	opts := &sync.Options{
-		Frozen:     Must(cmd.Flags().GetBool("frozen")),
-		Force:      Must(cmd.Flags().GetBool("force")),
-		InstallDir: Must(cmd.Flags().GetString(paths.InstallDirFlag)),
+		Frozen: Must(cmd.Flags().GetBool("frozen")),
+		Force:  Must(cmd.Flags().GetBool("force")),
 	}
 	return sync.Run(opts, newLogger(cmd))
 }

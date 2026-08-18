@@ -21,7 +21,7 @@ const maxDisplayedVersions = 5
 
 // Run prints every installed package, grouped by namespace.
 func Run(log *log.Logger) error {
-	s, err := store.Open("")
+	s, err := store.OpenPackageDir()
 	if err != nil {
 		return err
 	}

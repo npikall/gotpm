@@ -28,7 +28,8 @@ directly, with no namespace/name/version layout around them, which is not a
 directory typst imports from and not one gotpm scans. It is an output
 destination — vendoring one package into a build directory, or looking at what
 an install would produce. The flag takes precedence over the environment
-variable.
+variable. Neither reaches 'add', 'sync' or 'remove': those work on a dependency
+graph, which does not fit in a directory holding one package.
 `,
 	Example: `gotpm install
 gotpm install . -e

@@ -21,8 +21,6 @@ type Options struct {
 	Revision string
 	// Force replaces a package installed from another repository.
 	Force bool
-	// InstallDir overrides the package directory.
-	InstallDir string
 }
 
 // Run adds the package at url to the current project.
@@ -41,7 +39,7 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	direct := entries[0]
 
-	installer, err := deps.OpenInstaller(opts.InstallDir, opts.Force, logger)
+	installer, err := deps.OpenInstaller(opts.Force, logger)
 	if err != nil {
 		return err
 	}

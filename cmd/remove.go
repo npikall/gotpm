@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"github.com/npikall/gotpm/internal/cmds/remove"
-	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -35,13 +34,11 @@ gotpm rm @gotpm/cetz:0.3.1 --prune
 func init() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.Flags().Bool("prune", false, "Delete the removed packages from the package store as well.")
-	removeCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func RemoveRunner(cmd *cobra.Command, args []string) error {
 	opts := &remove.Options{
-		Prune:      Must(cmd.Flags().GetBool("prune")),
-		InstallDir: Must(cmd.Flags().GetString(paths.InstallDirFlag)),
+		Prune: Must(cmd.Flags().GetBool("prune")),
 	}
 	return remove.Run(args[0], opts, newLogger(cmd))
 }

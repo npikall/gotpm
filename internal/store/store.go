@@ -48,6 +48,19 @@ func Open(override string) (Store, error) {
 	return Store{root: root, flat: overridden}, nil
 }
 
+// OpenPackageDir opens the shared package directory the Typst compiler resolves
+// imports from, laid out by namespace, name and version.
+//
+// It deliberately ignores the install dir override: an install dir receives one
+// package's files directly, and a project's dependencies are a graph.
+func OpenPackageDir() (Store, error) {
+	root, err := paths.TypstPackagesDir()
+	if err != nil {
+		return Store{}, fmt.Errorf("could not resolve package directory: %w", err)
+	}
+	return At(root), nil
+}
+
 // At returns a store rooted at an explicit directory, laid out by namespace,
 // name and version.
 func At(root string) Store {
