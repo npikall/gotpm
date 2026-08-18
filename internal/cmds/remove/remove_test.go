@@ -11,6 +11,7 @@ import (
 	"github.com/npikall/gotpm/internal/cmds/remove"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,4 +141,21 @@ func TestRun_RejectsAnImportWithoutAVersion(t *testing.T) { //nolint: parallelte
 	err := remove.Run("@gotpm/cetz", &remove.Options{}, discardLogger())
 
 	require.ErrorIs(t, err, manifest.ErrInvalidDependency)
+}
+
+func TestRun_PrunesFromThePackageDirectoryDespiteAnInstallDirOverride(t *testing.T) {
+	packages := testrepo.Isolate(t)
+	testrepo.Project(t, "my-doc")
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+
+	installDir := t.TempDir()
+	t.Setenv(paths.InstallDirEnvVar, installDir)
+	require.NoError(t, remove.Run(root.Import(), &remove.Options{Prune: true}, discardLogger()))
+
+	for _, name := range []string{"root", "leaf"} {
+		assert.False(t, installed(t, packages, name, "1.0.0"),
+			"%s must be pruned from the package directory it was installed into", name)
+	}
 }

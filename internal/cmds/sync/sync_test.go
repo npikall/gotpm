@@ -11,6 +11,7 @@ import (
 	"github.com/npikall/gotpm/internal/cmds/sync"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -184,4 +185,25 @@ func TestRun_WithoutAProject(t *testing.T) { //nolint: paralleltest
 	err := sync.Run(&sync.Options{}, discardLogger())
 
 	require.ErrorIs(t, err, manifest.ErrManifestNotFound)
+}
+
+func TestRun_InstallsIntoThePackageDirectoryDespiteAnInstallDirOverride(t *testing.T) {
+	packages := testrepo.Isolate(t)
+	testrepo.Project(t, "my-doc")
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	emptyStore(t, packages)
+
+	installDir := t.TempDir()
+	t.Setenv(paths.InstallDirEnvVar, installDir)
+	require.NoError(t, sync.Run(&sync.Options{}, discardLogger()))
+
+	for _, name := range []string{"root", "leaf"} {
+		assert.True(t, installed(t, packages, name, "1.0.0"),
+			"%s belongs in the package directory: an install dir holds one package, not a lock", name)
+	}
+	entries, err := os.ReadDir(installDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "the install dir is not sync's destination")
 }
