@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"github.com/npikall/gotpm/internal/cmds/add"
-	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -41,14 +40,12 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	addCmd.Flags().StringP("rev", "t", "", "The revision (hash or tag) to pin. Defaults to the newest release.")
 	addCmd.Flags().BoolP("force", "f", false, "Replace a package installed from a different repository.")
-	addCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 }
 
 func AddRunner(cmd *cobra.Command, args []string) error {
 	opts := &add.Options{
-		Revision:   Must(cmd.Flags().GetString("rev")),
-		Force:      Must(cmd.Flags().GetBool("force")),
-		InstallDir: Must(cmd.Flags().GetString(paths.InstallDirFlag)),
+		Revision: Must(cmd.Flags().GetString("rev")),
+		Force:    Must(cmd.Flags().GetBool("force")),
 	}
 	return add.Run(args[0], opts, newLogger(cmd))
 }

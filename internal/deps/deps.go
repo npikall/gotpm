@@ -80,10 +80,10 @@ type Installer struct {
 	Force bool
 }
 
-// OpenInstaller opens the package store and returns an installer writing into
-// it. An empty installDir uses the store every project on the machine shares.
-func OpenInstaller(installDir string, force bool, logger *log.Logger) (Installer, error) {
-	s, err := store.Open(installDir)
+// OpenInstaller returns an installer writing into the package directory every
+// project on this machine shares.
+func OpenInstaller(force bool, logger *log.Logger) (Installer, error) {
+	s, err := store.OpenPackageDir()
 	if err != nil {
 		return Installer{}, err
 	}

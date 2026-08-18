@@ -26,8 +26,6 @@ type Options struct {
 	// because the store is shared: another project may import the same
 	// version.
 	Prune bool
-	// InstallDir overrides the package directory.
-	InstallDir string
 }
 
 // Run removes the dependency written as imp, e.g. "@gotpm/cetz:0.3.1".
@@ -59,7 +57,7 @@ func Run(imp string, opts *Options, logger *log.Logger) error {
 	}
 
 	if opts.Prune {
-		if err := uninstall(removed, opts, logger); err != nil {
+		if err := uninstall(removed, logger); err != nil {
 			return err
 		}
 	}
@@ -102,8 +100,8 @@ func pruneLock(project *deps.Project, remaining []string) ([]lockfile.Entry, err
 }
 
 // uninstall deletes packages from the store.
-func uninstall(removed []lockfile.Entry, opts *Options, logger *log.Logger) error {
-	s, err := store.Open(opts.InstallDir)
+func uninstall(removed []lockfile.Entry, logger *log.Logger) error {
+	s, err := store.OpenPackageDir()
 	if err != nil {
 		return err
 	}

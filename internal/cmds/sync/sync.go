@@ -34,8 +34,6 @@ type Options struct {
 	Frozen bool
 	// Force overwrites a package installed from another repository.
 	Force bool
-	// InstallDir overrides the package directory.
-	InstallDir string
 }
 
 // Run installs everything the current project depends on.
@@ -68,7 +66,7 @@ func Run(opts *Options, logger *log.Logger) error {
 		return err
 	}
 
-	installer, err := deps.OpenInstaller(opts.InstallDir, opts.Force, logger)
+	installer, err := deps.OpenInstaller(opts.Force, logger)
 	if err != nil {
 		return err
 	}
