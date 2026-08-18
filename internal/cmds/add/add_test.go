@@ -11,6 +11,7 @@ import (
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/testrepo"
@@ -203,4 +204,23 @@ func TestRun_LeavesTheProjectAloneWhenAnInstallFails(t *testing.T) { //nolint: p
 	entry, ok := lockOf(t, project).Get("@gotpm/cetz:0.3.1")
 	require.True(t, ok)
 	assert.Equal(t, mine.URL(), entry.URL, "a failed add must not repoint the lock")
+}
+
+func TestRun_InstallsIntoThePackageDirectoryDespiteAnInstallDirOverride(t *testing.T) {
+	packages := testrepo.Isolate(t)
+	installDir := t.TempDir()
+	t.Setenv(paths.InstallDirEnvVar, installDir)
+	testrepo.Project(t, "my-doc")
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+
+	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+
+	for _, name := range []string{"root", "leaf"} {
+		assert.True(t, installed(t, packages, name, "1.0.0"),
+			"%s belongs in the package directory: an install dir holds one package, not a graph", name)
+	}
+	entries, err := os.ReadDir(installDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "the install dir is not add's destination")
 }

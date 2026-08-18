@@ -8,6 +8,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/lockfile"
+	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/testrepo"
@@ -120,21 +121,22 @@ func TestEnsureAll_StopsAtTheFirstEntryItCannotInstall(t *testing.T) { //nolint:
 	assert.Nil(t, results, "a half-installed set is not reported on")
 }
 
-func TestOpenInstaller_UsesTheOverriddenPackageDirectory(t *testing.T) { //nolint: paralleltest
-	testrepo.Isolate(t)
-	override := t.TempDir()
+func TestOpenInstaller_WritesIntoThePackageDirectory(t *testing.T) {
+	packages := testrepo.Isolate(t)
+	t.Setenv(paths.InstallDirEnvVar, t.TempDir())
 
-	i, err := deps.OpenInstaller(override, false, discardLogger())
+	i, err := deps.OpenInstaller(false, discardLogger())
 
 	require.NoError(t, err)
-	assert.Equal(t, override, i.Store.Root())
+	assert.Equal(t, packages, i.Store.Root(),
+		"an install dir receives one package's files, so it is never where a dependency graph goes")
 }
 
 func TestOpenInstaller_PassesForceToTheInstaller(t *testing.T) { //nolint: paralleltest
 	testrepo.Isolate(t)
 	mine := testrepo.New(t, "cetz", "0.3.1").Release()
 	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
-	i, err := deps.OpenInstaller("", true, discardLogger())
+	i, err := deps.OpenInstaller(true, discardLogger())
 	require.NoError(t, err)
 	_, err = i.Ensure(mine.LockEntry())
 	require.NoError(t, err)
