@@ -3,6 +3,7 @@
 package install
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,9 +27,15 @@ type Options struct {
 	Revision   string
 }
 
+var ErrNoEditableRemote = errors.New("install remote package in `editable` mode is disallowed")
+
 // Run installs the package found at path, which may be empty to install the
 // package of the current working directory.
 func Run(path string, opts *Options, log *log.Logger) error {
+	if opts.Editable && opts.Remote != "" {
+		return ErrNoEditableRemote
+	}
+
 	sourceDir, err := resolveSourceDir(path, opts, log)
 	if err != nil {
 		return err
