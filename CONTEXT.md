@@ -63,7 +63,9 @@ _Avoid_: store, package store
 A directory named on the command line to receive one package's files directly,
 without the namespace, name and version layout around them. Typst cannot import
 from it and gotpm does not scan it; it is an output destination, not a package
-directory.
+directory. Only `install` and `uninstall` take one, because it holds a single
+package: the commands that install or delete a whole dependency graph — `add`,
+`sync`, `remove` — always work on the package directory.
 _Avoid_: package directory, store
 
 **Namespace**:
@@ -161,6 +163,21 @@ the maintainers merging it.
 _Avoid_: release, publication, PR
 
 ### Operations
+
+**Project Command**:
+A command whose subject is the current project: it reads `typst.toml` and
+`gotpm.lock`, and installs or deletes the whole dependency graph they describe.
+`add`, `sync` and `remove`. Because a graph is many packages, a project command
+always works on the package directory and never takes an install dir. `bump` and
+`locate` read the project too, but change no dependency.
+_Avoid_: dependency command, local command
+
+**Standalone Command**:
+A command that needs no project, so the directory it operates on can be named on
+the command line. `install`, `uninstall`, `list`, `check`, `publish`, `init`,
+`update`, `cache`, `config`, `self`. These are the only commands an install dir
+is offered to, and only when they act on one package version.
+_Avoid_: regular command, global command, non-project command
 
 **Install**:
 Take a working tree that constitutes a package and place it in the package
