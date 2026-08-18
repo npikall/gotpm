@@ -42,18 +42,10 @@ func Run(path string, opts *Options, log *log.Logger) error {
 	}
 	log.Debug("operating in source", "path", sourceDir)
 
-	// The manifest is read directly rather than through deps.OpenProject: this
-	// directory may be a throwaway clone of a remote repository, where "run
-	// 'gotpm init' to start a project here" is the wrong thing to suggest.
-	manifestFile, err := manifest.FindFile(sourceDir)
+	sourceDir, m, err := findRootManifest(sourceDir)
 	if err != nil {
-		return fmt.Errorf("could not load manifest: %w", err)
+		return err
 	}
-	m, err := manifest.LoadFile(manifestFile)
-	if err != nil {
-		return fmt.Errorf("could not load manifest: %w", err)
-	}
-	sourceDir = filepath.Dir(manifestFile)
 	log.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
 
 	s, err := store.Open(opts.InstallDir)
@@ -71,11 +63,7 @@ func Run(path string, opts *Options, log *log.Logger) error {
 	}
 
 	if opts.Editable {
-		if err := s.Link(ref, sourceDir); err != nil {
-			return err
-		}
-		ui.Infof("installed %s (editable)", ui.Package(ref.String()))
-		return nil
+		return linkAndReport(s, ref, sourceDir)
 	}
 
 	if err := ui.Spin("", func() error { return s.Install(ref, sourceDir) }); err != nil {
@@ -83,6 +71,27 @@ func Run(path string, opts *Options, log *log.Logger) error {
 	}
 	ui.Infof("installed %s", ui.Package(ref.String()))
 	return nil
+}
+
+func linkAndReport(s store.Store, ref pkg.Ref, src string) error {
+	if err := s.Link(ref, src); err != nil {
+		return err
+	}
+	ui.Infof("installed %s (editable)", ui.Package(ref.String()))
+	return nil
+}
+
+func findRootManifest(src string) (string, *manifest.Manifest, error) {
+	manifestFile, err := manifest.FindFile(src)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not load manifest: %w", err)
+	}
+	m, err := manifest.LoadFile(manifestFile)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not load manifest: %w", err)
+	}
+	sourceDir := filepath.Dir(manifestFile)
+	return sourceDir, m, nil
 }
 
 // clearDestination removes an existing install when force is set, and rejects
