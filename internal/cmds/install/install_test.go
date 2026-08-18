@@ -125,6 +125,17 @@ func TestRun_Editable(t *testing.T) {
 	assert.Equal(t, src, target)
 }
 
+func TestRun_RemoteRejectsEditable(t *testing.T) {
+	t.Parallel()
+	src := sourcePackage(t, "content")
+	opts, _ := destination(t)
+	opts.Editable = true
+	opts.Remote = "github.com/npikall/gotpm"
+
+	gotErr := install.Run(src, opts, discardLogger())
+	require.ErrorIs(t, gotErr, install.ErrNoEditableRemote)
+}
+
 func TestRun_ForceReplacesAnEditableInstall(t *testing.T) {
 	t.Parallel()
 	src := sourcePackage(t, "content")
