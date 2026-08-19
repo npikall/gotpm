@@ -54,7 +54,7 @@ linters:
     - prealloc
     - reassign
     - recvcheck
-    # - revive
+    - revive
     - staticcheck
     - tagalign
     - testifylint
@@ -79,6 +79,13 @@ linters:
           - gocyclo
           - errcheck
           - gosec
+      - linters:
+          - revive
+        text: '^exported:'
+      - path: '(.+)_test\.go'
+        linters:
+          - revive
+        text: '^dot-imports:'
   settings:
     # Keeps the layering honest: cobra lives in cmd/, terminal output lives in
     # internal/ui, and the domain packages under internal/ do neither.
