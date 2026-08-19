@@ -1,9 +1,4 @@
-/*
-Copyright © 2026 Nikolas Pikall <nikolas.pikall@gmail.com>
-
-SPDX-License-Identifier: MIT License
-See the LICENSE file in the repository root for full license text.
-*/
+// Package cmd provides the commands for gotpm
 package cmd
 
 import (
@@ -22,7 +17,7 @@ import (
 //go:embed art.txt
 var asciiArt string
 
-var description string = `
+var description = `
 GoTPM is a minimal Package Manager for Typst. Install the packages you write to
 your disk, to make them installable via a local import.`
 
@@ -38,11 +33,11 @@ const installDirUsage = "A directory holding one package's files, without namesp
 	paths.InstallDirEnvVar + ")"
 
 var (
-	gitTag    string = "dev"
-	gitCommit string = "00000000"
-	buildOS   string = "NOOS"
-	buildARCH string = "NOARCH"
-	installer string = "source"
+	gitTag    = "dev"
+	gitCommit = "00000000"
+	buildOS   = "NOOS"
+	buildARCH = "NOARCH"
+	installer = "source"
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
