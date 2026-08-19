@@ -1,11 +1,3 @@
-/*
-Copyright © 2026 Nikolas Pikall <nikolas.pikall@gmail.com>
-
-SPDX-License-Identifier: MIT License
-See the LICENSE file in the repository root for full license text.
-*/
-// The command variables are package-private, so the flag surface has to be
-// inspected from inside the package.
 package cmd //nolint: testpackage
 
 import (

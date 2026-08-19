@@ -33,14 +33,14 @@ func (v *Version) String() string {
 func (v *Version) Bump(increment string) error {
 	switch increment {
 	case MAJOR:
-		v.Major += 1
+		v.Major++
 		v.Minor = 0
 		v.Patch = 0
 	case MINOR:
-		v.Minor += 1
+		v.Minor++
 		v.Patch = 0
 	case PATCH:
-		v.Patch += 1
+		v.Patch++
 	default:
 		return ErrInvalidIncrement
 	}
