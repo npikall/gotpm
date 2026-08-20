@@ -104,7 +104,7 @@ type installResult struct {
 // is not a state worth reporting on. Running the command again picks up where
 // this one stopped, because Ensure leaves what is already installed alone.
 func (i Installer) EnsureAll(entries []lockfile.Entry) ([]Result, error) {
-	numJobs := len(entries)
+	numJobs := min(len(entries), runtime.NumCPU())
 	results := make([]Result, 0, numJobs)
 
 	jobsCh := make(chan lockfile.Entry, numJobs)
