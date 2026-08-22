@@ -1,6 +1,6 @@
 module github.com/npikall/gotpm
 
-go 1.26.3
+go 1.27.0
 
 require (
 	charm.land/fang/v2 v2.0.1
