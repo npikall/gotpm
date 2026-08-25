@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-08-25
+
+### 🐛 Bug Fixes
+
+- reject installs from remotes in editable mode
+
+### 📚 Documentation
+
+- replace just taskrunner with go-task (#38)
+- add domain model (#45)
+- update help text to explain install dir (#47)
+- set adr about install-dir and
+
+### 🚜 Refactor
+
+- colorschemes and ui (#46)
+- reduce cyclomatic complexity issue
+- remove install-dir flag
+- fix revive linter errors
+
+### 🧪 Testing
+
+- assert editable remote installs get rejected
+- assert project commands reject install-dir
+
+### 💼 Other
+
+- *(task)* add vendor to mod task (#53)
+- add the revive linter
+- update go version
+- update dependencies
+- add linting workflow
+- update dependencies
+
 ## [0.5.0] - 2026-08-09
 
 ### 🚀 Features
@@ -28,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add nix flake (#25)
 - add clean task (#36)
 - use go-task instead of just (#37)
+- *(release)* v0.5.0
 
 ## [0.4.0] - 2026-08-03
 
@@ -650,6 +685,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.5.1]: https://github.com/npikall/gotpm/compare/v0.5.0..v0.5.1
 [0.5.0]: https://github.com/npikall/gotpm/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/npikall/gotpm/compare/v0.3.13..v0.4.0
 [0.3.13]: https://github.com/npikall/gotpm/compare/v0.3.12..v0.3.13
