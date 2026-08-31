@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Isolate points gotpm's data directory and package store at temporary ones,
+// Isolate points gotpm's data directory and package directory at temporary ones,
 // so a test never touches the developer's real clone cache or installed
-// packages. It returns the root of the package store.
+// packages. It returns the root of the package directory.
 //
 // A test calling this cannot be parallel: t.Setenv is process-wide.
 func Isolate(t *testing.T) string {

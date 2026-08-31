@@ -9,7 +9,7 @@ import (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Install everything this project depends on.",
-	Long: `Reads typst.toml and gotpm.lock and makes the package store match them.
+	Long: `Reads typst.toml and gotpm.lock and makes the package directory match them.
 This is what a fresh checkout needs before it compiles.
 
 Every package is installed at the commit gotpm.lock pins, not at whatever

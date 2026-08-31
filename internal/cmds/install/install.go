@@ -1,5 +1,5 @@
 // Package install implements the install command: it places a typst package
-// into the local package store, either as a copy or as a symlink.
+// into the local package directory, either as a copy or as a symlink.
 package install
 
 import (

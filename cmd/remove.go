@@ -15,7 +15,7 @@ version being removed is never in doubt.
 
 The dependency is dropped from typst.toml and from gotpm.lock, along with
 any package only it pulled in. The installed files are left in the package
-store, because other projects on this machine may import the same version;
+directory, because other projects on this machine may import the same version;
 --prune deletes them too.
 `,
 	Example: `gotpm remove @gotpm/cetz:0.3.1
@@ -27,7 +27,7 @@ gotpm rm @gotpm/cetz:0.3.1 --prune
 
 func init() {
 	rootCmd.AddCommand(removeCmd)
-	removeCmd.Flags().Bool("prune", false, "Delete the removed packages from the package store as well.")
+	removeCmd.Flags().Bool("prune", false, "Delete the removed packages from the package directory as well.")
 }
 
 func RemoveRunner(cmd *cobra.Command, args []string) error {
