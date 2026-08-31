@@ -341,3 +341,28 @@ func TestSetDependencies_MalformedHeadersAreNotTables(t *testing.T) {
 
 	assert.Equal(t, "x = 1\n[]\n[a..b]\n\n[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
 }
+
+// TestSetDependencies_KeepsKindWhenLastDependencyGoes guards the marker. An
+// empty dependency list removes the whole [tool.gotpm] section when nothing
+// else is left in it, and a document project's kind lives in that section.
+func TestSetDependencies_KeepsKindWhenLastDependencyGoes(t *testing.T) {
+	t.Parallel()
+	file := write(t, `[package]
+name = "thesis"
+version = "0.1.0"
+entrypoint = "main.typ"
+
+[tool.gotpm]
+kind = "document"
+dependencies = [
+  "@gotpm/cetz:0.3.1",
+]
+`)
+
+	require.NoError(t, manifest.SetDependencies(file, nil))
+
+	m, err := manifest.LoadFile(file)
+	require.NoError(t, err)
+	assert.Equal(t, "document", m.Tool.Gotpm.Kind)
+	assert.Empty(t, m.Tool.Gotpm.Dependencies)
+}
