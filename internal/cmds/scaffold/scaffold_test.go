@@ -22,7 +22,7 @@ func TestRun_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
 	// cwd basename becomes the package name
 	dir := t.TempDir()
 	t.Chdir(dir)
-	require.NoError(t, scaffold.Run("", discardLogger()))
+	require.NoError(t, scaffold.Run("", testDefaultOptions(), discardLogger()))
 
 	m, err := manifest.LoadFrom(dir)
 	require.NoError(t, err)
@@ -37,7 +37,7 @@ func TestRun_NoArgs_UsesBasename(t *testing.T) { //nolint: paralleltest
 func TestRun_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
-	require.NoError(t, scaffold.Run("my-pkg", discardLogger()))
+	require.NoError(t, scaffold.Run("my-pkg", testDefaultOptions(), discardLogger()))
 
 	pkgDir := filepath.Join(parent, "my-pkg")
 	assert.DirExists(t, pkgDir)
@@ -54,7 +54,7 @@ func TestRun_WithArg_CreatesSubdir(t *testing.T) { //nolint: paralleltest
 func TestRun_LibFileContent(t *testing.T) { //nolint: paralleltest
 	dir := t.TempDir()
 	t.Chdir(dir)
-	require.NoError(t, scaffold.Run("", discardLogger()))
+	require.NoError(t, scaffold.Run("", testDefaultOptions(), discardLogger()))
 
 	content, err := os.ReadFile(filepath.Join(dir, "lib.typ"))
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestRun_LibFileContent(t *testing.T) { //nolint: paralleltest
 func TestRun_TomlContainsName(t *testing.T) { //nolint: paralleltest
 	parent := t.TempDir()
 	t.Chdir(parent)
-	require.NoError(t, scaffold.Run("cool-pkg", discardLogger()))
+	require.NoError(t, scaffold.Run("cool-pkg", testDefaultOptions(), discardLogger()))
 
 	raw, err := os.ReadFile(filepath.Join(parent, "cool-pkg", "typst.toml"))
 	require.NoError(t, err)
@@ -76,6 +76,24 @@ func TestRun_ExistingDirFails(t *testing.T) { //nolint: paralleltest
 	t.Chdir(parent)
 	// pre-create the subdir so Mkdir fails
 	require.NoError(t, os.Mkdir(filepath.Join(parent, "dup"), paths.DirPerm))
-	err := scaffold.Run("dup", discardLogger())
+	err := scaffold.Run("dup", testDefaultOptions(), discardLogger())
 	assert.Error(t, err)
+}
+
+func TestRun_ErrorsWhenDocAndLibPassed(t *testing.T) { //nolint: paralleltest
+	parent := t.TempDir()
+	t.Chdir(parent)
+
+	opts := testDefaultOptions()
+	opts.Library = true
+	opts.Document = true
+
+	require.ErrorIs(t, scaffold.Run("err", opts, discardLogger()), scaffold.ErrMutuallyExclusiveOpts)
+}
+
+func testDefaultOptions() scaffold.Options {
+	return scaffold.Options{
+		Document: false,
+		Library:  true,
+	}
 }
