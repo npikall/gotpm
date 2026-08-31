@@ -103,11 +103,40 @@ tasks:
     cmds:
       - go install -ldflags="{{.LDFLAGS}}"
 
+  docs:cli:
+    desc: Regenerate the CLI help snippets included by the docs
+    sources:
+      - 'cmd/**/*.go'
+      - scripts/gen-cli-docs.sh
+    generates:
+      - docs/includes/cli/*.txt
+    cmds:
+      - ./scripts/gen-cli-docs.sh
+
+  docs:cli:check:
+    desc: Fail if the CLI help snippets are out of date
+    cmds:
+      - ./scripts/gen-cli-docs.sh --check
+
+  docs:serve:
+    desc: Serve the documentation locally
+    aliases: [d]
+    deps: [docs:cli]
+    cmds:
+      - zensical serve
+
+  docs:build:
+    desc: Build the documentation site
+    deps: [docs:cli]
+    cmds:
+      - zensical build --clean
+
   clean:
     desc: Clean repo from generated files
     aliases: [c]
     cmds:
       - rm -fr site/
+      - rm -fr docs/includes/cli
       - rm -fr .task/
       - rm -fr .cache/
       - rm -fr lib.typ
