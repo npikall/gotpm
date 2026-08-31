@@ -20,6 +20,8 @@ gotpm init mypkg`,
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	initCmd.Flags().Bool("doc", false, "Initialize a Document Manifest")
+	initCmd.Flags().Bool("lib", false, "Initialize a Library Manifest")
 }
 
 func InitRunner(cmd *cobra.Command, args []string) error {
@@ -27,5 +29,9 @@ func InitRunner(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		name = args[0]
 	}
-	return scaffold.Run(name, newLogger(cmd))
+	opts := scaffold.Options{
+		Document: Must(cmd.Flags().GetBool("doc")),
+		Library:  Must(cmd.Flags().GetBool("lib")),
+	}
+	return scaffold.Run(name, opts, newLogger(cmd))
 }

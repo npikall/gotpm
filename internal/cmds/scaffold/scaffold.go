@@ -1,11 +1,12 @@
 // Package scaffold implements the init command: it writes the files a minimal
-// typst package consists of.
+// Typst package consists of.
 //
 // The package is not called init, since that name cannot be used to qualify an
 // identifier in Go.
 package scaffold
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,11 +17,24 @@ import (
 )
 
 // LibFile is the entrypoint a new package starts out with.
-var LibFile = []byte("#let greet(name) = [Hello #name]")
+var (
+	LibFile  = []byte("#let greet(name) = [Hello #name]")
+	MainFile = []byte("= Hello\nWorld")
+)
+
+var ErrMutuallyExclusiveOpts = errors.New("mutually exclusive options have been set")
+
+type Options struct {
+	Library  bool
+	Document bool
+}
 
 // Run creates a new package in the working directory, or in a new
-// sub-directory of that name when one is given.
-func Run(name string, log *log.Logger) error {
+// subdirectory of that name when one is given.
+func Run(name string, opts Options, log *log.Logger) error {
+	if opts.Document && opts.Library {
+		return fmt.Errorf("%w: --doc and --lib", ErrMutuallyExclusiveOpts)
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not get the current working directory: %w", err)
@@ -37,12 +51,30 @@ func Run(name string, log *log.Logger) error {
 	log.Debug("working directory", "current", dir)
 	log.Debug("new package", "name", name)
 
-	files := []struct {
-		path    string
-		content []byte
-	}{
-		{path: filepath.Join(dir, "typst.toml"), content: manifestFor(name)},
-		{path: filepath.Join(dir, "lib.typ"), content: LibFile},
+	files := make([]file, 0)
+	switch {
+	case opts.Library:
+		files = []file{
+			{
+				path:    filepath.Join(dir, "lib.typ"),
+				content: LibFile,
+			},
+			{
+				path:    filepath.Join(dir, "typst.toml"),
+				content: manifestFor(name, "lib.typ"),
+			},
+		}
+	case opts.Document:
+		files = []file{
+			{
+				path:    filepath.Join(dir, "main.typ"),
+				content: MainFile,
+			},
+			{
+				path:    filepath.Join(dir, "typst.toml"),
+				content: manifestFor(name, "main.typ"),
+			},
+		}
 	}
 	for _, file := range files {
 		if err := paths.WriteFile(file.path, file.content); err != nil {
@@ -54,9 +86,14 @@ func Run(name string, log *log.Logger) error {
 	return nil
 }
 
-func manifestFor(name string) []byte {
+type file struct {
+	path    string
+	content []byte
+}
+
+func manifestFor(name, entry string) []byte {
 	return fmt.Appendf(nil, `[package]
 name = "%s"
 version = "0.1.0"
-entrypoint = "lib.typ"`, name)
+entrypoint = "%s"`, name, entry)
 }
