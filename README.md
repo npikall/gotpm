@@ -25,6 +25,8 @@ and use it.
 
 ## Installation
 
+<!-- --8<-- [start:installation] -->
+
 ### Unix
 
 **Homebrew:**
@@ -67,7 +69,11 @@ cd gotpm
 task install # or read the Taskfile.yml to do build and install manually
 ```
 
+<!-- --8<-- [end:installation] -->
+
 ## Alternatives
+
+<!-- --8<-- [start:alternatives] -->
 
 The main alternative Typst package manager is [utpm](https://github.com/typst-community/utpm),
 which targets the same workflow: developing and publishing local Typst packages.
@@ -121,9 +127,13 @@ easy to remember. utpm groups commands under `prj`/`pkg` subcommands (e.g.
 `utpm prj bump`, `utpm pkg unlink`), which might add some mental overhead in recalling
 which group a given command lives under.
 
+<!-- --8<-- [end:alternatives] -->
+
 ## Benchmarks
 
-[`scripts/bench.sh`](scripts/bench.sh) uses [hyperfine] to compare gotpm and
+<!-- --8<-- [start:benchmarks] -->
+
+[`scripts/bench.sh`](https://github.com/npikall/gotpm/blob/main/scripts/bench.sh) uses [hyperfine] to compare gotpm and
 utpm on install, uninstall, list, bump, and update/sync. Requires `hyperfine`,
 `jq`, `git`, `gotpm`, and `utpm` on `$PATH`. Everything runs against sandboxed
 temp directories — it never touches your real Typst package directory.
@@ -149,6 +159,8 @@ reported as-is.*
 <!-- BENCH:RESULTS:END -->
 
 [hyperfine]: https://github.com/sharkdp/hyperfine
+
+<!-- --8<-- [end:benchmarks] -->
 
 ![Gopher](https://raw.githubusercontent.com/egonelbre/gophers/master/.thumb/vector/projects/network-side.png)
 

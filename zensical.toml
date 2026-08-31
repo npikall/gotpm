@@ -8,7 +8,23 @@ Copyright &copy; 2025 Nikolas Pikall
 repo_url = "https://github.com/npikall/gotpm"
 repo_name = "npikall/gotpm"
 
-nav = ["index.md", "usage.md", "changelog.md", "contributing.md", "license.md"]
+nav = [
+	"index.md",
+	"installation.md",
+	"concepts.md",
+	{ Guides = [
+		"guides/dependencies.md",
+		"guides/authoring.md",
+		"guides/publishing.md",
+	] },
+	"reference.md",
+	"comparison.md",
+	{ About = [
+		"changelog.md",
+		"contributing.md",
+		"license.md",
+	] },
+]
 
 [project.theme]
 # variant = "classic"
@@ -109,4 +125,11 @@ clickable_checkbox = true
 [project.markdown_extensions.pymdownx.tilde]
 
 # Additional Extensions
+# Renders GitHub alert syntax ("> [!TIP]") as an admonition, so files shared
+# with GitHub - CONTRIBUTING.md, README.md - render the same in both places.
+[project.markdown_extensions."github-callouts"]
 [project.markdown_extensions.pymdownx.snippets]
+base_path = ["."]
+# Fail the build on a missing snippet, so a renamed CLI snippet cannot ship as
+# an empty code block.
+check_paths = true
