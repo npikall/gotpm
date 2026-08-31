@@ -50,6 +50,33 @@ type Gotpm struct {
 	// PostPublishHook lists shell commands publish runs in the package root
 	// once it is done, e.g. to remove what the pre-publish hook generated.
 	PostPublishHook []string `toml:"post-publish-hook,omitempty"`
+	// Kind tells a document project apart from a package. It is only ever
+	// written for a document project: an absent kind reads as a package,
+	// which is what every manifest written before this field existed is.
+	Kind Kind `toml:"kind,omitempty"`
+}
+
+// Kind is what a project is (ADR 0007). A package is source other projects
+// import; a document project is compiled into a document and nothing imports
+// it. Both carry a manifest, because both may declare dependencies.
+type Kind string
+
+const (
+	// KindPackage is what a manifest without a kind is read as, and is
+	// therefore never written to one.
+	KindPackage Kind = "package"
+	// KindDocument is recorded in the manifest, since nothing else in a
+	// project's files tells a document project apart from a package.
+	KindDocument Kind = "document"
+)
+
+// Kind is what the project this manifest belongs to is. An absent kind is a
+// package.
+func (m *Manifest) Kind() Kind {
+	if m.Tool.Gotpm.Kind == "" {
+		return KindPackage
+	}
+	return m.Tool.Gotpm.Kind
 }
 
 type PackageMeta struct {
