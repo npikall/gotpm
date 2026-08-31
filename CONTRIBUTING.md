@@ -14,34 +14,72 @@ You can contribute in many ways:
 
 Ready to contribute? Here's how to set up `gotpm` for local development.
 
-1. Fork the `gotpm` repo on GitHub.
-2. Clone your fork locally:
+- Fork the `gotpm` repo on GitHub.
 
-   ```sh
-   git clone git@github.com:<YOUR_GH_USER>/gotpm.git
-   ```
+- Clone your fork locally:
 
-3. Create a branch for local development:
+    ```sh
+    git clone git@github.com:<YOUR_GH_USER>/gotpm.git
+    ```
 
-   ```sh
-   git checkout -b name-of-your-bugfix-or-feature
-   ```
+- Create a branch for local development:
 
-   Now you can make your changes locally.
+    ```sh
+    git checkout -b name-of-your-bugfix-or-feature
+    ```
 
-4. When you're done making changes, check that your changes are formatted correctly and the tests are passing.
+    Now you can make your changes locally.
 
-   > [!TIP]
-   > Install the [`go-task`][go-task] Taskrunner.
+- When you're done making changes, check that your changes are formatted
+  correctly and the tests are passing.
 
-   ```sh
-   # format the code
-   task format
+    > [!TIP]
+    > Install the [`go-task`][go-task] Taskrunner.
 
-   # run the tests
-   task test
-   ```
+    ```sh
+    # format the code
+    task format
 
-5. Commit your changes and push your branch to GitHub:
-6. Submit a pull request through the GitHub website.
-   [go-task]: <https://github.com/go-task/task>
+    # run the tests
+    task test
+    ```
+
+- Commit your changes and push your branch to GitHub.
+
+- Submit a pull request through the GitHub website.
+
+## Documentation
+
+The site is built with [zensical][zensical] from `zensical.toml` and the
+Markdown in `docs/`. Install it with the `markdown-callouts` extension, which
+is what renders GitHub alerts (`> [!TIP]`) as admonitions on the site:
+
+```sh
+# once
+uv tool install zensical --with markdown-callouts
+```
+
+```sh
+# serve the site locally at http://localhost:8000
+task docs:serve
+
+# build it into site/
+task docs:build
+```
+
+The command reference embeds the binary's own help text, generated into
+`docs/includes/cli/`. Those files are committed, and CI fails when they are
+stale, so regenerate them after changing a command's help:
+
+```sh
+task docs:cli
+```
+
+Prose follows the vocabulary in [`CONTEXT.md`](https://github.com/npikall/gotpm/blob/main/CONTEXT.md) - it is the glossary
+the docs and the CLI strings are both written against. The decision records in
+[`docs/adr/`](https://github.com/npikall/gotpm/tree/main/docs/adr) explain why the
+non-obvious parts are the way they are; they are for people working on gotpm and
+are deliberately not published to the site.
+
+[go-task]: <https://github.com/go-task/task>
+[zensical]: <https://zensical.org>
