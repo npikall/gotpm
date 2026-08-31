@@ -104,19 +104,12 @@ tasks:
       - go install -ldflags="{{.LDFLAGS}}"
 
   docs:cli:
-    desc: Regenerate the CLI help snippets included by the docs
-    sources:
-      - 'cmd/**/*.go'
-      - scripts/gen-cli-docs.sh
-    generates:
-      - docs/includes/cli/*.txt
+    desc: Generate the CLI help snippets included by the docs
+    summary: |
+      The snippets are build output, not source: they are gitignored and
+      regenerated on every docs build, so they are never fingerprinted.
     cmds:
       - ./scripts/gen-cli-docs.sh
-
-  docs:cli:check:
-    desc: Fail if the CLI help snippets are out of date
-    cmds:
-      - ./scripts/gen-cli-docs.sh --check
 
   docs:serve:
     desc: Serve the documentation locally

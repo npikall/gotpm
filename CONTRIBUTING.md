@@ -67,9 +67,11 @@ task docs:serve
 task docs:build
 ```
 
-The command reference embeds the binary's own help text, generated into
-`docs/includes/cli/`. Those files are committed, and CI fails when they are
-stale, so regenerate them after changing a command's help:
+The command reference embeds the binary's own help text. The snippets under
+`docs/includes/cli/` are build output, not source: both docs tasks above
+regenerate them before running zensical, and the directory is gitignored, so
+there is nothing to keep in sync and nothing to commit. To write them without
+building the site:
 
 ```sh
 task docs:cli
