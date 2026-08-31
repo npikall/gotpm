@@ -51,7 +51,7 @@ func TestRun_DropsTheDependencyFromTheProject(t *testing.T) { //nolint: parallel
 	assert.Empty(t, declared(t, project))
 	assert.Empty(t, lockOf(t, project).Packages)
 	assert.True(t, installed(t, packages, "cetz", "0.3.1"),
-		"the store is shared, so removing a dependency does not delete the files")
+		"the package directory is shared, so removing a dependency does not delete the files")
 }
 
 func TestRun_PruneDeletesTheFilesToo(t *testing.T) { //nolint: paralleltest

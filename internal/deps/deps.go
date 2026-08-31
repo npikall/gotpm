@@ -1,5 +1,5 @@
 // Package deps puts the packages a project's lock pins into the machine's
-// package store.
+// package directory.
 //
 // It is what add and sync have in common. Both end up holding lock entries and
 // needing the store to match them; they differ only in where those entries came

@@ -22,8 +22,9 @@ var ErrNotDeclared = errors.New("not a dependency of this project")
 
 // Options holds the resolved remove flags.
 type Options struct {
-	// Prune deletes the removed packages from the store as well. It is opt-in
-	// because the store is shared: another project may import the same
+	// Prune deletes the removed packages from the package directory as well. It
+	// is opt-in because that directory is shared: another project may import the
+	// same
 	// version.
 	Prune bool
 }
@@ -113,7 +114,7 @@ func uninstall(removed []lockfile.Entry, logger *log.Logger) error {
 		if err := s.Remove(ref); err != nil {
 			return err
 		}
-		logger.Debug("deleted from the store", "package", ref, "path", s.Dir(ref))
+		logger.Debug("deleted from the package directory", "package", ref, "path", s.Dir(ref))
 	}
 	return nil
 }
@@ -140,6 +141,6 @@ func report(imp string, removed []lockfile.Entry, pruned bool) {
 		ui.Infof("  no longer needed: %s", strings.Join(orphans, ", "))
 	}
 	if len(removed) > 0 && !pruned {
-		ui.Infof("the package files are still in the store; pass --prune to delete them")
+		ui.Infof("the package files are still in the package directory; pass --prune to delete them")
 	}
 }

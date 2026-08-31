@@ -1,5 +1,5 @@
 // Package list implements the list command: it shows every package installed
-// in the local package store.
+// in the local package directory.
 package list
 
 import (

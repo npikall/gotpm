@@ -1,4 +1,4 @@
-// Package sync implements the sync command: it makes the package store hold
+// Package sync implements the sync command: it makes the package directory hold
 // exactly what the current project's typst.toml and gotpm.lock describe.
 //
 // This is what turns a checkout into a working project. typst.toml is the

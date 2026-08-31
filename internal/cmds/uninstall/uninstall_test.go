@@ -23,7 +23,7 @@ func discardLogger() *log.Logger {
 	return log.New(io.Discard)
 }
 
-// installed creates a package store containing the given versions of my-pkg in
+// installed creates a package directory containing the given versions of my-pkg in
 // the local namespace, and returns the store root.
 func installed(t *testing.T, versions ...string) string {
 	t.Helper()

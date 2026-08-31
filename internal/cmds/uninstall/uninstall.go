@@ -1,5 +1,5 @@
 // Package uninstall implements the uninstall command: it removes a package
-// from the local package store, either one version, all of them, or a whole
+// from the local package directory, either one version, all of them, or a whole
 // namespace.
 package uninstall
 
