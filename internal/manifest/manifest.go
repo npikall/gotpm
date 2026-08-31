@@ -48,6 +48,10 @@ type Gotpm struct {
 	// PostPublishHook lists shell commands publish runs in the package root
 	// once it is done, e.g. to remove what the pre-publish hook generated.
 	PostPublishHook []string `toml:"post-publish-hook,omitempty"`
+	// Kind tells a document project apart from a package. It is only ever
+	// written for a document project: an absent kind reads as a package,
+	// which is what every manifest written before this field existed is.
+	Kind string `toml:"kind,omitempty"`
 }
 
 type PackageMeta struct {
