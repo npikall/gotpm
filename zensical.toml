@@ -5,6 +5,7 @@ site_name = "GoTPM"
 copyright = """
 Copyright &copy; 2025 Nikolas Pikall
 """
+site_url = "https://npikall.github.io/gotpm/"
 repo_url = "https://github.com/npikall/gotpm"
 repo_name = "npikall/gotpm"
 
@@ -69,6 +70,13 @@ toggle.name = "Switch to light mode"
 
 [project.theme.icon]
 logo = "lucide/package"
+
+# Multiple documentation versions live side by side on GitHub Pages, deployed
+# by mike. "latest" is the alias the site root redirects to; "dev" tracks main.
+[project.extra.version]
+provider = "mike"
+default = "latest"
+alias = true
 
 #[[project.extra.social]]
 #icon = "fontawesome/brands/github"
