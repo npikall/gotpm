@@ -9,3 +9,4 @@ c.out
 scripts/bench-results/
 .task/*
 docs/includes/cli/
+dist-extra/
