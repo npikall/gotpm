@@ -15,7 +15,7 @@ function Install-Gotpm {
         default { throw "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE" }
     }
 
-    $suffix = "windows-$arch.exe"
+    $suffix = "${VERSION}_windows_${arch}.exe"
 
     # Find first existing writable directory
     $candidates = @(
@@ -44,7 +44,7 @@ function Install-Gotpm {
         New-Item -ItemType Directory -Force -Path $install_dir | Out-Null
     }
 
-    $url = "$BASE_URL/$BINARY-$suffix"
+    $url = "$BASE_URL/${BINARY}_$suffix"
     $checksums_url = "$BASE_URL/checksums.txt"
     $target = Join-Path $install_dir "$BINARY.exe"
     $tmp = [System.IO.Path]::GetTempFileName() + ".exe"
@@ -57,9 +57,9 @@ function Install-Gotpm {
         Write-Host "Verifying checksum..."
         Invoke-WebRequest -Uri $checksums_url -OutFile $tmp_checksums -UseBasicParsing
 
-        $checksum_line = Get-Content $tmp_checksums | Where-Object { $_ -match [regex]::Escape("$BINARY-$suffix") }
+        $checksum_line = Get-Content $tmp_checksums | Where-Object { $_ -match [regex]::Escape("${BINARY}_$suffix") }
         if (-not $checksum_line) {
-            throw "No checksum found for $BINARY-$suffix in checksums.txt"
+            throw "No checksum found for ${BINARY}_$suffix in checksums.txt"
         }
         $expected = ($checksum_line -split '\s+')[0].ToLower()
         $actual = (Get-FileHash -Algorithm SHA256 $tmp).Hash.ToLower()
