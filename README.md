@@ -61,6 +61,24 @@ go install github.com/npikall/gotpm@latest
 
 Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it in your `$PATH`
 
+### Verify a Release
+
+Every release's `checksums.txt` is signed keylessly with [cosign](https://docs.sigstore.dev/cosign/installation/),
+tying it to the exact `release.yml` GitHub Actions run that built it. Verify a
+downloaded binary against it:
+
+```bash
+# Download checksums.txt and its signature bundle alongside the binary, then:
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp "^https://github.com/npikall/gotpm/\.github/workflows/release\.yml@refs/tags/.*$" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# Then confirm the binary matches the (now-verified) checksum:
+sha256sum -c checksums.txt --ignore-missing
+```
+
 ### Build from Source
 
 ```bash

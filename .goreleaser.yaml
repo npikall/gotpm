@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: gotpm
+
+builds:
+  - id: gotpm
+    binary: gotpm
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/npikall/gotpm/cmd.gitTag={{ .Tag }}
+      - -X github.com/npikall/gotpm/cmd.gitCommit={{ .ShortCommit }}
+      - -X github.com/npikall/gotpm/cmd.buildOS={{ .Os }}
+      - -X github.com/npikall/gotpm/cmd.buildARCH={{ .Arch }}
+      - -X github.com/npikall/gotpm/cmd.installer=GoReleaser
+
+archives:
+  - id: gotpm
+    ids: [gotpm]
+    formats: [binary]
+    name_template: >-
+      {{ .Binary }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - --bundle=${signature}
+      - ${artifact}
+      - --yes
+    artifacts: checksum
+
+# git-cliff (cliff.toml) generates the release notes, fed in via
+# `goreleaser release --release-notes=...`
+changelog:
+  disable: true
+
+release:
+  draft: true
+  name_template: "GoTPM - {{ .Tag }}"
+  extra_files:
+    - glob: dist-extra/install.sh
+    - glob: dist-extra/install.ps1
+
+homebrew_casks:
+  - name: gotpm
+    ids: [gotpm]
+    binaries:
+      - gotpm
+    directory: Casks
+    repository:
+      owner: npikall
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/npikall/gotpm"
+    description: "A minimal package manager for Typst"

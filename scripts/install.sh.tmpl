@@ -55,7 +55,7 @@ __install_gotpm() {
         *) echo "error: unsupported architecture: $arch" >&2; exit 1 ;;
     esac
 
-    suffix="${os}-${arch}"
+    suffix="${VERSION}_${os}_${arch}"
     if [ "$os" = "windows" ]; then
         suffix="${suffix}.exe"
     fi
@@ -74,7 +74,7 @@ __install_gotpm() {
         mkdir -p "$install_dir"
     fi
 
-    url="${BASE_URL}/${BINARY}-${suffix}"
+    url="${BASE_URL}/${BINARY}_${suffix}"
     checksums_url="${BASE_URL}/checksums.txt"
     target="${install_dir}/${BINARY}"
     tmp=$(mktemp)
@@ -86,9 +86,9 @@ __install_gotpm() {
 
     echo "Verifying checksum..."
     checksums=$(curl -fsSL "$checksums_url")
-    expected=$(echo "$checksums" | grep "${BINARY}-${suffix}" | cut -d' ' -f1)
+    expected=$(echo "$checksums" | grep "${BINARY}_${suffix}" | cut -d' ' -f1)
     if [ -z "$expected" ]; then
-        echo "error: no checksum found for ${BINARY}-${suffix}" >&2
+        echo "error: no checksum found for ${BINARY}_${suffix}" >&2
         exit 1
     fi
     sha256_verify "$tmp" "$expected"

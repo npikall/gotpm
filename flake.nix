@@ -30,6 +30,8 @@
             git # Version control
             gh # GitHub CLI
             svu # Semantic version utility
+            goreleaser # Release builds (task release-test)
+            cosign # Artifact signing/verification
           ];
 
           shellHook = ''
