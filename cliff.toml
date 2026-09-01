@@ -42,6 +42,10 @@ footer = """
 """
 trim = true
 
+[remote.github]
+owner = "npikall"
+repo = "gotpm"
+
 [git]
 conventional_commits = true
 filter_unconventional = false

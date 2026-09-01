@@ -45,10 +45,11 @@ signs:
     artifacts: checksum
 
 # git-cliff (cliff.toml) generates the release notes, fed in via
-# `goreleaser release --release-notes=...`
-changelog:
-  disable: true
-
+# `goreleaser release --release-notes=...`. Do NOT set changelog.disable:
+# true here — GoReleaser's changelog pipe skips entirely when disabled,
+# which also skips loading the --release-notes file, leaving the release
+# body empty. The --release-notes flag already bypasses GoReleaser's own
+# commit-based changelog generation on its own.
 release:
   draft: true
   name_template: "GoTPM - {{ .Tag }}"
