@@ -136,6 +136,16 @@ tasks:
       - rm -fr typst.toml
       - rm -fr gotpm.lock
 
+  release-test:
+    desc: Build a local snapshot release with GoReleaser (no publish, no signing)
+    summary: |
+      Runs GoReleaser's build/archive/checksum/homebrew-cask steps against the
+      current commit without publishing anything, so you can sanity-check the
+      release config before actually tagging. Signing is skipped: it needs a
+      CI OIDC identity that doesn't exist locally. Output lands in dist/.
+    cmds:
+      - goreleaser release --snapshot --clean --skip=sign
+
   release:*:
     desc: Prepare the project for a new release
     summary: |
