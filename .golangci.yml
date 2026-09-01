@@ -79,7 +79,8 @@ linters:
           - gocyclo
           - errcheck
           - gosec
-      - linters:
+      - path: '(cmd|internal)/'
+        linters:
           - revive
         text: '^exported:'
       - path: '(.+)_test\.go'
