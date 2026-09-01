@@ -161,9 +161,13 @@ tasks:
       - "minor" - Bumps the minor number
       - "patch" - Bumps the patch number
       - "next"  - Bumps the version automatically
+
+      Pass PRE=<suffix> to cut a prerelease, e.g. "task release:patch PRE=rc.1"
+      tags v1.2.4-rc.1. <suffix> is passed straight through to svu's
+      --prerelease flag.
     vars:
       VERSION:
-        sh: "svu {{index .MATCH 0}}"
+        sh: "svu {{index .MATCH 0}}{{if .PRE}} --prerelease {{.PRE}}{{end}}"
       COMPLETE_MESSAGE: |
         Release complete. Run the following:
         
