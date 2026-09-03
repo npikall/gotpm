@@ -76,6 +76,38 @@ func TestReadProvenance_RejectsAMalformedFile(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrInvalidProvenance)
 }
 
+func TestInstall_DropsAProvenanceFileFoundInTheSource(t *testing.T) {
+	t.Parallel()
+	s := store.At(t.TempDir())
+	r := ref(t)
+	src := sourcePackage(t, "v1")
+	// The source is itself a former gotpm-managed install (e.g. a checked-out
+	// fork), carrying a record of a repository and commit its files no longer
+	// match.
+	require.NoError(t, paths.WriteFile(filepath.Join(src, store.ProvenanceFile), []byte(`{"url":"github.com/other/pkg"}`)))
+
+	require.NoError(t, s.Install(r, src))
+
+	_, found, err := s.ReadProvenance(r)
+	require.NoError(t, err)
+	assert.False(t, found, "a provenance file copied in from the source must not survive as the destination's own record")
+}
+
+func TestReadProvenance_IgnoresAnEditableInstall(t *testing.T) {
+	t.Parallel()
+	s := store.At(t.TempDir())
+	r := ref(t)
+	src := sourcePackage(t, "v1")
+	// The linked working tree happens to contain a file with the right name,
+	// but it names the source's own history, not how this ref got here.
+	require.NoError(t, paths.WriteFile(filepath.Join(src, store.ProvenanceFile), []byte(`{"url":"github.com/other/pkg"}`)))
+	require.NoError(t, s.Link(r, src))
+
+	_, found, err := s.ReadProvenance(r)
+	require.NoError(t, err)
+	assert.False(t, found, "an editable install has no provenance by construction, whatever the linked working tree contains")
+}
+
 func TestProvenance_IsNotListedAsAVersion(t *testing.T) {
 	t.Parallel()
 	s := store.At(t.TempDir())
