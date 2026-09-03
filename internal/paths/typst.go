@@ -16,6 +16,11 @@ const (
 	InstallDirFlag = "install-dir"
 	// TypstPackagePathEnvVar is typst's own override for the package directory.
 	TypstPackagePathEnvVar = "TYPST_PACKAGE_PATH"
+	// ProvenanceFile is the name of the file recording where an installed
+	// package came from. Defined here, rather than in package store, so that
+	// pkgfiles can exclude it from a package's contents without store and
+	// pkgfiles importing one another.
+	ProvenanceFile = ".gotpm.json"
 )
 
 // Origin says which of the possible sources decided the package directory.

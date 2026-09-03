@@ -23,6 +23,12 @@ var ignoredNames = map[string]struct{}{
 	".git":         {},
 	".gitignore":   {},
 	".typstignore": {},
+	// A source directory copied as a package may itself be a former
+	// gotpm-managed install (e.g. a fork checked out for `install <path>`),
+	// carrying a provenance file that names a repository and commit the
+	// files no longer match. Copying it forward would let the destination
+	// inherit a record about content that isn't there.
+	paths.ProvenanceFile: {},
 }
 
 // Job is a single file to transfer.
