@@ -49,8 +49,10 @@ _Avoid_: installed copy, cached package
 
 **Editable Install**:
 An installed package that is a link to a working tree, so edits to the source
-are picked up without reinstalling. A development aid, installed under
-`@local`; never what a declared dependency resolves to.
+are picked up without reinstalling. The link target is a working tree the user
+controls — never a repository clone, which is why `install --remote --editable`
+is rejected. A development aid, installed under `@local`; never what a declared
+dependency resolves to.
 _Avoid_: linked package, dev install, override
 
 **Package Directory**:
@@ -63,9 +65,11 @@ _Avoid_: store, package store
 A directory named on the command line to receive one package's files directly,
 without the namespace, name and version layout around them. Typst cannot import
 from it and gotpm does not scan it; it is an output destination, not a package
-directory. Only `install` and `uninstall` take one, because it holds a single
-package: the commands that install or delete a whole dependency graph — `add`,
-`sync`, `remove` — always work on the package directory.
+directory. Only `install`'s working-tree form (`install <path>`) and
+`uninstall` take one, because it holds a single package: every command that
+installs or deletes a whole dependency graph — `add`, `sync`, `remove`, and
+`install --remote`, which performs a Fetch — always works on the package
+directory.
 _Avoid_: package directory, store
 
 **Namespace**:
@@ -102,8 +106,8 @@ directory is never cache.
 ### Dependencies
 
 **Declared Dependency**:
-A package the project's manifest declares and its lock pins. gotpm fetches it
-from its repository and installs it. Always imported under `@gotpm`.
+A package the project's manifest declares and its lock pins. gotpm Fetches it.
+Always imported under `@gotpm`.
 _Avoid_: dependency (unqualified), requirement
 
 **Imported Package**:
@@ -176,20 +180,25 @@ _Avoid_: dependency command, local command
 A command that needs no project, so the directory it operates on can be named on
 the command line. `install`, `uninstall`, `list`, `check`, `publish`, `init`,
 `update`, `cache`, `config`, `self`. These are the only commands an install dir
-is offered to, and only when they act on one package version.
+is offered to, and only for the forms of them that act on one package version —
+`install`'s working-tree form, not `install --remote`.
 _Avoid_: regular command, global command, non-project command
 
 **Install**:
 Take a working tree that constitutes a package and place it in the package
-directory, so the Typst compiler can find it. Indifferent to where the working
-tree came from.
+directory, so the Typst compiler can find it.
+
+**Fetch**:
+Obtain a package version from its repository at an exact commit, together with
+everything it depends on, and place it in the package directory.
+_Avoid_: download, clone
 
 **Add**:
-Record a repository as a dependency of the project — confirm it exists, write
-its metadata to the manifest and the lock, then install it.
+Fetch a repository as a dependency of the project — confirm it exists, write
+its metadata to the manifest and the lock.
 
 **Sync**:
-Install every dependency the project's lock pins, one after another.
+Fetch every dependency the project's lock pins, one after another.
 
 **Remove**:
 Drop a declared dependency from the project, and with it the pins nothing else
