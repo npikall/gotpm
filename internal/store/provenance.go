@@ -19,7 +19,7 @@ import (
 // know whether an installed directory is the one a project asked for. Keeping
 // the answer next to the files means it survives a project being deleted and
 // disappears with the package itself.
-const ProvenanceFile = ".gotpm.json"
+const ProvenanceFile = paths.ProvenanceFile
 
 var ErrInvalidProvenance = errors.New("invalid provenance file")
 
@@ -52,7 +52,16 @@ func (s Store) WriteProvenance(ref pkg.Ref, p Provenance) error {
 // ReadProvenance reports where an installed package came from. A package
 // without a provenance file was not installed by gotpm; that is not an error
 // here, but callers must treat it as an unknown origin rather than a match.
+//
+// An editable install is a symlink to a working tree the caller controls, so
+// ProvenancePath would resolve through it into that working tree rather than
+// into anything gotpm wrote. Per ADR 0002, an editable install has no
+// provenance by construction; reading through the link could make an
+// unrelated file the working tree happens to contain pass for one.
 func (s Store) ReadProvenance(ref pkg.Ref) (Provenance, bool, error) {
+	if isSymlink(s.Dir(ref)) {
+		return Provenance{}, false, nil
+	}
 	path := s.ProvenancePath(ref)
 	data, err := os.ReadFile(path) //nolint: gosec
 	if errors.Is(err, os.ErrNotExist) {

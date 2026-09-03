@@ -315,6 +315,11 @@ func isDirFollowingLinks(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
+}
+
 // exists reports whether path is present, counting a symlink whose target is
 // gone as present.
 func exists(path string) bool {
