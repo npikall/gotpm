@@ -9,6 +9,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/cmds/install"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -152,6 +153,39 @@ func TestRun_ForceReplacesAnEditableInstall(t *testing.T) {
 	target, err := os.Readlink(dest)
 	require.NoError(t, err)
 	assert.Equal(t, src, target)
+}
+
+func TestRun_DropsAProvenanceFileFoundInTheSource(t *testing.T) {
+	t.Parallel()
+	// The fork was itself checked out from a previous gotpm-managed install,
+	// so it carries a record of a repository and commit its files no longer
+	// match.
+	src := sourcePackage(t, "forked")
+	require.NoError(t, paths.WriteFile(filepath.Join(src, store.ProvenanceFile), []byte(`{"url":"github.com/x/cetz"}`)))
+	opts, dest := destination(t)
+
+	require.NoError(t, install.Run(src, opts, discardLogger()))
+
+	assert.NoFileExists(t, filepath.Join(dest, store.ProvenanceFile),
+		"install <path> must never leave the destination looking like a repository-tracked install")
+}
+
+func TestRun_EditableIgnoresAProvenanceFileInTheSource(t *testing.T) {
+	t.Parallel()
+	src := sourcePackage(t, "forked")
+	require.NoError(t, paths.WriteFile(filepath.Join(src, store.ProvenanceFile), []byte(`{"url":"github.com/x/cetz"}`)))
+	opts, _ := destination(t)
+	opts.Editable = true
+
+	require.NoError(t, install.Run(src, opts, discardLogger()))
+
+	s, err := store.Open(opts.InstallDir)
+	require.NoError(t, err)
+	ref, err := pkg.New(opts.Namespace, "my-pkg", "0.1.0")
+	require.NoError(t, err)
+	_, found, err := s.ReadProvenance(ref)
+	require.NoError(t, err)
+	assert.False(t, found, "an editable install must not report the linked source's own provenance file as its own")
 }
 
 func TestRun_InstallsIntoTheRequestedNamespace(t *testing.T) {

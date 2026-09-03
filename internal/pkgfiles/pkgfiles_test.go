@@ -101,6 +101,7 @@ func TestShouldIgnore(t *testing.T) {
 		assert.True(t, pkgfiles.ShouldIgnore(".git", nil))
 		assert.True(t, pkgfiles.ShouldIgnore(".gitignore", nil))
 		assert.True(t, pkgfiles.ShouldIgnore(".typstignore", nil))
+		assert.True(t, pkgfiles.ShouldIgnore(paths.ProvenanceFile, nil))
 		assert.True(t, pkgfiles.ShouldIgnore(filepath.Join("nested", ".git"), nil))
 	})
 	t.Run("nil matcher does not ignore unknown files", func(t *testing.T) {
