@@ -23,27 +23,67 @@ import (
 	"github.com/npikall/gotpm/internal/resolve"
 )
 
-var (
-	ErrUnresolvable = errors.New("cannot resolve dependency")
-	ErrTooDeep      = errors.New("dependency graph is too deep")
-)
+var ErrTooDeep = errors.New("dependency graph is too deep")
 
 // maxDepth bounds the recursion. A chain this long is a mistake rather than a
 // real dependency graph, and stopping with the chain named beats recursing
 // until the process runs out of stack.
 const maxDepth = 32
 
-// Walk resolves a repository and everything it depends on, returning one lock
-// entry per package version, the requested one first.
-//
-// Direct and RequiredBy are filled in, so the result can be handed to
-// (*lockfile.Lock).Upsert unchanged.
-func Walk(root resolve.Request, logger *log.Logger) ([]lockfile.Entry, error) {
-	w := &walker{logger: logger, index: make(map[string]int)}
+// Reason says why a declared dependency could not be resolved.
+type Reason int
+
+const (
+	// NoLockShipped means the dependant's repository has no gotpm.lock at
+	// all — nothing gotpm can do names where its dependencies live.
+	NoLockShipped Reason = iota
+	// IncompleteLock means the dependant ships a gotpm.lock, but it has no
+	// entry for this declared dependency — a defect in the dependant.
+	IncompleteLock
+)
+
+// Unresolved is one declared dependency Walk could not find a repository
+// for. The subtree under it is skipped; everything else reachable is still
+// walked. Walk itself takes no view on whether that makes the walk a
+// failure — that is for the caller to decide from Reason.
+type Unresolved struct {
+	// Dependency is the unresolved import, e.g. "@gotpm/tidy:0.4.0".
+	Dependency string
+	// RequiredBy is the import of the package that declared it.
+	RequiredBy string
+	// RequiredByURL is RequiredBy's repository.
+	RequiredByURL string
+	Reason        Reason
+}
+
+// Options configures a Walk.
+type Options struct {
+	// RootNamespace overrides the namespace the root package is recorded
+	// under. Transitive dependencies always resolve under manifest.Namespace
+	// — a dependency's own source imports it as "@gotpm/...", so nothing
+	// else is a namespace it could resolve under. Empty keeps
+	// manifest.Namespace for the root too.
+	RootNamespace string
+}
+
+// Result is the outcome of a Walk.
+type Result struct {
+	// Entries holds one lock entry per resolved package version, the
+	// requested one first. Direct and RequiredBy are filled in, so Entries
+	// can be handed to (*lockfile.Lock).Upsert unchanged.
+	Entries []lockfile.Entry
+	// Unresolved holds one entry per declared dependency Walk could not find
+	// a repository for.
+	Unresolved []Unresolved
+}
+
+// Walk resolves a repository and everything it depends on.
+func Walk(root resolve.Request, opts Options, logger *log.Logger) (Result, error) {
+	w := &walker{logger: logger, opts: opts, index: make(map[string]int)}
 	if err := w.visit(node{request: root, direct: true}, nil); err != nil {
-		return nil, err
+		return Result{}, err
 	}
-	return w.entries, nil
+	return Result{Entries: w.entries, Unresolved: w.unresolved}, nil
 }
 
 // node is one package to visit: where to get it, and what pulled it in.
@@ -61,8 +101,10 @@ type node struct {
 }
 
 type walker struct {
-	logger  *log.Logger
-	entries []lockfile.Entry
+	logger     *log.Logger
+	opts       Options
+	entries    []lockfile.Entry
+	unresolved []Unresolved
 	// index maps a visited repository commit to its position in entries. The
 	// key is the commit rather than the import, because the same coordinate
 	// coming from two different repositories is a conflict to be reported, not
@@ -96,7 +138,7 @@ func (w *walker) visit(n node, chain []string) error {
 		return nil
 	}
 
-	entry, err := newEntry(resolved, n)
+	entry, err := newEntry(resolved, n, w.opts)
 	if err != nil {
 		return err
 	}
@@ -104,10 +146,11 @@ func (w *walker) visit(n node, chain []string) error {
 	w.index[key] = len(w.entries)
 	w.entries = append(w.entries, entry)
 
-	children, err := dependenciesOf(resolved, entry.Import)
+	children, unresolved, err := dependenciesOf(resolved, entry.Import)
 	if err != nil {
 		return err
 	}
+	w.unresolved = append(w.unresolved, unresolved...)
 	childChain := append(slices.Clip(chain), key)
 	for _, child := range children {
 		if err := w.visit(child, childChain); err != nil {
@@ -140,9 +183,16 @@ func (w *walker) record(i int, n node) {
 	}
 }
 
-// newEntry turns a resolved repository into the lock entry that pins it.
-func newEntry(resolved *resolve.Resolved, n node) (lockfile.Entry, error) {
-	ref, err := resolved.Ref(manifest.Namespace)
+// newEntry turns a resolved repository into the lock entry that pins it. The
+// root may be recorded under opts.RootNamespace; every other node is a
+// transitive dependency and is always imported as "@gotpm/...", so nothing
+// else is a namespace it could resolve under.
+func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry, error) {
+	namespace := manifest.Namespace
+	if n.direct && opts.RootNamespace != "" {
+		namespace = opts.RootNamespace
+	}
+	ref, err := resolved.Ref(namespace)
 	if err != nil {
 		return lockfile.Entry{}, fmt.Errorf("%s: %w", resolved.Source.Canonical, err)
 	}
@@ -170,28 +220,33 @@ func newEntry(resolved *resolve.Resolved, n node) (lockfile.Entry, error) {
 }
 
 // dependenciesOf reads what a resolved package depends on, and looks each one
-// up in the lock the package committed to learn where it comes from.
-func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, error) {
+// up in the lock the package committed to learn where it comes from. A
+// declared dependency missing from that lock comes back as an Unresolved
+// rather than an error: whether that is fatal is a decision for Walk's
+// caller, not the walker.
+func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unresolved, error) {
 	declared := resolved.Manifest.Dependencies()
 	if len(declared) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	refs, err := manifest.ParseDependencies(declared)
 	if err != nil {
-		return nil, fmt.Errorf("%s declares a dependency gotpm cannot install: %w", importing, err)
+		return nil, nil, fmt.Errorf("%s declares a dependency gotpm cannot install: %w", importing, err)
 	}
 
 	lock, err := lockfile.Load(resolved.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("reading the lock of %s: %w", importing, err)
+		return nil, nil, fmt.Errorf("reading the lock of %s: %w", importing, err)
 	}
 	locked := paths.FileExists(lockfile.Path(resolved.Dir)) == nil
 
-	children := make([]node, 0, len(refs))
+	var children []node
+	var unresolved []Unresolved
 	for _, ref := range refs {
 		entry, ok := lock.Get(ref.String())
 		if !ok {
-			return nil, unresolvableError(importing, ref.String(), locked)
+			unresolved = append(unresolved, newUnresolved(importing, resolved.Source.Canonical, ref.String(), locked))
+			continue
 		}
 		children = append(children, node{
 			request:    resolve.Request{URL: entry.URL, Revision: pin(entry)},
@@ -200,7 +255,7 @@ func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, error
 			requiredBy: importing,
 		})
 	}
-	return children, nil
+	return children, unresolved, nil
 }
 
 // pin is the revision a locked entry is fetched at: the exact commit, falling
@@ -212,18 +267,20 @@ func pin(entry lockfile.Entry) string {
 	return entry.Revision
 }
 
-// unresolvableError explains the one failure users are likely to hit: a
-// package that declares gotpm dependencies without publishing the lock that
-// says where they live. Nothing gotpm can do resolves it, so the message has
-// to point at the package that must change.
-func unresolvableError(importing, dependency string, locked bool) error {
-	reason := "it ships no " + lockfile.FileName
+// newUnresolved records the one failure users are likely to hit: a package
+// that declares gotpm dependencies without publishing the lock that says
+// where they live.
+func newUnresolved(importing, importingURL, dependency string, locked bool) Unresolved {
+	reason := NoLockShipped
 	if locked {
-		reason = "its " + lockfile.FileName + " has no entry for it"
+		reason = IncompleteLock
 	}
-	return fmt.Errorf("%w %s required by %s: %s"+
-		"\nnote: %s must commit a %s recording where its dependencies come from",
-		ErrUnresolvable, dependency, importing, reason, importing, lockfile.FileName)
+	return Unresolved{
+		Dependency:    dependency,
+		RequiredBy:    importing,
+		RequiredByURL: importingURL,
+		Reason:        reason,
+	}
 }
 
 // wrapResolveError names the package a failed dependency was pulled in by,

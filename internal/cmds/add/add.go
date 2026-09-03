@@ -4,6 +4,8 @@
 package add
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 
 	"charm.land/log/v2"
@@ -13,6 +15,12 @@ import (
 	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/ui"
 )
+
+// ErrUnresolvable is returned when a dependency declares a package add cannot
+// find a repository for. add stays strict on both of Unresolved's reasons,
+// unlike install: per ADR 0001 the lock it writes is public resolution data,
+// and one that silently omits a pin is worse than add failing outright.
+var ErrUnresolvable = errors.New("cannot resolve dependency")
 
 // Options holds the resolved add flags.
 type Options struct {
@@ -31,12 +39,16 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
-	entries, err := ui.WithSpinner("resolving "+url, func() ([]lockfile.Entry, error) {
-		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, logger)
+	walked, err := ui.WithSpinner("resolving "+url, func() (depgraph.Result, error) {
+		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{}, logger)
 	})
 	if err != nil {
 		return err
 	}
+	if err := errorForUnresolved(walked.Unresolved); err != nil {
+		return err
+	}
+	entries := walked.Entries
 	direct := entries[0]
 
 	installer, err := deps.OpenInstaller(opts.Force, logger)
@@ -63,6 +75,22 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 
 	report(results)
 	return nil
+}
+
+// errorForUnresolved reports the first unresolved dependency, if any. Add
+// treats every reason as fatal, so only the first is worth naming.
+func errorForUnresolved(unresolved []depgraph.Unresolved) error {
+	if len(unresolved) == 0 {
+		return nil
+	}
+	u := unresolved[0]
+	reason := "it ships no " + lockfile.FileName
+	if u.Reason == depgraph.IncompleteLock {
+		reason = "its " + lockfile.FileName + " has no entry for it"
+	}
+	return fmt.Errorf("%w %s required by %s: %s"+
+		"\nnote: %s must commit a %s recording where its dependencies come from",
+		ErrUnresolvable, u.Dependency, u.RequiredBy, reason, u.RequiredBy, lockfile.FileName)
 }
 
 // updateLock records every resolved package in the project's lock.

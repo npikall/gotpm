@@ -1,9 +1,11 @@
-// Package deps puts the packages a project's lock pins into the machine's
+// Package deps puts a set of resolved package versions into the machine's
 // package directory.
 //
-// It is what add and sync have in common. Both end up holding lock entries and
-// needing the store to match them; they differ only in where those entries came
-// from. The store is shared by every project on the machine, so an install is
+// It is what add, sync and install --remote have in common. All three end up
+// holding lock entries and needing the store to match them; they differ only
+// in where those entries came from — add and install --remote discover them by
+// walking a dependency graph, sync already has them pinned in the project's
+// lock. The store is shared by every project on the machine, so an install is
 // never a plain copy: a directory that already holds a package version has to
 // be shown to be the same package from the same repository before it is left
 // alone or overwritten.

@@ -8,9 +8,13 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/cmds/install"
+	"github.com/npikall/gotpm/internal/deps"
+	"github.com/npikall/gotpm/internal/lockfile"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/store"
+	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -255,4 +259,126 @@ func TestRun_ResolvesARelativePath(t *testing.T) { //nolint: paralleltest
 
 	require.NoError(t, install.Run(filepath.Base(src), opts, discardLogger()))
 	assert.FileExists(t, filepath.Join(dest, "lib.typ"))
+}
+
+// remoteOptions installs into the shared package directory testrepo.Isolate
+// pointed at, the way a real "gotpm install -r" does: a graph does not fit in
+// a flat --install-dir destination.
+func remoteOptions(url string) *install.Options {
+	return &install.Options{Namespace: paths.DefaultNamespace, Remote: url}
+}
+
+func TestRun_Remote_InstallsTheRootUnderTheGivenNamespace(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	root := testrepo.New(t, "root", "1.0.0").Release()
+
+	require.NoError(t, install.Run("", remoteOptions(root.URL()), discardLogger()))
+
+	assert.FileExists(t, filepath.Join(packages, paths.DefaultNamespace, "root", "1.0.0", "lib.typ"))
+}
+
+func TestRun_Remote_InstallsTransitiveDependenciesUnderGotpm(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+
+	require.NoError(t, install.Run("", remoteOptions(root.URL()), discardLogger()))
+
+	assert.FileExists(t, filepath.Join(packages, paths.DefaultNamespace, "root", "1.0.0", "lib.typ"))
+	assert.FileExists(t, filepath.Join(packages, manifest.Namespace, "leaf", "1.0.0", "lib.typ"))
+}
+
+func TestRun_Remote_SkipsADependencyWithNoLock(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").ReleaseWith([]string{leaf.Import()}, nil)
+
+	err := install.Run("", remoteOptions(root.URL()), discardLogger())
+
+	require.NoError(t, err, "a dependency with no gotpm.lock at all is a warning, not a fatal error")
+	assert.FileExists(t, filepath.Join(packages, paths.DefaultNamespace, "root", "1.0.0", "lib.typ"))
+	assert.NoDirExists(t, filepath.Join(packages, manifest.Namespace, "leaf", "1.0.0"))
+}
+
+func TestRun_Remote_FailsOnADependencyWithAnIncompleteLock(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	known := testrepo.New(t, "known", "1.0.0").Release()
+	forgotten := testrepo.New(t, "forgotten", "1.0.0").Release()
+	lock := lockfile.New()
+	lock.Upsert(known.LockEntry())
+	root := testrepo.New(t, "root", "1.0.0").ReleaseWith([]string{known.Import(), forgotten.Import()}, lock)
+
+	err := install.Run("", remoteOptions(root.URL()), discardLogger())
+
+	require.ErrorIs(t, err, install.ErrUnresolvable)
+	assert.NoDirExists(t, filepath.Join(packages, paths.DefaultNamespace, "root", "1.0.0"),
+		"a still-unresolvable dependency fails the whole install, not just its own subtree")
+}
+
+func TestRun_Remote_RejectsACoordinateTakenByAnotherRepository(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mine := testrepo.New(t, "cetz", "0.3.1").Release()
+	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
+	require.NoError(t, install.Run("", remoteOptions(mine.URL()), discardLogger()))
+
+	err := install.Run("", remoteOptions(theirs.URL()), discardLogger())
+
+	require.ErrorIs(t, err, deps.ErrSourceConflict)
+}
+
+func TestRun_Remote_ForceReplacesACoordinateTakenByAnotherRepository(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	mine := testrepo.New(t, "cetz", "0.3.1").Release()
+	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
+	require.NoError(t, install.Run("", remoteOptions(mine.URL()), discardLogger()))
+
+	forced := remoteOptions(theirs.URL())
+	forced.Force = true
+	require.NoError(t, install.Run("", forced, discardLogger()))
+
+	ref, err := pkg.New(paths.DefaultNamespace, "cetz", "0.3.1")
+	require.NoError(t, err)
+	prov, ok, err := store.At(packages).ReadProvenance(ref)
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, theirs.URL(), prov.URL)
+}
+
+func TestRun_Remote_RefusesAGraphInAFlatStore(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+	opts := remoteOptions(root.URL())
+	opts.InstallDir = filepath.Join(t.TempDir(), "vendor")
+
+	err := install.Run("", opts, discardLogger())
+
+	require.ErrorIs(t, err, install.ErrGraphInFlatStore)
+	require.ErrorContains(t, err, "1 dependencies")
+	assert.NoDirExists(t, opts.InstallDir, "nothing is written once the graph is known not to fit")
+}
+
+func TestRun_Remote_RefusesAFlatStoreEvenWhenTheOnlyDependencyIsUnresolved(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").ReleaseWith([]string{leaf.Import()}, nil)
+	opts := remoteOptions(root.URL())
+	opts.InstallDir = filepath.Join(t.TempDir(), "vendor")
+
+	err := install.Run("", opts, discardLogger())
+
+	require.ErrorIs(t, err, install.ErrGraphInFlatStore,
+		"root declares a dependency either way, whether or not it resolves")
+	assert.NoDirExists(t, opts.InstallDir, "nothing is written once the graph is known not to fit")
+}
+
+func TestRun_Remote_AllowsASinglePackageInAFlatStore(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	root := testrepo.New(t, "root", "1.0.0").Release()
+	opts := remoteOptions(root.URL())
+	opts.InstallDir = filepath.Join(t.TempDir(), "vendor")
+
+	require.NoError(t, install.Run("", opts, discardLogger()))
+
+	assert.FileExists(t, filepath.Join(opts.InstallDir, "lib.typ"))
 }

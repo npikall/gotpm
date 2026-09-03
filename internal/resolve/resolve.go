@@ -2,10 +2,10 @@
 // clones the repository, decides which revision to use, checks it out and reads
 // the manifest found there.
 //
-// It is the piece install and add have in common. What they do with the result
-// differs — install places it in the store and forgets about it, add records it
-// in the project — but getting from "github.com/a/cetz" to a directory holding
-// a known version at a known commit is the same problem.
+// depgraph.Walk calls it once per node of a dependency graph — the piece add's
+// and install --remote's discovery share, whether the node is the root or a
+// transitive dependency. Getting from "github.com/a/cetz" to a directory
+// holding a known version at a known commit is the same problem either way.
 package resolve
 
 import (
