@@ -39,17 +39,16 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
-	walked, err := ui.WithSpinner("resolving "+url, func() (walkResult, error) {
-		entries, unresolved, err := depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{}, logger)
-		return walkResult{entries, unresolved}, err
+	walked, err := ui.WithSpinner("resolving "+url, func() (depgraph.Result, error) {
+		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{}, logger)
 	})
 	if err != nil {
 		return err
 	}
-	if err := errorForUnresolved(walked.unresolved); err != nil {
+	if err := errorForUnresolved(walked.Unresolved); err != nil {
 		return err
 	}
-	entries := walked.entries
+	entries := walked.Entries
 	direct := entries[0]
 
 	installer, err := deps.OpenInstaller(opts.Force, logger)
@@ -76,13 +75,6 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 
 	report(results)
 	return nil
-}
-
-// walkResult carries both of depgraph.Walk's result values through
-// ui.WithSpinner, which is generic over one type.
-type walkResult struct {
-	entries    []lockfile.Entry
-	unresolved []depgraph.Unresolved
 }
 
 // errorForUnresolved reports the first unresolved dependency, if any. Add

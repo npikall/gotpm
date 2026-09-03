@@ -40,10 +40,10 @@ func entryFor(t *testing.T, entries []lockfile.Entry, imp string) lockfile.Entry
 
 func walk(t *testing.T, root *testrepo.Package) []lockfile.Entry {
 	t.Helper()
-	entries, unresolved, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
+	result, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
 	require.NoError(t, err)
-	require.Empty(t, unresolved)
-	return entries
+	require.Empty(t, result.Unresolved)
+	return result.Entries
 }
 
 func TestWalk_PackageWithoutDependencies(t *testing.T) { //nolint: paralleltest
@@ -130,15 +130,15 @@ func TestWalk_DependencyWithoutALock(t *testing.T) { //nolint: paralleltest
 	middle := testrepo.New(t, "middle", "1.0.0").ReleaseWith([]string{leaf.Import()}, nil)
 	root := testrepo.New(t, "root", "1.0.0").Release(middle)
 
-	entries, unresolved, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
+	result, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
 
 	require.NoError(t, err, "an unresolvable dependency is reported, not fatal to the walk")
-	assert.Equal(t, []string{root.Import(), middle.Import()}, imports(entries),
+	assert.Equal(t, []string{root.Import(), middle.Import()}, imports(result.Entries),
 		"everything reachable up to the unresolved dependency is still walked")
-	require.Len(t, unresolved, 1)
-	assert.Equal(t, leaf.Import(), unresolved[0].Dependency, "names what could not be resolved")
-	assert.Equal(t, middle.Import(), unresolved[0].RequiredBy, "and the package that must fix it")
-	assert.Equal(t, depgraph.NoLockShipped, unresolved[0].Reason)
+	require.Len(t, result.Unresolved, 1)
+	assert.Equal(t, leaf.Import(), result.Unresolved[0].Dependency, "names what could not be resolved")
+	assert.Equal(t, middle.Import(), result.Unresolved[0].RequiredBy, "and the package that must fix it")
+	assert.Equal(t, depgraph.NoLockShipped, result.Unresolved[0].Reason)
 }
 
 func TestWalk_DependencyLockMissingAnEntry(t *testing.T) { //nolint: paralleltest
@@ -152,14 +152,14 @@ func TestWalk_DependencyLockMissingAnEntry(t *testing.T) { //nolint: paralleltes
 		ReleaseWith([]string{known.Import(), forgotten.Import()}, lock)
 	root := testrepo.New(t, "root", "1.0.0").Release(middle)
 
-	entries, unresolved, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
+	result, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{root.Import(), middle.Import(), known.Import()}, imports(entries),
+	assert.Equal(t, []string{root.Import(), middle.Import(), known.Import()}, imports(result.Entries),
 		"the declared dependency that does resolve is still installed")
-	require.Len(t, unresolved, 1)
-	assert.Equal(t, forgotten.Import(), unresolved[0].Dependency)
-	assert.Equal(t, depgraph.IncompleteLock, unresolved[0].Reason)
+	require.Len(t, result.Unresolved, 1)
+	assert.Equal(t, forgotten.Import(), result.Unresolved[0].Dependency)
+	assert.Equal(t, depgraph.IncompleteLock, result.Unresolved[0].Reason)
 }
 
 func TestWalk_RejectsADependencyOutsideTheGotpmNamespace(t *testing.T) { //nolint: paralleltest
@@ -168,7 +168,7 @@ func TestWalk_RejectsADependencyOutsideTheGotpmNamespace(t *testing.T) { //nolin
 		ReleaseWith([]string{"@preview/cetz:0.3.1"}, lockfile.New())
 	root := testrepo.New(t, "root", "1.0.0").Release(middle)
 
-	_, _, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
+	_, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
 
 	require.ErrorIs(t, err, manifest.ErrInvalidDependency)
 	assert.Contains(t, err.Error(), middle.Import(), "the offending entry is reported with its package")
@@ -189,7 +189,7 @@ func TestWalk_RejectsAGraphThatIsTooDeep(t *testing.T) { //nolint: paralleltest
 		below = p.Release(below)
 	}
 
-	_, _, err := depgraph.Walk(resolve.Request{URL: below.URL()}, depgraph.Options{}, discardLogger())
+	_, err := depgraph.Walk(resolve.Request{URL: below.URL()}, depgraph.Options{}, discardLogger())
 
 	require.ErrorIs(t, err, depgraph.ErrTooDeep)
 	assert.Contains(t, err.Error(), "@gotpm/p32:1.0.0", "the error names the chain that got too long")
@@ -205,7 +205,7 @@ func TestWalk_ReportsWhatPulledInAnUnreachableDependency(t *testing.T) { //nolin
 	middle := testrepo.New(t, "middle", "1.0.0").ReleaseWith([]string{gone.Import()}, lock)
 	root := testrepo.New(t, "root", "1.0.0").Release(middle)
 
-	_, _, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
+	_, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), gone.Import())

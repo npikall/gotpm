@@ -23,12 +23,22 @@ directory typst imports from and not one gotpm scans. It is an output
 destination — vendoring one package into a build directory, or looking at what
 an install would produce. The flag takes precedence over the environment
 variable. Neither reaches 'add', 'sync' or 'remove': those work on a dependency
-graph, which does not fit in a directory holding one package.
+graph, which does not fit in a directory holding one package. -r/--remote
+installs a graph too, once the repository has dependencies of its own, so
+--install-dir is refused there unless it turns out to be single-package.
+
+-r/--remote fetches a repository instead of using the working tree, and
+installs everything it depends on alongside it, the same way 'add' does — a
+dependency with no gotpm.lock at all is skipped with a warning, but one whose
+lock is simply missing an entry still fails the install. Without -t/--rev the
+newest release tag is used, or the current HEAD when the repository has none;
+pass -t HEAD explicitly to keep pinning HEAD regardless of releases.
 `,
 	Example: `gotpm install
 gotpm install . -e
 gotpm install -n preview
 gotpm install -r github.com/user/repo -t v0.1.2
+gotpm install -r github.com/user/repo -t HEAD
 gotpm install path/to/package -n preview
 `,
 	Args: cobra.MaximumNArgs(1),
@@ -42,7 +52,7 @@ func init() {
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
 	installCmd.Flags().String(paths.InstallDirFlag, "", installDirUsage)
 	installCmd.Flags().StringP("remote", "r", "", "The remote repository which should be installed.")
-	installCmd.Flags().StringP("rev", "t", "HEAD", "The revision (hash or tag) that should be checked out.")
+	installCmd.Flags().StringP("rev", "t", "", "The revision (hash or tag) to check out. Defaults to the newest release.")
 }
 
 func InstallRunner(cmd *cobra.Command, args []string) error {

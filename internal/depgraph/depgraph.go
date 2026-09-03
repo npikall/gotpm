@@ -66,18 +66,24 @@ type Options struct {
 	RootNamespace string
 }
 
-// Walk resolves a repository and everything it depends on, returning one lock
-// entry per resolved package version (the requested one first) and one
-// Unresolved per declared dependency it could not find a repository for.
-//
-// Direct and RequiredBy are filled in, so entries can be handed to
-// (*lockfile.Lock).Upsert unchanged.
-func Walk(root resolve.Request, opts Options, logger *log.Logger) ([]lockfile.Entry, []Unresolved, error) {
+// Result is the outcome of a Walk.
+type Result struct {
+	// Entries holds one lock entry per resolved package version, the
+	// requested one first. Direct and RequiredBy are filled in, so Entries
+	// can be handed to (*lockfile.Lock).Upsert unchanged.
+	Entries []lockfile.Entry
+	// Unresolved holds one entry per declared dependency Walk could not find
+	// a repository for.
+	Unresolved []Unresolved
+}
+
+// Walk resolves a repository and everything it depends on.
+func Walk(root resolve.Request, opts Options, logger *log.Logger) (Result, error) {
 	w := &walker{logger: logger, opts: opts, index: make(map[string]int)}
 	if err := w.visit(node{request: root, direct: true}, nil); err != nil {
-		return nil, nil, err
+		return Result{}, err
 	}
-	return w.entries, w.unresolved, nil
+	return Result{Entries: w.entries, Unresolved: w.unresolved}, nil
 }
 
 // node is one package to visit: where to get it, and what pulled it in.
