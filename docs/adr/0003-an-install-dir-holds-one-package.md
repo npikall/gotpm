@@ -33,7 +33,10 @@ variable that relocates the package directory is Typst's own
   did this for the same reason, and `list` now does too: it scans namespaces,
   which a directory holding one package does not have.
 - Vendoring a whole dependency graph into a directory is not something gotpm
-  does. `gotpm install --install-dir` vendors one package, deliberately.
+  does. `gotpm install --install-dir` vendors one package, deliberately —
+  including `install --remote`, which refuses `--install-dir` the moment the
+  repository it fetches turns out to have dependencies of its own, rather than
+  silently vendoring only the root.
 - `gotpm locate` still reports `$GOTPM_INSTALL_DIR` when it is set, as a
   warning rather than a fact about where dependencies go: a variable that
   silently redirects `gotpm install` is worth seeing.

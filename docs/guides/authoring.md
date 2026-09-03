@@ -74,10 +74,16 @@ project files:
 $ gotpm install -r github.com/user/repo -t v0.1.2
 ```
 
-This is the standalone counterpart of `add`. Nothing is declared, nothing is
-locked, and nothing reproduces on another machine — reach for it to try a
-package out, and for [`gotpm add`](dependencies.md) when the project should
-depend on it.
+It installs the repository's own dependencies too, the same way `add` does —
+a dependency that ships no `gotpm.lock` at all is skipped with a warning
+rather than failing the install, since nothing is being locked for anyone else
+to trust. But nothing is declared and nothing reproduces on another machine —
+reach for it to try a package out, and for [`gotpm add`](dependencies.md) when
+the project should depend on it.
+
+Without `-t`/`--rev`, the newest release tag is used, or the current `HEAD`
+when the repository has none — the same default `add` uses. Pass `-t HEAD` to
+pin the current `HEAD` regardless of releases.
 
 ### Installing into `@preview`
 
