@@ -146,6 +146,12 @@ tasks:
     cmds:
       - goreleaser release --snapshot --clean --skip=sign
 
+  release-notes-test:
+    desc: Generate the Release Notes for unreleased changes
+    aliases: [notes]
+    cmds:
+      - git cliff --latest --no-exec --strip header --unreleased
+
   release:*:
     desc: Prepare the project for a new release
     summary: |
