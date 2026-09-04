@@ -48,6 +48,11 @@ type Result struct {
 	// is what tells the user their pin has drifted from the tag it was made
 	// from.
 	MovedTag string
+	// ReplacedSource is where the package version held under this package ref
+	// came from before this fetch overwrote it, set whenever the outcome is
+	// Replaced. It is the zero value when what was there carried no
+	// provenance, which is a package directory gotpm did not fill.
+	ReplacedSource store.Provenance
 }
 
 // DriftWarning describes a pin whose tag has moved since it was made, or the
@@ -60,6 +65,36 @@ func (r Result) DriftWarning() string {
 	return fmt.Sprintf("%s of %s now points at %s, not the locked %s; installed the locked commit"+
 		"\nnote: run 'gotpm add %s' to pin the current one",
 		r.Entry.Revision, r.Entry.URL, ShortHash(r.MovedTag), ShortHash(r.Entry.Hash), r.Entry.URL)
+}
+
+// ReplacedNotice describes what a fetch overwrote, or the empty string when it
+// overwrote nothing.
+//
+// The package directory is shared by every project on this machine, so a
+// replacement changes what all of them compile against. gotpm does not prevent
+// it — a version naming a second commit is an authoring error it cannot
+// resolve, and a forced replacement is what the user asked for — so it reports
+// it instead, naming both sources precisely enough to say which build moved.
+func (r Result) ReplacedNotice() string {
+	if r.Outcome != Replaced {
+		return ""
+	}
+	was := r.ReplacedSource
+	now := store.Provenance{URL: r.Entry.URL, Hash: r.Entry.Hash}
+	if was.URL == now.URL {
+		// The same repository stands on both sides, so naming it twice would
+		// bury the one thing that changed.
+		return fmt.Sprintf("replaced %s %s -> %s", r.Ref, ShortHash(was.Hash), ShortHash(now.Hash))
+	}
+	return fmt.Sprintf("replaced %s %s -> %s", r.Ref, sourceOf(was), sourceOf(now))
+}
+
+// sourceOf names where an installed package version came from.
+func sourceOf(prov store.Provenance) string {
+	if prov.URL == "" {
+		return "an unknown source"
+	}
+	return prov.URL + " at " + ShortHash(prov.Hash)
 }
 
 // shortHashLen is how much of a commit hash is worth showing.
@@ -148,7 +183,12 @@ func (i Installer) Ensure(entry lockfile.Entry) (Result, error) {
 	if present != absent {
 		outcome = Replaced
 	}
-	return Result{Ref: ref, Entry: entry, Outcome: outcome, MovedTag: moved}, nil
+	// prov is the zero value when nothing was installed, and when what was
+	// installed carried no provenance; both are what ReplacedSource means by it.
+	return Result{
+		Ref: ref, Entry: entry, Outcome: outcome, MovedTag: moved,
+		ReplacedSource: prov,
+	}, nil
 }
 
 // state is what the store already holds for a package version.

@@ -149,6 +149,9 @@ func report(results []deps.Result, removed []lockfile.Entry) {
 			ui.Infof("installed %s", ui.Package(result.Ref.String()))
 			changed++
 		}
+		if notice := result.ReplacedNotice(); notice != "" {
+			ui.Infof("%s", notice)
+		}
 		if warning := result.DriftWarning(); warning != "" {
 			ui.Warnf("%s", warning)
 		}
