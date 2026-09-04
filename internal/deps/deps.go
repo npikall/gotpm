@@ -14,6 +14,7 @@ package deps
 import (
 	"errors"
 	"fmt"
+	"runtime"
 
 	"charm.land/log/v2"
 	"github.com/go-git/go-git/v6"
@@ -127,6 +128,11 @@ func OpenInstaller(force bool, logger *log.Logger) (Installer, error) {
 	return Installer{Store: s, Logger: logger, Force: force}, nil
 }
 
+type installResult struct {
+	result Result
+	err    error
+}
+
 // EnsureAll makes the store hold every package version a set of entries pins,
 // in the order they are given.
 //
@@ -135,13 +141,31 @@ func OpenInstaller(force bool, logger *log.Logger) (Installer, error) {
 // is not a state worth reporting on. Running the command again picks up where
 // this one stopped, because Ensure leaves what is already installed alone.
 func (i Installer) EnsureAll(entries []lockfile.Entry) ([]Result, error) {
-	results := make([]Result, 0, len(entries))
+	numJobs := min(len(entries), runtime.NumCPU())
+	results := make([]Result, 0, numJobs)
+
+	jobsCh := make(chan lockfile.Entry, numJobs)
+	resCh := make(chan installResult, numJobs)
+	for range runtime.NumCPU() {
+		go func() {
+			for job := range jobsCh {
+				result, err := i.Ensure(job)
+				resCh <- installResult{result: result, err: err}
+			}
+		}()
+	}
+
 	for _, entry := range entries {
-		result, err := i.Ensure(entry)
-		if err != nil {
-			return nil, err
+		jobsCh <- entry
+	}
+	close(jobsCh)
+
+	for range numJobs {
+		res := <-resCh
+		if res.err != nil {
+			return nil, res.err
 		}
-		results = append(results, result)
+		results = append(results, res.result)
 	}
 	return results, nil
 }
