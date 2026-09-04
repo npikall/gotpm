@@ -150,12 +150,14 @@ func TestCheckoutPackageBranchFastForwards(t *testing.T) {
 	assert.Equal(t, newTip, gitOut(t, forkPath, "rev-parse", "HEAD"))
 }
 
-// TestCheckoutPackageBranchDivergedAborts covers the one state that cannot be
-// reconciled without choosing on the user's behalf. Merging or rebasing could
-// leave the fork clone mid-conflict, and resetting to the fork would discard
-// the local commit - which after `gotpm publish --local` is work deliberately
-// not pushed yet.
-func TestCheckoutPackageBranchDivergedAborts(t *testing.T) {
+// TestCheckoutPackageBranchDivergedResetsOntoFork covers the state where the
+// local package branch and the fork's branch have both moved on. The fork
+// clone is a staging area: every commit on a package branch is a copy of the
+// package's working tree, which the publish run about to follow re-copies and
+// re-commits. Resetting onto the fork therefore keeps the edits made there -
+// a maintainer-requested typst.toml fix, say - and loses nothing that is not
+// regenerated.
+func TestCheckoutPackageBranchDivergedResetsOntoFork(t *testing.T) {
 	t.Parallel()
 	origin := setupOriginRepo(t, []string{pkgDir})
 	commitOn(t, origin, "foo-0.1.0", "release: foo 0.1.0")
@@ -165,13 +167,36 @@ func TestCheckoutPackageBranchDivergedAborts(t *testing.T) {
 	require.NoError(t, err)
 
 	commitOn(t, origin, "foo-0.1.0", "fix: made upstream")
+	forkTip := gitOut(t, origin, "rev-parse", "foo-0.1.0")
 	runGit(t, forkPath, "commit", "-q", "--allow-empty", "-m", "fix: made locally")
+
+	branchExisted, err := publish.CheckoutPackageBranch(testLogger(), forkPath, "foo-0.1.0", pkgDir)
+	require.NoError(t, err)
+	assert.True(t, branchExisted)
+	assert.Equal(t, forkTip, gitOut(t, forkPath, "rev-parse", "HEAD"),
+		"a diverged branch is reset onto the fork's tip")
+}
+
+// TestCheckoutPackageBranchAheadKeepsLocalCommit covers `gotpm publish
+// --local`: a commit staged locally and deliberately not pushed yet. The fork
+// has not moved, so there is no divergence and nothing to reconcile - the
+// reset the diverged case performs must not reach this one.
+func TestCheckoutPackageBranchAheadKeepsLocalCommit(t *testing.T) {
+	t.Parallel()
+	origin := setupOriginRepo(t, []string{pkgDir})
+	commitOn(t, origin, "foo-0.1.0", "release: foo 0.1.0")
+	forkPath := cloneFork(t, origin)
+
+	_, err := publish.CheckoutPackageBranch(testLogger(), forkPath, "foo-0.1.0", pkgDir)
+	require.NoError(t, err)
+
+	runGit(t, forkPath, "commit", "-q", "--allow-empty", "-m", "fix: staged by publish --local")
 	localTip := gitOut(t, forkPath, "rev-parse", "HEAD")
 
 	_, err = publish.CheckoutPackageBranch(testLogger(), forkPath, "foo-0.1.0", pkgDir)
-	require.ErrorIs(t, err, publish.ErrForkBranchDiverged)
+	require.NoError(t, err)
 	assert.Equal(t, localTip, gitOut(t, forkPath, "rev-parse", "HEAD"),
-		"a refused fast-forward leaves the branch where it was")
+		"a branch merely ahead of the fork keeps its unpushed commit")
 }
 
 func testLogger() *log.Logger {
