@@ -35,6 +35,7 @@ func TestEnsure_InstallsWhatIsMissing(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, deps.Installed, result.Outcome)
 	assert.Equal(t, "@gotpm/cetz:0.3.1", result.Ref.String())
 	assert.Empty(t, result.DriftWarning())
+	assert.Empty(t, result.ReplacedNotice(), "nothing was there to replace")
 }
 
 func TestEnsure_LeavesThePinnedCommitAlone(t *testing.T) { //nolint: paralleltest
@@ -63,6 +64,63 @@ func TestEnsure_ReplacesAnotherCommitOfTheSameVersion(t *testing.T) { //nolint: 
 	require.NoError(t, err)
 	assert.Equal(t, deps.Replaced, result.Outcome,
 		"the store must end up holding the commit the lock names")
+}
+
+func TestEnsure_ReportsTheCommitItReplaced(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	i := installer(t)
+	_, err := i.Ensure(dep.LockEntry())
+	require.NoError(t, err)
+	overwritten := dep.Hash()
+
+	dep.Release() // the author published a second commit as the same version
+	result, err := i.Ensure(dep.LockEntry())
+
+	require.NoError(t, err)
+	assert.Equal(t, overwritten, result.ReplacedSource.Hash)
+	notice := result.ReplacedNotice()
+	assert.Contains(t, notice, deps.ShortHash(overwritten),
+		"the commit that other projects were compiling against")
+	assert.Contains(t, notice, deps.ShortHash(dep.Hash()),
+		"the commit they compile against from now on")
+	assert.NotContains(t, notice, dep.URL(),
+		"one repository on both sides is not what changed")
+}
+
+func TestEnsure_ReportsTheRepositoryItReplaced(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mine := testrepo.New(t, "cetz", "0.3.1").Release()
+	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
+	i := installer(t)
+	i.Force = true
+	_, err := i.Ensure(mine.LockEntry())
+	require.NoError(t, err)
+
+	result, err := i.Ensure(theirs.LockEntry())
+
+	require.NoError(t, err)
+	notice := result.ReplacedNotice()
+	assert.Contains(t, notice, mine.URL(), "the repository that was serving this ref")
+	assert.Contains(t, notice, theirs.URL(), "the repository that serves it now")
+	assert.Contains(t, notice, deps.ShortHash(theirs.Hash()))
+}
+
+func TestEnsure_ReportsReplacingSomethingWithoutProvenance(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	s, err := store.Open("")
+	require.NoError(t, err)
+	ref, err := pkg.New("gotpm", "cetz", "0.3.1")
+	require.NoError(t, err)
+	require.NoError(t, s.Install(ref, dep.Dir()))
+
+	result, err := deps.Installer{Store: s, Logger: discardLogger(), Force: true}.Ensure(dep.LockEntry())
+
+	require.NoError(t, err)
+	assert.Contains(t, result.ReplacedNotice(), "an unknown source",
+		"a directory without provenance names no commit to report")
+	assert.Contains(t, result.ReplacedNotice(), deps.ShortHash(dep.Hash()))
 }
 
 func TestEnsure_ReportsATagThatHasMoved(t *testing.T) { //nolint: paralleltest
