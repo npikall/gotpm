@@ -101,8 +101,9 @@ directory.
 ```
 
 Both keys concern [publishing](guides/publishing.md): `fork.url` is required
-before `gotpm publish` will run, and `fork.path` defaults to `fork` inside
-gotpm's data directory.
+before `gotpm publish` will run, and `fork.path` defaults to a location derived
+from `fork.url` — `forks/<host>/<owner>/<repo>` inside gotpm's data directory —
+so each fork gets a clone of its own.
 
 ## `init`
 

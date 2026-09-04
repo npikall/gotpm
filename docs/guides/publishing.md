@@ -25,8 +25,8 @@ fork. Then tell gotpm where it is:
 $ gotpm config set fork.url https://github.com/you/packages
 ```
 
-Optionally, choose where the clone of that fork lives. Unset, it defaults to
-`fork` inside gotpm's data directory:
+Optionally, choose where the clone of that fork lives. Unset, it is derived
+from `fork.url` — `forks/<host>/<owner>/<repo>` inside gotpm's data directory:
 
 ```console
 $ gotpm config set fork.path ~/src/typst-packages
@@ -39,7 +39,10 @@ again. It is checked out sparsely, scoped to the package directory being
 published, so cloning the whole Universe is not the cost it sounds like.
 
 If you publish on behalf of more than one organisation, each fork gets its own
-clone — switch `fork.url` and `fork.path` together.
+clone, and switching `fork.url` is enough to switch between them: the default
+location follows the url. A `fork.path` you set yourself does not follow it, so
+switch the two together — gotpm refuses to publish into a clone of another fork
+rather than pushing your submission to the wrong owner.
 
 ## Publishing a version
 
@@ -79,7 +82,7 @@ it:
 $ gotpm publish --local
 info: committed "release: mypkg 0.1.0" on branch mypkg-0.1.0
 info: push it when you are ready:
-git -C /home/you/.local/share/gotpm/fork push origin mypkg-0.1.0
+git -C /home/you/.local/share/gotpm/forks/github.com/you/packages push origin mypkg-0.1.0
 ```
 
 Useful the first time, when you want to see exactly what landed in the fork
