@@ -2,6 +2,7 @@
 title: GoTPM
 icon: lucide/rocket
 ---
+![Image title](assets/logo/gotpm-mark.svg){ align=right }
 
 # A package manager for Typst
 

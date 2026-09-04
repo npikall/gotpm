@@ -108,6 +108,8 @@ tasks:
     summary: |
       The snippets are build output, not source: they are gitignored and
       regenerated on every docs build, so they are never fingerprinted.
+    status:
+      - test -d docs/includes/cli/
     cmds:
       - ./scripts/gen-cli-docs.sh
 

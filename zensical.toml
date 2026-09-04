@@ -27,8 +27,9 @@ nav = [
 ]
 
 [project.theme]
-# variant = "classic"
-#favicon = "images/favicon.png"
+variant = "classic"
+favicon = "assets/logo/gotpm-favicon-small.svg"
+logo = "assets/logo/gotpm-favicon-small.svg"
 language = "en"
 features = [
 	"announce.dismiss",
