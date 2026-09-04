@@ -165,6 +165,9 @@ func report(results []deps.Result) {
 		default:
 			ui.Infof("  %s (via %s)", ui.Package(result.Ref.String()), via(result.Entry))
 		}
+		if notice := result.ReplacedNotice(); notice != "" {
+			ui.Infof("%s", notice)
+		}
 		if warning := result.DriftWarning(); warning != "" {
 			ui.Warnf("%s", warning)
 		}
