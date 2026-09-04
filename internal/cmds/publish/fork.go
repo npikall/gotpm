@@ -40,7 +40,6 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 	return nil
 }
 
-// fetchFork updates an existing clone's origin/main.
 func fetchFork(logger *log.Logger, forkPath string) error {
 	logger.Debug("fetching fork", "path", forkPath)
 	spin := ui.Spinner(" Fetching fork...")
@@ -85,9 +84,6 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	return local || onFork, nil
 }
 
-// checkoutFrom checks out branchName from whichever base the branch's
-// local/fork existence calls for, fast-forwarding onto the fork's tip when the
-// branch exists in both places, and resetting onto it when the two diverged.
 func checkoutFrom(logger *log.Logger, forkPath, branchName string, local, onFork bool) error {
 	if !local {
 		base := "origin/main"
@@ -112,19 +108,10 @@ func checkoutFrom(logger *log.Logger, forkPath, branchName string, local, onFork
 	if ffErr == nil {
 		return nil
 	}
-	// A fast-forward can also be refused for reasons that are not divergence
-	// - a busy index, a git that cannot run at all. Those are reported rather
-	// than resolved by force.
 	if !gitcli.Diverged(forkPath, branchName) {
 		return fmt.Errorf("fast-forwarding %q onto the fork: %w", branchName, ffErr)
 	}
 
-	// The two have diverged. The fork clone is a staging area, and every
-	// commit on a package branch is a copy of the package's working tree,
-	// which the publish run this is part of is about to re-copy and
-	// re-commit. Resetting onto the fork keeps what only exists there - an
-	// edit made on GitHub after the Universe maintainers asked for one - and
-	// drops only commits whose content is regenerated a moment later.
 	logger.Warn("branch diverged from the fork, resetting onto it", "branch", branchName, "err", ffErr)
 	if err := gitcli.ResetHard(forkPath, "origin/"+branchName); err != nil {
 		return fmt.Errorf("resetting %q onto the fork: %w", branchName, err)

@@ -13,12 +13,9 @@ import (
 )
 
 const (
-	cacheDirName = "remotes"
-	// localCacheDir holds clones of repositories that live on this machine
-	// rather than on a host, keeping them apart from hosted ones.
+	cacheDirName  = "remotes"
 	localCacheDir = "local"
-	// fileScheme marks such a repository.
-	fileScheme = "file://"
+	fileScheme    = "file://"
 )
 
 var ErrInvalidCacheKey = errors.New("cannot derive a cache location")
@@ -33,11 +30,9 @@ func CacheDir() (string, error) {
 	return filepath.Join(base, cacheDirName), nil
 }
 
-// CachePath returns the directory a repository is cached in.
-//
-// The location mirrors the canonical url — host, owner, then repository — so
-// two repositories that happen to share a name, whether on different hosts or
-// under different owners, do not end up in the same clone.
+// CachePath returns the directory a repository is cached in. The location mirrors
+// the canonical url — host, owner, then repository — so two repositories sharing
+// a name do not end up in the same clone.
 func CachePath(canonicalURL string) (string, error) {
 	cacheDir, err := CacheDir()
 	if err != nil {
@@ -50,10 +45,9 @@ func CachePath(canonicalURL string) (string, error) {
 	return filepath.Join(append([]string{cacheDir}, segments...)...), nil
 }
 
-// Segments turns a canonical url into the path segments a clone of it is laid
-// out under — host, owner, then repository. Callers supply the directory those
-// segments hang off, which is what keeps clones of different purposes apart
-// while they agree on where one url belongs.
+// Segments turns a canonical url into the path segments a clone is laid out under
+// — host, owner, then repository. Callers supply the directory those segments
+// hang off, which keeps clones of different purposes apart.
 func Segments(canonicalURL string) ([]string, error) {
 	segments := cacheSegments(canonicalURL)
 	if len(segments) == 0 {
@@ -62,8 +56,6 @@ func Segments(canonicalURL string) ([]string, error) {
 	return segments, nil
 }
 
-// cacheSegments turns a canonical url into the path segments it is cached
-// under, dropping anything that cannot safely name a directory.
 func cacheSegments(canonicalURL string) []string {
 	trimmed := strings.TrimSpace(canonicalURL)
 
@@ -81,9 +73,6 @@ func cacheSegments(canonicalURL string) []string {
 	return segments
 }
 
-// sanitizeSegment reduces one path segment to characters that name a directory
-// on every platform gotpm runs on, and refuses the ones that would escape the
-// cache directory.
 func sanitizeSegment(raw string) string {
 	if raw == "" || raw == "." || raw == ".." {
 		return ""
@@ -96,8 +85,6 @@ func sanitizeSegment(raw string) string {
 	}, raw)
 }
 
-// safePunctuation is what may appear in a directory name besides letters and
-// digits. Hosts and repository names are full of dots and dashes.
 const safePunctuation = ".-_"
 
 func isSafeRune(r rune) bool {
@@ -114,13 +101,9 @@ type Clone struct {
 	Cloned bool
 }
 
-// EnsureClone returns the cached clone of a repository, cloning it from
-// cloneURL when it is not there yet and fetching updates when it is. Nothing is
-// checked out: which revision a caller wants may depend on the tags the fetch
-// has just brought in.
-//
-// The cache is keyed on canonicalURL. The caller owns the returned repository
-// and must close it.
+// EnsureClone returns the cached clone of a repository, cloning it from cloneURL
+// when it is not there yet and fetching updates when it is. Nothing is checked
+// out. The caller owns the returned repository and must close it.
 func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
 	repoDir, err := CachePath(canonicalURL)
 	if err != nil {
@@ -132,9 +115,7 @@ func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
 		if err != nil {
 			return nil, fmt.Errorf("opening cached clone %q: %w", repoDir, err)
 		}
-		// A failed fetch is not fatal: the cached clone may already hold the
-		// revision that was asked for, and that keeps gotpm usable offline.
-		_ = repo.Fetch(&git.FetchOptions{Tags: git.AllTags})
+		fetchBestEffort(repo)
 		return &Clone{Dir: repoDir, Repo: repo}, nil
 	}
 
@@ -143,6 +124,10 @@ func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
 		return nil, err
 	}
 	return &Clone{Dir: repoDir, Repo: repo, Cloned: true}, nil
+}
+
+func fetchBestEffort(repo *git.Repository) {
+	_ = repo.Fetch(&git.FetchOptions{Tags: git.AllTags})
 }
 
 // Ensure returns the local clone of a remote repository, checked out at rev,

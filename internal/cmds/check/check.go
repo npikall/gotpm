@@ -23,8 +23,6 @@ var (
 	ErrFileNotFound      = errors.New("file not found")
 )
 
-// previewNamespace is the namespace served by the Typst Universe; anything
-// else is expected to be installed locally.
 const previewNamespace = "preview"
 
 // Issue is a dependency that could not be resolved.
@@ -73,8 +71,6 @@ func Analyze(file string, log *log.Logger) (Result, error) {
 		log.Debug("could not load the package index", "err", indexErr)
 	}
 
-	// The local store is read without the install-dir override: an override
-	// points at a single package, not at a tree typst would import from.
 	root, err := paths.TypstPackagesDir()
 	if err != nil {
 		return Result{}, err
@@ -114,8 +110,6 @@ func checkImport(imp typstsrc.Import, s store.Store, idx index.Index, indexErr e
 	return nil
 }
 
-// checkUniverse resolves a package against the Typst Universe index, warning
-// when a newer version than the requested one exists.
 func checkUniverse(ref pkg.Ref, idx index.Index, indexErr error, result *Result) error {
 	if indexErr != nil {
 		return indexErr

@@ -17,9 +17,8 @@ import (
 )
 
 // ErrUnresolvable is returned when a dependency declares a package add cannot
-// find a repository for. add stays strict on both of Unresolved's reasons,
-// unlike install: per ADR 0001 the lock it writes is public resolution data,
-// and one that silently omits a pin is worse than add failing outright.
+// find a repository for. Unlike install, add is strict on every reason: the lock
+// it writes is public resolution data (ADR 0001).
 var ErrUnresolvable = errors.New("cannot resolve dependency")
 
 // Options holds the resolved add flags.
@@ -31,7 +30,9 @@ type Options struct {
 	Force bool
 }
 
-// Run adds the package at url to the current project.
+// Run adds the package at url to the current project. The lock is written
+// before the manifest, so an interrupted add leaves an undeclared lock entry,
+// which the next sync prunes, rather than a dependency nothing records.
 func Run(url string, opts *Options, logger *log.Logger) error {
 	project, err := deps.OpenProject()
 	if err != nil {
@@ -62,10 +63,6 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 		return err
 	}
 
-	// The lock is written before the manifest, so an interrupted add leaves a
-	// lock with an entry nothing declares — which the next sync prunes — rather
-	// than a declared dependency whose repository nobody recorded, which no
-	// command can recover from.
 	if err := updateLock(project, entries); err != nil {
 		return err
 	}
@@ -77,8 +74,6 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	return nil
 }
 
-// errorForUnresolved reports the first unresolved dependency, if any. Add
-// treats every reason as fatal, so only the first is worth naming.
 func errorForUnresolved(unresolved []depgraph.Unresolved) error {
 	if len(unresolved) == 0 {
 		return nil
@@ -93,7 +88,6 @@ func errorForUnresolved(unresolved []depgraph.Unresolved) error {
 		ErrUnresolvable, u.Dependency, u.RequiredBy, reason, u.RequiredBy, lockfile.FileName)
 }
 
-// updateLock records every resolved package in the project's lock.
 func updateLock(project *deps.Project, entries []lockfile.Entry) error {
 	lock, err := project.Lock()
 	if err != nil {
@@ -105,11 +99,6 @@ func updateLock(project *deps.Project, entries []lockfile.Entry) error {
 	return project.SaveLock(lock)
 }
 
-// declare adds the import to the manifest, unless it is already there.
-//
-// A package already declared at another version stays declared: typst installs
-// every version at its own path, so both remain importable, and dropping the
-// old line would silently break the source that imports it.
 func declare(project *deps.Project, imp string) error {
 	declared := project.Dependencies()
 	if slices.Contains(declared, imp) {
@@ -118,8 +107,6 @@ func declare(project *deps.Project, imp string) error {
 	return project.SetDependencies(append(slices.Clone(declared), imp))
 }
 
-// report prints what was installed: the requested package, then everything it
-// brought with it and which package asked for it.
 func report(results []deps.Result) {
 	for i, result := range results {
 		switch {
@@ -139,7 +126,6 @@ func report(results []deps.Result) {
 	}
 }
 
-// via names one package that asked for a transitive dependency.
 func via(entry lockfile.Entry) string {
 	if len(entry.RequiredBy) == 0 {
 		return entry.URL

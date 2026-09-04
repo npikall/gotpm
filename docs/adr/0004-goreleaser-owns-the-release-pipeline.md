@@ -74,3 +74,14 @@ unchanged — GoReleaser only owns what happens once CI picks up the tag.
   alone does not skip signing — an unguarded local run would either hang
   waiting for cosign's interactive OIDC browser flow or fail outright, since
   no CI OIDC identity exists on a local machine.
+- Detecting a Homebrew install is therefore two checks, both in
+  `internal/cmds/self`. `BuildInfo.Installer == "brew"` covers binaries built
+  by the pre-GoReleaser formula, which stamped that ldflag; the path check
+  covers every install since. It looks for the `Cellar` segment, which the
+  macOS Intel (`/usr/local`), Apple Silicon (`/opt/homebrew`) and Linuxbrew
+  (`/home/linuxbrew/.linuxbrew`) prefixes all share, and resolves symlinks
+  first, because such a binary is normally reached through `<prefix>/bin`
+  rather than by its Cellar path.
+- The asset filter matches on the `_<os>_<arch>` suffix rather than the
+  version-bearing prefix of `gotpm_<tag>_<os>_<arch>[.exe]`: the version being
+  looked up is not known in advance.

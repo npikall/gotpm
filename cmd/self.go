@@ -27,7 +27,6 @@ func init() {
 	selfCmd.AddCommand(selfVersionCmd)
 }
 
-// buildInfo collects the values stamped into this package at build time.
 func buildInfo() self.BuildInfo {
 	return self.BuildInfo{
 		Version:   gitTag,

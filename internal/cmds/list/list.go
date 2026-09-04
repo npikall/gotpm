@@ -15,8 +15,6 @@ import (
 
 var ErrNoPackages = errors.New("no packages installed")
 
-// maxDisplayedVersions caps how many versions of a package are spelled out
-// before the rest are summarised.
 const maxDisplayedVersions = 5
 
 // Run prints every installed package, grouped by namespace.

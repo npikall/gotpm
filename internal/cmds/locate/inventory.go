@@ -10,11 +10,9 @@ import (
 	"github.com/npikall/gotpm/internal/remote"
 )
 
-// Entry is a single path gotpm reads or writes.
-//
-// Resolving a path can fail on its own — an unset %APPDATA% takes the data
-// directory with it but leaves the config directory intact — so a failure is
-// carried in Err rather than aborting the whole inventory.
+// Entry is a single path gotpm reads or writes. A path can fail to resolve on
+// its own — an unset %APPDATA% takes the data directory but leaves the config
+// directory intact — so the failure is carried in Err.
 type Entry struct {
 	// Key addresses the entry on the command line.
 	Key string
@@ -43,8 +41,6 @@ func Keys() []string {
 	}
 }
 
-// entries returns every path gotpm knows about. The project group is only
-// present when the working directory belongs to a typst project.
 func entries(log *log.Logger) []Group {
 	groups := make([]Group, 0, 3) //nolint: mnd
 	groups = append(groups,
@@ -64,7 +60,6 @@ func packagesEntry() Entry {
 	return Entry{Key: "packages", Path: dir, Note: packagesNote(origin), Err: err}
 }
 
-// packagesNote says which environment variable moved the path
 func packagesNote(origin paths.Origin) string {
 	env := origin.EnvVar()
 	if env == "" {
@@ -93,10 +88,6 @@ func gotpmEntries() []Entry {
 	}
 }
 
-// projectEntries returns the project paths. A malformed manifest errors the
-// same as no project at all: either way there is nothing trustworthy to point
-// at. The dump swallows the error and drops the group; asking for a project
-// key by name reports it.
 func projectEntries() ([]Entry, error) {
 	project, err := deps.OpenProject()
 	if err != nil {

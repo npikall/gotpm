@@ -9,8 +9,6 @@ import (
 
 const indent = "  "
 
-// render prints the groups, keys padded to the widest key in the whole dump so
-// the paths line up across group boundaries rather than only within a group.
 func render(groups []Group) {
 	width := keyWidth(groups)
 	for i, group := range groups {
@@ -31,7 +29,6 @@ func renderEntry(entry Entry, width int) {
 		_, _ = lipgloss.Printf("%s%s %s\n", indent, strings.Repeat(" ", width), ui.Muted.Render(entry.Err.Error()))
 		return
 	}
-	// %s, not %q: the path is styled, and quoting would escape the ANSI codes.
 	line := ui.AccentBold.Render(entry.Path)
 	if entry.Note != "" {
 		line += " " + ui.Muted.Render("("+entry.Note+")")

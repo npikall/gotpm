@@ -50,8 +50,6 @@ func Run(name string, opts *Options, log *log.Logger) error {
 		return err
 	}
 
-	// Decided before the manifest is read, so deleting a namespace works from
-	// any directory rather than only from inside a package.
 	if wipesNamespace(name, opts) {
 		return removeNamespace(s, opts, log)
 	}
@@ -62,17 +60,12 @@ func Run(name string, opts *Options, log *log.Logger) error {
 	}
 	log.Debug("resolved package", "name", name, "version", version)
 
-	// --all without a version removes the whole package; with one it stays
-	// scoped to that version.
 	if opts.All && version == "" {
 		return removePackage(s, name, opts, log)
 	}
 	return removeVersion(s, name, version, opts, log)
 }
 
-// wipesNamespace reports whether the invocation names a namespace and nothing
-// else. Anything further — a package, a version, --all — narrows the request
-// back to a package inside that namespace.
 func wipesNamespace(name string, opts *Options) bool {
 	return name == "" && opts.NamespaceSet && opts.Version == "" && !opts.All
 }
@@ -118,9 +111,6 @@ func removePackage(s store.Store, name string, opts *Options, log *log.Logger) e
 }
 
 func removeNamespace(s store.Store, opts *Options, log *log.Logger) error {
-	// An overridden package directory is a single destination, so the
-	// namespace names nothing there. Checked before anything is reported or
-	// asked, so a stray -n cannot delete the override.
 	if s.Flat() {
 		return store.ErrFlatStore
 	}
@@ -156,8 +146,6 @@ func removeNamespace(s store.Store, opts *Options, log *log.Logger) error {
 	return nil
 }
 
-// approve reports whether the namespace may be deleted. --yes answers ahead
-// of time; otherwise somebody has to be there to answer.
 func approve(opts *Options) (bool, error) {
 	if opts.Yes {
 		return true, nil
@@ -172,9 +160,6 @@ func approve(opts *Options) (bool, error) {
 	return ask("delete the whole namespace?")
 }
 
-// count reports how many packages and versions a namespace holds, for the
-// warning shown before it is deleted. Counting is only for the report, so a
-// scan that fails costs the numbers rather than the command.
 func count(s store.Store, namespace string, log *log.Logger) (int, int) {
 	namespaces, err := s.Scan()
 	if err != nil {
@@ -198,10 +183,6 @@ func namespaceRef(namespace string) string {
 	return "@" + namespace
 }
 
-// resolveIdentity returns the name and version to uninstall. A name given on
-// the command line needs a version or --all alongside it; without a name the
-// name comes from the manifest of the working directory, and so does the
-// version unless the command line carries one of its own.
 func resolveIdentity(name string, opts *Options) (string, string, error) {
 	if name != "" {
 		if opts.Version == "" && !opts.All {
@@ -217,7 +198,6 @@ func resolveIdentity(name string, opts *Options) (string, string, error) {
 	case opts.Version != "":
 		return m.Package.Name, opts.Version, nil
 	case opts.All:
-		// An empty version leaves --all to remove every version.
 		return m.Package.Name, "", nil
 	default:
 		return m.Package.Name, m.Package.Version, nil

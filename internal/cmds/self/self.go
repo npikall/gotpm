@@ -49,12 +49,6 @@ func Version(info BuildInfo) {
 		info.Version, info.Commit, info.OS, info.Arch, info.Installer)
 }
 
-// isHomebrewInstall reports whether the running binary lives under a
-// Homebrew Cellar — the macOS Intel (/usr/local), macOS Apple Silicon
-// (/opt/homebrew) and Linuxbrew (/home/linuxbrew/.linuxbrew) prefixes all
-// share that one path segment. Symlinks are resolved first since a
-// Homebrew-installed binary is normally reached through a symlink in
-// <prefix>/bin, not the Cellar path itself.
 func isHomebrewInstall() bool {
 	exe, err := os.Executable()
 	if err != nil {
@@ -66,34 +60,18 @@ func isHomebrewInstall() bool {
 	return isHomebrewCellarPath(exe)
 }
 
-// isHomebrewCellarPath is the pure check behind isHomebrewInstall, split out
-// so it can be tested without touching the filesystem.
 func isHomebrewCellarPath(path string) bool {
 	return strings.Contains(filepath.ToSlash(path), "/Cellar/")
 }
 
-// isBrewInstall reports whether this binary should be treated as a Homebrew
-// install for self-update's purposes. info.Installer == "brew" covers
-// binaries built by the pre-GoReleaser Homebrew formula, which stamped that
-// ldflag at build time; isHomebrewInstall covers every install since, where
-// GoReleaser ships the same binary to every channel and a Homebrew install
-// is only distinguishable at runtime by where it landed on disk.
 func isBrewInstall(info BuildInfo) bool {
 	return info.Installer == "brew" || isHomebrewInstall()
 }
 
-// assetFilter is the regexp passed to go-selfupdate to pick this platform's
-// release asset.
 func assetFilter() string {
 	return assetFilterFor(runtime.GOOS, runtime.GOARCH)
 }
 
-// assetFilterFor is the pure logic behind assetFilter, split out so it can
-// be tested for every OS regardless of which one the test runs on.
-// GoReleaser names assets "gotpm_<tag>_<os>_<arch>[.exe]" (see
-// .goreleaser.yaml); this matches on the "_<os>_<arch>" suffix rather than
-// the version-bearing prefix, since the version being looked up isn't known
-// in advance.
 func assetFilterFor(goos, goarch string) string {
 	filter := fmt.Sprintf(`_%s_%s`, goos, goarch)
 	if goos == "windows" {
@@ -102,7 +80,9 @@ func assetFilterFor(goos, goarch string) string {
 	return filter + "$"
 }
 
-// Update replaces this binary with the latest release from GitHub.
+// Update replaces this binary with the latest release from GitHub. A Homebrew
+// install is detected from the executable's path and sent to brew instead
+// (ADR 0004).
 func Update(info BuildInfo, opts *Options) error {
 	ctx := context.Background()
 

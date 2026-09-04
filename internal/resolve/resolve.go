@@ -27,11 +27,9 @@ var ErrNotAPackage = errors.New("not a typst package")
 
 const (
 	// Latest asks for the newest release rather than a particular revision.
-	Latest = "latest"
-	// headRevision is what a repository without release tags is pinned to.
+	Latest       = "latest"
 	headRevision = "HEAD"
-	// tagPrefix is the "v" release tags conventionally carry.
-	tagPrefix = "v"
+	tagPrefix    = "v"
 )
 
 // Request is a repository and the revision of it that is wanted. An empty
@@ -83,8 +81,6 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", src.Canonical, err)
 	}
-	// Checking out the commit rather than the revision keeps an install
-	// reproducible when a tag is later moved.
 	if err := remote.CheckoutRevision(clone.Repo, hash); err != nil {
 		return nil, fmt.Errorf("checking out %s of %s: %w", revision, src.Canonical, err)
 	}
@@ -99,8 +95,6 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 	return &Resolved{Source: src, Revision: revision, Hash: hash, Dir: clone.Dir, Manifest: m}, nil
 }
 
-// pickRevision decides what to check out: what the caller asked for, or the
-// newest release when they did not ask for anything in particular.
 func pickRevision(repo *git.Repository, requested string, src Source, logger *log.Logger) (string, error) {
 	if requested != "" && requested != Latest {
 		return requested, nil
@@ -139,11 +133,6 @@ func LatestStableTag(tags []string) (string, bool) {
 	return bestName, bestVersion != nil
 }
 
-// loadRootManifest reads the manifest a repository must have at its root.
-//
-// manifest.LoadFrom is deliberately not used: it searches parent directories,
-// which from inside the clone cache would reach directories that have nothing
-// to do with this repository.
 func loadRootManifest(dir string, src Source) (*manifest.Manifest, error) {
 	m, err := manifest.LoadFile(filepath.Join(dir, manifest.FileName))
 	if errors.Is(err, os.ErrNotExist) {
@@ -156,9 +145,6 @@ func loadRootManifest(dir string, src Source) (*manifest.Manifest, error) {
 	return m, nil
 }
 
-// warnOnVersionMismatch reports a release tag that disagrees with the version
-// the package declares. The manifest wins, because that is the version typst
-// expects to find the package installed under.
 func warnOnVersionMismatch(m *manifest.Manifest, revision string, src Source, logger *log.Logger) {
 	tagged := strings.TrimPrefix(revision, tagPrefix)
 	if !semver.IsValidVersion(tagged) || tagged == m.Package.Version {
@@ -168,8 +154,6 @@ func warnOnVersionMismatch(m *manifest.Manifest, revision string, src Source, lo
 		"url", src.Canonical, "tag", revision, "manifest", m.Package.Version)
 }
 
-// subdirHint explains the most likely reason a deep path failed, since gotpm
-// cannot yet tell a repository in a group from a package in a subdirectory.
 func subdirHint(src Source) string {
 	if IsLocal(src.Canonical) || strings.Count(src.Canonical, "/") < minSegments {
 		return ""

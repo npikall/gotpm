@@ -11,14 +11,9 @@ import (
 	"github.com/npikall/gotpm/internal/pkg"
 )
 
-// ProvenanceFile records, inside an installed package, which repository and
-// commit it was built from.
-//
-// The store is shared by every project on the machine and by packages the user
-// placed there by hand, so a coordinate like @gotpm/cetz:0.3.1 is not enough to
-// know whether an installed directory is the one a project asked for. Keeping
-// the answer next to the files means it survives a project being deleted and
-// disappears with the package itself.
+// ProvenanceFile records, inside an installed package, which repository and commit
+// it was built from. That record, not the coordinate, decides whether gotpm may
+// replace or delete what is installed (ADR 0002).
 const ProvenanceFile = paths.ProvenanceFile
 
 var ErrInvalidProvenance = errors.New("invalid provenance file")
@@ -49,15 +44,9 @@ func (s Store) WriteProvenance(ref pkg.Ref, p Provenance) error {
 	return paths.WriteFile(s.ProvenancePath(ref), append(data, '\n'))
 }
 
-// ReadProvenance reports where an installed package came from. A package
-// without a provenance file was not installed by gotpm; that is not an error
-// here, but callers must treat it as an unknown origin rather than a match.
-//
-// An editable install is a symlink to a working tree the caller controls, so
-// ProvenancePath would resolve through it into that working tree rather than
-// into anything gotpm wrote. Per ADR 0002, an editable install has no
-// provenance by construction; reading through the link could make an
-// unrelated file the working tree happens to contain pass for one.
+// ReadProvenance reports where an installed package came from. A package without
+// a provenance file was not installed by gotpm and has an unknown origin; an
+// editable install has none by construction and is not read through (ADR 0002).
 func (s Store) ReadProvenance(ref pkg.Ref) (Provenance, bool, error) {
 	if isSymlink(s.Dir(ref)) {
 		return Provenance{}, false, nil

@@ -17,8 +17,6 @@ import (
 	"strings"
 )
 
-// run executes git with args inside dir, returning an error wrapping git's
-// own combined stdout+stderr on failure.
 func run(dir string, args ...string) error {
 	cmd := exec.CommandContext(context.Background(), "git", append([]string{"-C", dir}, args...)...) //nolint: gosec
 	var out bytes.Buffer
@@ -53,9 +51,7 @@ func HasMain(dir string) bool {
 }
 
 // Fetch updates origin/main, and only origin/main: Clone's --depth implies
-// --single-branch, leaving the clone's refspec as
-// +refs/heads/main:refs/remotes/origin/main. Package branches are not covered
-// by it and need FetchBranch. Fetching keeps the clone shallow.
+// --single-branch. Package branches need FetchBranch. The clone stays shallow.
 func Fetch(dir string) error {
 	return run(dir, "fetch", "origin")
 }
@@ -73,8 +69,7 @@ func MergeFFOnly(dir, branch string) error {
 
 // Diverged reports whether branch and origin/<branch> have both moved on
 // independently, i.e. neither ref contains the other. A branch merely ahead of
-// the fork - the ordinary result of a publish that has not been pushed - is
-// not diverged.
+// the fork is not diverged.
 func Diverged(dir, branch string) bool {
 	remote := "origin/" + branch
 	behind := run(dir, "merge-base", "--is-ancestor", branch, remote) == nil
