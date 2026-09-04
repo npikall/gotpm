@@ -71,6 +71,23 @@ func MergeFFOnly(dir, branch string) error {
 	return run(dir, "merge", "--ff-only", "origin/"+branch)
 }
 
+// Diverged reports whether branch and origin/<branch> have both moved on
+// independently, i.e. neither ref contains the other. A branch merely ahead of
+// the fork - the ordinary result of a publish that has not been pushed - is
+// not diverged.
+func Diverged(dir, branch string) bool {
+	remote := "origin/" + branch
+	behind := run(dir, "merge-base", "--is-ancestor", branch, remote) == nil
+	ahead := run(dir, "merge-base", "--is-ancestor", remote, branch) == nil
+	return !behind && !ahead
+}
+
+// ResetHard moves the current branch to rev and matches the worktree to it,
+// discarding commits and changes that are not on rev.
+func ResetHard(dir, rev string) error {
+	return run(dir, "reset", "--hard", rev)
+}
+
 // SetUpstream makes branch track origin/<branch>.
 func SetUpstream(dir, branch string) error {
 	if err := run(dir, "config", "branch."+branch+".remote", "origin"); err != nil {

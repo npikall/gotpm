@@ -1,7 +1,6 @@
 package publish
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -52,10 +51,6 @@ func fetchFork(logger *log.Logger, forkPath string) error {
 	return nil
 }
 
-// ErrForkBranchDiverged is returned when the local package branch and the
-// fork's branch of the same name have both moved on independently.
-var ErrForkBranchDiverged = errors.New("local branch and fork branch have diverged")
-
 // CheckoutPackageBranch checks out branchName, scoped to pkgDir via sparse
 // checkout, and makes it track origin/branchName. It reports whether the
 // branch already existed - locally or on the fork - before this call.
@@ -89,7 +84,7 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 
 // checkoutFrom checks out branchName from whichever base the branch's
 // local/fork existence calls for, fast-forwarding onto the fork's tip when the
-// branch exists in both places.
+// branch exists in both places, and resetting onto it when the two diverged.
 func checkoutFrom(logger *log.Logger, forkPath, branchName string, local, onFork bool) error {
 	if !local {
 		base := "origin/main"
@@ -110,9 +105,26 @@ func checkoutFrom(logger *log.Logger, forkPath, branchName string, local, onFork
 		return nil
 	}
 	logger.Debug("fast-forwarding onto fork branch", "branch", branchName)
-	if err := gitcli.MergeFFOnly(forkPath, branchName); err != nil {
-		manual := fmt.Sprintf("git -C %s log --oneline %s..origin/%s", forkPath, branchName, branchName)
-		return fmt.Errorf("%w: %w\nInspect and reconcile them: %s", ErrForkBranchDiverged, err, manual)
+	ffErr := gitcli.MergeFFOnly(forkPath, branchName)
+	if ffErr == nil {
+		return nil
+	}
+	// A fast-forward can also be refused for reasons that are not divergence
+	// - a busy index, a git that cannot run at all. Those are reported rather
+	// than resolved by force.
+	if !gitcli.Diverged(forkPath, branchName) {
+		return fmt.Errorf("fast-forwarding %q onto the fork: %w", branchName, ffErr)
+	}
+
+	// The two have diverged. The fork clone is a staging area, and every
+	// commit on a package branch is a copy of the package's working tree,
+	// which the publish run this is part of is about to re-copy and
+	// re-commit. Resetting onto the fork keeps what only exists there - an
+	// edit made on GitHub after the Universe maintainers asked for one - and
+	// drops only commits whose content is regenerated a moment later.
+	logger.Warn("branch diverged from the fork, resetting onto it", "branch", branchName, "err", ffErr)
+	if err := gitcli.ResetHard(forkPath, "origin/"+branchName); err != nil {
+		return fmt.Errorf("resetting %q onto the fork: %w", branchName, err)
 	}
 	return nil
 }
