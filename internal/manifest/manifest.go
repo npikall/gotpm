@@ -146,9 +146,6 @@ func Update(file string, manifest *Manifest, indent bool) error {
 	return nil
 }
 
-// writeTOML writes the package metadata (name, version, entrypoint) back into
-// the TOML document represented by data. Everything else in the document is
-// carried over untouched.
 func writeTOML(w io.Writer, p PackageMeta, data []byte, indent bool) error {
 	var m map[string]any
 	if err := toml.Unmarshal(data, &m); err != nil {

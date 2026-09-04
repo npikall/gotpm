@@ -10,12 +10,8 @@ import (
 
 var ErrInvalidRepoURL = errors.New("not a valid repository url")
 
-// minSegments is the shortest a repository path can be: a host, an owner and a
-// repository name. Deeper paths are allowed because hosts such as GitLab nest
-// repositories in groups.
 const minSegments = 3
 
-// fileScheme marks a repository that lives on this machine.
 const fileScheme = "file://"
 
 // Source is a repository in the two forms gotpm needs it: the canonical name it
@@ -38,9 +34,6 @@ func Normalize(raw string) (Source, error) {
 		return Source{}, fmt.Errorf("%w: empty", ErrInvalidRepoURL)
 	}
 
-	// A local repository is not a hosted one and has no host/owner/repository
-	// shape to check. It stays useful for trying a package out before pushing
-	// it anywhere.
 	if IsLocal(trimmed) {
 		local := strings.TrimSuffix(strings.TrimSuffix(trimmed, "/"), ".git")
 		return Source{Canonical: local, CloneURL: local}, nil
@@ -61,8 +54,6 @@ func Normalize(raw string) (Source, error) {
 	return Source{Canonical: canonical, CloneURL: cloneURL}, nil
 }
 
-// canonicalize reduces a repository argument to "host/path", without a scheme,
-// credentials, a ".git" suffix or a trailing slash.
 func canonicalize(raw string) (string, error) {
 	trimmed := strings.TrimSuffix(strings.TrimSuffix(raw, "/"), ".git")
 
@@ -84,9 +75,6 @@ func canonicalize(raw string) (string, error) {
 	return parsed.Host + "/" + strings.Trim(parsed.Path, "/"), nil
 }
 
-// validate rejects arguments that cannot name a repository at all. It stays
-// deliberately shallow: whether a repository really exists is something only
-// the clone can answer.
 func validate(canonical, raw string) error {
 	segments := strings.Split(canonical, "/")
 	if len(segments) < minSegments {
@@ -101,9 +89,6 @@ func validate(canonical, raw string) error {
 	return nil
 }
 
-// cutSCPLike splits the "git@host:owner/repo" form ssh remotes are usually
-// written in, which is not a url and so cannot be parsed as one. It returns the
-// host, the path and whether the argument was in that form at all.
 func cutSCPLike(raw string) (string, string, bool) {
 	if hasScheme(raw) {
 		return "", "", false

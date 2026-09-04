@@ -23,11 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Isolate points gotpm's data directory and package directory at temporary ones,
-// so a test never touches the developer's real clone cache or installed
-// packages. It returns the root of the package directory.
-//
-// A test calling this cannot be parallel: t.Setenv is process-wide.
+// Isolate points gotpm's data and package directories at temporary ones and
+// returns the package directory root. A test calling it cannot be parallel:
+// t.Setenv is process-wide.
 func Isolate(t *testing.T) string {
 	t.Helper()
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
@@ -63,9 +61,7 @@ type Package struct {
 	name    string
 	version string
 	hash    string
-	// builds counts releases, so committing the same version twice still
-	// changes a file and produces a second commit.
-	builds int
+	builds  int
 }
 
 // New creates an empty repository for a package. Nothing is committed until
@@ -133,8 +129,6 @@ func (p *Package) ReleaseWith(declared []string, lock *lockfile.Lock) *Package {
 	})
 	require.NoError(t, err)
 
-	// Releasing the same version again moves the tag, which is exactly the
-	// upstream mistake gotpm's pinning is there to survive.
 	_ = p.repo.DeleteTag(p.Tag())
 	_, err = p.repo.CreateTag(p.Tag(), hash, nil)
 	require.NoError(t, err)

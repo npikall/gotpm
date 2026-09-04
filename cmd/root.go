@@ -28,7 +28,6 @@ var rootCmd = &cobra.Command{
 	Long:  asciiArt + description,
 }
 
-// installDirUsage is the help text of the --install-dir flag
 const installDirUsage = "A directory holding one package's files, without namespace/name/version layout (env: $" +
 	paths.InstallDirEnvVar + ")"
 

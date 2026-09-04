@@ -7,8 +7,6 @@ import (
 	"github.com/npikall/gotpm/internal/pkg"
 )
 
-// refPattern matches a reference to a Typst Universe package as written in an
-// import statement, e.g. "@preview/cetz:0.5.2".
 var refPattern = regexp.MustCompile(`@preview/[a-zA-Z0-9_-]+:\d+\.\d+\.\d+`)
 
 // FindRefs returns every Typst Universe package referenced in content, in the
@@ -25,9 +23,6 @@ func FindRefs(content []byte) []pkg.Ref {
 
 		ref, err := pkg.ParseImport(statement)
 		if err != nil {
-			// Unreachable for anything refPattern matches, but a reference
-			// that cannot be parsed is one this package has no business
-			// rewriting either.
 			continue
 		}
 		refs = append(refs, ref)

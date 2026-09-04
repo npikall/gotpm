@@ -25,9 +25,6 @@ import (
 
 var ErrTooDeep = errors.New("dependency graph is too deep")
 
-// maxDepth bounds the recursion. A chain this long is a mistake rather than a
-// real dependency graph, and stopping with the chain named beats recursing
-// until the process runs out of stack.
 const maxDepth = 32
 
 // Reason says why a declared dependency could not be resolved.
@@ -42,10 +39,9 @@ const (
 	IncompleteLock
 )
 
-// Unresolved is one declared dependency Walk could not find a repository
-// for. The subtree under it is skipped; everything else reachable is still
-// walked. Walk itself takes no view on whether that makes the walk a
-// failure — that is for the caller to decide from Reason.
+// Unresolved is one declared dependency Walk could not find a repository for.
+// The subtree under it is skipped; whether that fails the walk is the caller's
+// decision, taken from Reason.
 type Unresolved struct {
 	// Dependency is the unresolved import, e.g. "@gotpm/tidy:0.4.0".
 	Dependency string
@@ -58,10 +54,8 @@ type Unresolved struct {
 
 // Options configures a Walk.
 type Options struct {
-	// RootNamespace overrides the namespace the root package is recorded
-	// under. Transitive dependencies always resolve under manifest.Namespace
-	// — a dependency's own source imports it as "@gotpm/...", so nothing
-	// else is a namespace it could resolve under. Empty keeps
+	// RootNamespace overrides the namespace the root package is recorded under.
+	// Transitive dependencies always resolve under manifest.Namespace. Empty keeps
 	// manifest.Namespace for the root too.
 	RootNamespace string
 }
@@ -79,42 +73,29 @@ type Result struct {
 
 // Walk resolves a repository and everything it depends on.
 func Walk(root resolve.Request, opts Options, logger *log.Logger) (Result, error) {
-	w := &walker{logger: logger, opts: opts, index: make(map[string]int)}
+	w := &walker{logger: logger, opts: opts, bySourceCommit: make(map[string]int)}
 	if err := w.visit(node{request: root, direct: true}, nil); err != nil {
 		return Result{}, err
 	}
 	return Result{Entries: w.entries, Unresolved: w.unresolved}, nil
 }
 
-// node is one package to visit: where to get it, and what pulled it in.
 type node struct {
-	request resolve.Request
-	// revision is the tag to record, when the pin came from a lock that knows
-	// both a tag and the commit it pointed at. The request itself asks for the
-	// commit, so a moved tag cannot change what gets installed.
-	revision string
-	// declaredAs is the import the dependant declared, kept to report a
-	// dependency whose lock points at a version the package no longer holds.
+	request    resolve.Request
+	revision   string
 	declaredAs string
 	requiredBy string
 	direct     bool
 }
 
 type walker struct {
-	logger     *log.Logger
-	opts       Options
-	entries    []lockfile.Entry
-	unresolved []Unresolved
-	// index maps a visited repository commit to its position in entries. The
-	// key is the commit rather than the import, because the same coordinate
-	// coming from two different repositories is a conflict to be reported, not
-	// a package already seen.
-	index map[string]int
+	logger         *log.Logger
+	opts           Options
+	entries        []lockfile.Entry
+	unresolved     []Unresolved
+	bySourceCommit map[string]int
 }
 
-// visit resolves one node, records it and descends into its dependencies.
-// chain holds the keys of the nodes currently being visited, which is what
-// makes a cycle recognisable.
 func (w *walker) visit(n node, chain []string) error {
 	if len(chain) >= maxDepth {
 		return fmt.Errorf("%w: more than %d levels: %s",
@@ -125,13 +106,10 @@ func (w *walker) visit(n node, chain []string) error {
 	if err != nil {
 		return w.wrapResolveError(n, err)
 	}
-	key := resolved.Source.Canonical + "@" + resolved.Hash
+	sourceCommit := resolved.Source.Canonical + "@" + resolved.Hash
 
-	// Descending again would not end. A lock can normally only name commits
-	// that already exist, which makes a cycle hard to create by accident, but
-	// a hand-written one costs nothing to survive.
-	if i, seen := w.index[key]; seen {
-		if slices.Contains(chain, key) {
+	if i, seen := w.bySourceCommit[sourceCommit]; seen {
+		if slices.Contains(chain, sourceCommit) {
 			w.logger.Debug("skipping dependency cycle", "package", w.entries[i].Import, "via", n.requiredBy)
 		}
 		w.record(i, n)
@@ -143,7 +121,7 @@ func (w *walker) visit(n node, chain []string) error {
 		return err
 	}
 	w.warnOnCoordinateMismatch(entry, n)
-	w.index[key] = len(w.entries)
+	w.bySourceCommit[sourceCommit] = len(w.entries)
 	w.entries = append(w.entries, entry)
 
 	children, unresolved, err := dependenciesOf(resolved, entry.Import)
@@ -151,7 +129,7 @@ func (w *walker) visit(n node, chain []string) error {
 		return err
 	}
 	w.unresolved = append(w.unresolved, unresolved...)
-	childChain := append(slices.Clip(chain), key)
+	childChain := append(slices.Clip(chain), sourceCommit)
 	for _, child := range children {
 		if err := w.visit(child, childChain); err != nil {
 			return err
@@ -160,20 +138,16 @@ func (w *walker) visit(n node, chain []string) error {
 	return nil
 }
 
-// importsOf names the packages a chain of visit keys stands for, so an error
-// about the shape of the graph can describe it the way the user wrote it.
 func (w *walker) importsOf(chain []string) []string {
 	imports := make([]string, 0, len(chain))
-	for _, key := range chain {
-		if i, ok := w.index[key]; ok {
+	for _, sourceCommit := range chain {
+		if i, ok := w.bySourceCommit[sourceCommit]; ok {
 			imports = append(imports, w.entries[i].Import)
 		}
 	}
 	return imports
 }
 
-// record folds a repeat visit into the entry already made for it: another
-// dependant, and possibly the fact that it is declared directly as well.
 func (w *walker) record(i int, n node) {
 	entry := &w.entries[i]
 	entry.Direct = entry.Direct || n.direct
@@ -183,10 +157,6 @@ func (w *walker) record(i int, n node) {
 	}
 }
 
-// newEntry turns a resolved repository into the lock entry that pins it. The
-// root may be recorded under opts.RootNamespace; every other node is a
-// transitive dependency and is always imported as "@gotpm/...", so nothing
-// else is a namespace it could resolve under.
 func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry, error) {
 	namespace := manifest.Namespace
 	if n.direct && opts.RootNamespace != "" {
@@ -219,11 +189,6 @@ func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry,
 	}, nil
 }
 
-// dependenciesOf reads what a resolved package depends on, and looks each one
-// up in the lock the package committed to learn where it comes from. A
-// declared dependency missing from that lock comes back as an Unresolved
-// rather than an error: whether that is fatal is a decision for Walk's
-// caller, not the walker.
 func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unresolved, error) {
 	declared := resolved.Manifest.Dependencies()
 	if len(declared) == 0 {
@@ -258,8 +223,6 @@ func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unr
 	return children, unresolved, nil
 }
 
-// pin is the revision a locked entry is fetched at: the exact commit, falling
-// back to the tag for a lock written by hand.
 func pin(entry lockfile.Entry) string {
 	if entry.Hash != "" {
 		return entry.Hash
@@ -267,9 +230,6 @@ func pin(entry lockfile.Entry) string {
 	return entry.Revision
 }
 
-// newUnresolved records the one failure users are likely to hit: a package
-// that declares gotpm dependencies without publishing the lock that says
-// where they live.
 func newUnresolved(importing, importingURL, dependency string, locked bool) Unresolved {
 	reason := NoLockShipped
 	if locked {
@@ -283,9 +243,6 @@ func newUnresolved(importing, importingURL, dependency string, locked bool) Unre
 	}
 }
 
-// wrapResolveError names the package a failed dependency was pulled in by,
-// which is the only thing telling the user why gotpm went near that
-// repository at all.
 func (w *walker) wrapResolveError(n node, err error) error {
 	if n.requiredBy == "" {
 		return fmt.Errorf("resolving %s: %w", n.request.URL, err)
@@ -293,10 +250,6 @@ func (w *walker) wrapResolveError(n node, err error) error {
 	return fmt.Errorf("resolving %s required by %s: %w", n.declaredAs, n.requiredBy, err)
 }
 
-// warnOnCoordinateMismatch reports a dependant whose lock pins a commit that
-// no longer holds the version it declares. The commit wins, because that is
-// what the lock guarantees, but the dependant's import statements will not
-// find the package under the name they use.
 func (w *walker) warnOnCoordinateMismatch(entry lockfile.Entry, n node) {
 	if n.declaredAs == "" || n.declaredAs == entry.Import {
 		return

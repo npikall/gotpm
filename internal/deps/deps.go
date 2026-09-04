@@ -43,15 +43,13 @@ type Result struct {
 	Ref     pkg.Ref
 	Entry   lockfile.Entry
 	Outcome Outcome
-	// MovedTag is the commit the entry's revision points at now, set only when
-	// that is no longer the commit the lock pinned. The lock still wins; this
-	// is what tells the user their pin has drifted from the tag it was made
-	// from.
+	// MovedTag is the commit the entry's revision points at now, set only when that
+	// is no longer the commit the lock pinned. The lock still wins; this says the
+	// pin has drifted from the tag it was made from.
 	MovedTag string
-	// ReplacedSource is where the package version held under this package ref
-	// came from before this fetch overwrote it, set whenever the outcome is
-	// Replaced. It is the zero value when what was there carried no
-	// provenance, which is a package directory gotpm did not fill.
+	// ReplacedSource is where the package version held under this ref came from
+	// before this fetch overwrote it, set whenever the outcome is Replaced. It is
+	// the zero value when what was there carried no provenance.
 	ReplacedSource store.Provenance
 }
 
@@ -68,13 +66,8 @@ func (r Result) DriftWarning() string {
 }
 
 // ReplacedNotice describes what a fetch overwrote, or the empty string when it
-// overwrote nothing.
-//
-// The package directory is shared by every project on this machine, so a
-// replacement changes what all of them compile against. gotpm does not prevent
-// it — a version naming a second commit is an authoring error it cannot
-// resolve, and a forced replacement is what the user asked for — so it reports
-// it instead, naming both sources precisely enough to say which build moved.
+// overwrote nothing. The package directory is shared by every project on the
+// machine, so a replacement changes what all of them compile against.
 func (r Result) ReplacedNotice() string {
 	if r.Outcome != Replaced {
 		return ""
@@ -82,14 +75,11 @@ func (r Result) ReplacedNotice() string {
 	was := r.ReplacedSource
 	now := store.Provenance{URL: r.Entry.URL, Hash: r.Entry.Hash}
 	if was.URL == now.URL {
-		// The same repository stands on both sides, so naming it twice would
-		// bury the one thing that changed.
 		return fmt.Sprintf("replaced %s %s -> %s", r.Ref, ShortHash(was.Hash), ShortHash(now.Hash))
 	}
 	return fmt.Sprintf("replaced %s %s -> %s", r.Ref, sourceOf(was), sourceOf(now))
 }
 
-// sourceOf names where an installed package version came from.
 func sourceOf(prov store.Provenance) string {
 	if prov.URL == "" {
 		return "an unknown source"
@@ -97,7 +87,6 @@ func sourceOf(prov store.Provenance) string {
 	return prov.URL + " at " + ShortHash(prov.Hash)
 }
 
-// shortHashLen is how much of a commit hash is worth showing.
 const shortHashLen = 8
 
 // ShortHash abbreviates a commit hash for a message.
@@ -127,13 +116,9 @@ func OpenInstaller(force bool, logger *log.Logger) (Installer, error) {
 	return Installer{Store: s, Logger: logger, Force: force}, nil
 }
 
-// EnsureAll makes the store hold every package version a set of entries pins,
-// in the order they are given.
-//
-// It stops at the first entry it cannot install and reports nothing about the
-// ones before it: a lock describes a set of packages, and a half-installed set
-// is not a state worth reporting on. Running the command again picks up where
-// this one stopped, because Ensure leaves what is already installed alone.
+// EnsureAll makes the store hold every package version a set of entries pins, in
+// the order they are given. It stops at the first entry it cannot install and
+// reports nothing about the ones before it; running again resumes from there.
 func (i Installer) EnsureAll(entries []lockfile.Entry) ([]Result, error) {
 	results := make([]Result, 0, len(entries))
 	for _, entry := range entries {
@@ -146,12 +131,9 @@ func (i Installer) EnsureAll(entries []lockfile.Entry) ([]Result, error) {
 	return results, nil
 }
 
-// Ensure makes the store hold exactly the package version an entry pins,
-// fetching it when it is missing or is not the commit that was locked.
-//
-// A directory installed from another repository, or one gotpm did not install
-// at all, is left alone and reported: other projects on this machine import it
-// under the same coordinate.
+// Ensure makes the store hold exactly the package version an entry pins, fetching
+// it when it is missing or is not the commit that was locked. A directory gotpm
+// did not install is left alone and reported (ADR 0002).
 func (i Installer) Ensure(entry lockfile.Entry) (Result, error) {
 	ref, err := pkg.New(entry.Namespace, entry.Name, entry.Version)
 	if err != nil {
@@ -183,29 +165,21 @@ func (i Installer) Ensure(entry lockfile.Entry) (Result, error) {
 	if present != absent {
 		outcome = Replaced
 	}
-	// prov is the zero value when nothing was installed, and when what was
-	// installed carried no provenance; both are what ReplacedSource means by it.
 	return Result{
 		Ref: ref, Entry: entry, Outcome: outcome, MovedTag: moved,
 		ReplacedSource: prov,
 	}, nil
 }
 
-// state is what the store already holds for a package version.
 type state int
 
 const (
-	// absent: nothing is installed under this coordinate.
 	absent state = iota
-	// current: the pinned commit, from the pinned repository.
 	current
-	// stale: the pinned repository, but another commit.
 	stale
-	// foreign: another repository, or nothing saying which.
 	foreign
 )
 
-// inspect compares what is installed against what an entry pins.
 func (i Installer) inspect(ref pkg.Ref, entry lockfile.Entry) (state, store.Provenance, error) {
 	if !i.Store.Has(ref) {
 		return absent, store.Provenance{}, nil
@@ -224,7 +198,6 @@ func (i Installer) inspect(ref pkg.Ref, entry lockfile.Entry) (state, store.Prov
 	}
 }
 
-// install fetches the pinned commit and copies it into the store.
 func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 	src, err := resolve.Normalize(entry.URL)
 	if err != nil {
@@ -250,13 +223,6 @@ func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 	})
 }
 
-// movedTag reports the commit an entry's revision points at now, when that is
-// no longer the commit the lock pinned.
-//
-// A revision that is a commit, or the moving HEAD of a repository without
-// releases, cannot drift in a way worth reporting, and one that has since
-// disappeared is not something the install needs to care about: the lock names
-// a commit, and that is what gets installed either way.
 func movedTag(repo *git.Repository, entry lockfile.Entry) string {
 	if entry.Revision == "" || entry.Revision == "HEAD" || entry.Revision == entry.Hash {
 		return ""
@@ -268,9 +234,6 @@ func movedTag(repo *git.Repository, entry lockfile.Entry) string {
 	return hash
 }
 
-// conflictError describes a coordinate that is taken by a package from
-// somewhere else. The store is machine-global, so overwriting it would change
-// what another project imports; that has to be the user's decision.
 func conflictError(ref pkg.Ref, entry lockfile.Entry, prov store.Provenance) error {
 	from := "an unknown source, without a " + store.ProvenanceFile
 	if prov.URL != "" {

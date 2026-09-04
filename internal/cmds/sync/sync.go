@@ -56,8 +56,6 @@ func Run(opts *Options, logger *log.Logger) error {
 		return err
 	}
 
-	// Pruning also re-marks which entries are direct, so the lock can need
-	// writing even when nothing was removed from it.
 	wasDirect := lock.Direct()
 	removed := lock.Prune(declared)
 	changed := len(removed) > 0 || !slices.Equal(wasDirect, lock.Direct())
@@ -80,8 +78,6 @@ func Run(opts *Options, logger *log.Logger) error {
 	return nil
 }
 
-// declaredImports reads the dependency list of the manifest, rejecting entries
-// gotpm cannot install.
 func declaredImports(project *deps.Project) ([]string, error) {
 	refs, err := manifest.ParseDependencies(project.Dependencies())
 	if err != nil {
@@ -94,10 +90,6 @@ func declaredImports(project *deps.Project) ([]string, error) {
 	return imports, nil
 }
 
-// checkKnownSources rejects a dependency the project declares but the lock
-// does not describe. Nothing can be done about it here: an import statement
-// names a package, never the repository it comes from, so only the user knows
-// where it should be fetched from.
 func checkKnownSources(lock *lockfile.Lock, declared []string) error {
 	var unknown []string
 	for _, imp := range declared {
@@ -113,8 +105,6 @@ func checkKnownSources(lock *lockfile.Lock, declared []string) error {
 		ErrUnknownSource, strings.Join(unknown, ", "), lockfile.FileName)
 }
 
-// saveLock writes the lock back when pruning changed it, and refuses to when
-// the caller asked for a frozen one.
 func saveLock(project *deps.Project, lock *lockfile.Lock, removed []lockfile.Entry, changed bool, opts *Options) error {
 	if !changed {
 		return nil
@@ -127,8 +117,6 @@ func saveLock(project *deps.Project, lock *lockfile.Lock, removed []lockfile.Ent
 	return project.SaveLock(lock)
 }
 
-// obsolete names the entries nothing declares any more, when that is what the
-// disagreement is.
 func obsolete(removed []lockfile.Entry) string {
 	if len(removed) == 0 {
 		return ""
@@ -136,8 +124,6 @@ func obsolete(removed []lockfile.Entry) string {
 	return " (no longer required: " + strings.Join(importsOf(removed), ", ") + ")"
 }
 
-// report prints what sync had to change, and says so plainly when it had to
-// change nothing.
 func report(results []deps.Result, removed []lockfile.Entry) {
 	if len(removed) > 0 {
 		ui.Infof("dropped from %s: %s", lockfile.FileName, strings.Join(importsOf(removed), ", "))

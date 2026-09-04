@@ -24,16 +24,11 @@ var (
 	ErrFlatStore = errors.New("the package directory points at a single package; there are no namespaces to delete")
 )
 
-// stagingPrefix names the directory an install is assembled in. The leading
-// dot keeps a leftover from a crashed install out of Scan.
 const stagingPrefix = ".gotpm-staging-"
 
-// Store is a directory holding installed packages.
-//
-// A store is normally laid out as <root>/<namespace>/<name>/<version>, but when
-// the user overrides the directory (--install-dir or $GOTPM_INSTALL_DIR) the
-// root itself is the destination. Callers do not need to know which of the two
-// they got: every path goes through Dir.
+// Store is a directory holding installed packages, normally laid out as
+// <root>/<namespace>/<name>/<version>. An overridden directory is the destination
+// itself; callers need not know which, as every path goes through Dir.
 type Store struct {
 	root string
 	flat bool
@@ -49,10 +44,8 @@ func Open(override string) (Store, error) {
 }
 
 // OpenPackageDir opens the shared package directory the Typst compiler resolves
-// imports from, laid out by namespace, name and version.
-//
-// It deliberately ignores the install dir override: an install dir receives one
-// package's files directly, and a project's dependencies are a graph.
+// imports from, laid out by namespace, name and version. It ignores the install
+// dir override, which receives one package's files directly (ADR 0003).
 func OpenPackageDir() (Store, error) {
 	root, err := paths.TypstPackagesDir()
 	if err != nil {
@@ -121,12 +114,9 @@ func (s Store) HasNamespace(namespace string) bool {
 	return !s.flat && exists(s.NamespaceDir(namespace))
 }
 
-// Install copies a package from srcDir into the store.
-//
-// The copy is staged in a sibling directory and moved into place in one step,
-// so an interrupted install cannot leave a half-written package behind that
-// the typst compiler would then happily import. The staging directory is
-// hidden, which keeps it out of Scan if the process dies before the move.
+// Install copies a package from srcDir into the store. The copy is staged in a
+// hidden sibling directory and moved into place in one step, so an interrupted
+// install cannot leave a half-written package the compiler would import.
 func (s Store) Install(ref pkg.Ref, srcDir string) error {
 	dest := s.Dir(ref)
 	parent := filepath.Dir(dest)
@@ -134,9 +124,6 @@ func (s Store) Install(ref pkg.Ref, srcDir string) error {
 		return err
 	}
 
-	// An overridden store writes straight into a directory the user named,
-	// which may already hold unrelated files. Replacing it wholesale is not
-	// what they asked for.
 	if s.flat {
 		return pkgfiles.CopyTree(srcDir, dest)
 	}
@@ -147,7 +134,6 @@ func (s Store) Install(ref pkg.Ref, srcDir string) error {
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
 
-	// MkdirTemp is deliberately restrictive; installed packages are readable.
 	if err := os.Chmod(staging, paths.DirPerm); err != nil {
 		return fmt.Errorf("could not set permissions on %q: %w", staging, err)
 	}
@@ -250,8 +236,6 @@ func (s Store) Scan() ([]Namespace, error) {
 	return namespaces, nil
 }
 
-// scanPackages lists the packages of one namespace directory. Packages without
-// any version directory are left out.
 func scanPackages(namespaceDir string) []Package {
 	entries, err := os.ReadDir(namespaceDir)
 	if err != nil {
@@ -273,8 +257,6 @@ func scanPackages(namespaceDir string) []Package {
 	return packages
 }
 
-// scanVersions lists the versions of one package directory. A version that is
-// a symlink was installed as editable.
 func scanVersions(packageDir string) []Version {
 	entries, err := os.ReadDir(packageDir)
 	if err != nil {
@@ -286,7 +268,6 @@ func scanVersions(packageDir string) []Version {
 		if hidden(entry.Name()) {
 			continue
 		}
-		// Follows symlinks, so an editable install still counts as a version.
 		if !isDirFollowingLinks(filepath.Join(packageDir, entry.Name())) {
 			continue
 		}
@@ -299,8 +280,6 @@ func scanVersions(packageDir string) []Version {
 	return versions
 }
 
-// hidden reports whether a directory entry is one the store keeps to itself,
-// such as a staging directory left behind by an interrupted install.
 func hidden(name string) bool {
 	return strings.HasPrefix(name, ".")
 }
@@ -320,8 +299,6 @@ func isSymlink(path string) bool {
 	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
-// exists reports whether path is present, counting a symlink whose target is
-// gone as present.
 func exists(path string) bool {
 	_, err := os.Lstat(path)
 	return err == nil

@@ -85,7 +85,6 @@ func Run(inputs []string, opts *Options, log *log.Logger) error {
 	return nil
 }
 
-// update looks up every referenced package and rewrites the outdated ones.
 func update(ctx context.Context, content []byte, opts *Options, log *log.Logger) []byte {
 	refs := typstsrc.FindRefs(content)
 
@@ -94,9 +93,6 @@ func update(ctx context.Context, content []byte, opts *Options, log *log.Logger)
 	updates, events := latestVersions(ctx, refs, opts.NoCache)
 	spin.Stop()
 
-	// Log events are collected rather than written as they happen: the spinner
-	// owns the terminal until it is stopped, and writing through it garbles
-	// both.
 	for _, event := range events {
 		event.emit(log)
 	}
@@ -110,8 +106,6 @@ func update(ctx context.Context, content []byte, opts *Options, log *log.Logger)
 	return typstsrc.RewriteRefs(content, latest)
 }
 
-// latestVersions resolves every reference concurrently, returning the packages
-// that are behind along with what happened on the way.
 func latestVersions(ctx context.Context, refs []pkg.Ref, noCache bool) (map[string]Result, []logEvent) {
 	idx, _ := index.Load(ctx, index.Opts{NoCache: noCache})
 
@@ -156,8 +150,6 @@ func resolve(ctx context.Context, ref pkg.Ref, idx index.Index, resultCh chan<- 
 	resultCh <- Result{Name: ref.Name, Current: current, Latest: latest}
 }
 
-// lookup queries the package index first and falls back to the GitHub API for
-// packages it does not list. It reports which of the two answered.
 func lookup(ctx context.Context, idx index.Index, name string) (string, string, error) {
 	if version, ok := idx.Latest(name); ok {
 		return version, "index", nil
@@ -166,7 +158,6 @@ func lookup(ctx context.Context, idx index.Index, name string) (string, string, 
 	return version, "github", err
 }
 
-// collectInputFiles expands directory arguments into the files to process.
 func collectInputFiles(inputs []string, opts *Options) ([]string, error) {
 	var files []string
 	for _, input := range inputs {
@@ -218,8 +209,6 @@ func collectDir(root string, opts *Options) ([]string, error) {
 	return files, nil
 }
 
-// writeOutput writes to the output path, else back to the input file, else to
-// stdout.
 func writeOutput(content []byte, inputFile, outputPath string) error {
 	if outputPath != "" {
 		return paths.WriteFile(outputPath, content)
@@ -233,8 +222,6 @@ func writeOutput(content []byte, inputFile, outputPath string) error {
 	return nil
 }
 
-// announce and summarise write to stderr, because stdout carries the updated
-// content when reading from stdin.
 func announce(name string) {
 	_, _ = lipgloss.Fprint(os.Stderr, lipgloss.Sprintln(ui.ANSIGreenBold.Render("Updating"), fmt.Sprintf("%q", name)))
 }

@@ -13,12 +13,8 @@ import (
 
 var ErrUnknownKey = errors.New("unknown key")
 
-// Run prints the paths gotpm uses. With a key it prints that one path on its
-// own, unstyled, so it survives command substitution; without one it prints
-// them all, grouped.
-//
-// Nothing here creates a directory: locate answers where gotpm would look, and
-// a path that does not exist yet is still the right answer.
+// Run prints the paths gotpm uses: one key unstyled so it survives command
+// substitution, or all of them grouped. Nothing here creates a directory.
 func Run(key string, log *log.Logger) error {
 	if key != "" {
 		return printKey(key, log)
@@ -29,7 +25,6 @@ func Run(key string, log *log.Logger) error {
 	return nil
 }
 
-// printKey writes a single path to stdout with no prefix, styling or note.
 func printKey(key string, log *log.Logger) error {
 	if !slices.Contains(Keys(), key) {
 		return fmt.Errorf("%w %q\nvalid keys: %s", ErrUnknownKey, key, strings.Join(Keys(), ", "))
@@ -43,11 +38,6 @@ func printKey(key string, log *log.Logger) error {
 	return nil
 }
 
-// lookup resolves one key. The project paths are only touched when the key
-// names one of them, so asking for a machine path outside a project still
-// works. When it does touch them, a missing project is an error rather than
-// the silent omission the dump does: the caller asked for that path by name
-// and would otherwise get nothing back.
 func lookup(key string) (Entry, error) {
 	machine := append([]Entry{packagesEntry()}, gotpmEntries()...)
 	if entry, found := find(machine, key); found {

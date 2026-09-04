@@ -18,7 +18,6 @@ import (
 	ignore "github.com/sabhiram/go-gitignore"
 )
 
-// ignoredNames never belong to a package, whatever the ignore files say.
 var ignoredNames = map[string]struct{}{
 	".git":         {},
 	".gitignore":   {},

@@ -10,13 +10,9 @@ import (
 	"github.com/npikall/gotpm/internal/manifest"
 )
 
-// Project is the typst project a command operates on: the directory holding
-// its typst.toml, and with it the gotpm.lock that sits beside it.
-//
-// The two files split the job between them. typst.toml says which packages the
-// project wants, in the form its source imports them by; gotpm.lock says where
-// each one came from and at which commit. Neither is enough on its own, which
-// is why every dependency command reads both.
+// Project is the typst project a command operates on: the directory holding its
+// typst.toml, and the gotpm.lock beside it. typst.toml says which packages the
+// project wants; gotpm.lock says where each came from and at which commit.
 type Project struct {
 	Dir      string
 	File     string

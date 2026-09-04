@@ -2,7 +2,6 @@ package update
 
 import "charm.land/log/v2"
 
-// logEvent is a log line held back until the spinner has stopped.
 type logEvent struct {
 	level   string
 	msg     string

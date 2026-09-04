@@ -135,10 +135,8 @@ func (l *Lock) Direct() []string {
 	return direct
 }
 
-// Upsert adds an entry, or updates the one already recorded for the same
-// import. Provenance is taken from e, while Direct and RequiredBy accumulate:
-// a package stays direct once it has been added directly, and keeps every
-// dependant already known.
+// Upsert adds an entry, or updates the one already recorded for the same import.
+// Provenance is taken from e, while Direct and RequiredBy accumulate.
 func (l *Lock) Upsert(e Entry) {
 	i := l.indexOf(e.Import)
 	if i < 0 {
@@ -154,14 +152,9 @@ func (l *Lock) Upsert(e Entry) {
 	l.Packages[i] = e
 }
 
-// Prune drops every entry that the given set of direct imports no longer
-// reaches, and returns the entries it removed. An entry survives when it is
-// itself declared direct, or when something that survives requires it, so
-// removing one dependency also clears the transitive dependencies that only it
-// pulled in.
-//
-// Prune also re-marks Direct from directImports, so a dependency demoted from
-// direct to transitive is recorded correctly.
+// Prune drops every entry the given direct imports no longer reach and returns
+// what it removed. It also re-marks Direct, so a dependency demoted from direct
+// to transitive is recorded correctly.
 func (l *Lock) Prune(directImports []string) []Entry {
 	direct := make(map[string]bool, len(directImports))
 	for _, imp := range directImports {
@@ -183,20 +176,21 @@ func (l *Lock) Prune(directImports []string) []Entry {
 		removed = append(removed, entry)
 	}
 
-	// A surviving entry must not keep pointing at a dependant that is gone.
-	for i := range kept {
-		kept[i].RequiredBy = slices.DeleteFunc(kept[i].RequiredBy, func(imp string) bool {
-			return !reachable[imp]
-		})
-	}
+	dropRemovedDependants(kept, reachable)
 
 	l.Packages = kept
 	slices.SortFunc(removed, byImport)
 	return removed
 }
 
-// reachableFrom grows the set of roots by repeatedly adding every entry that
-// something already in the set requires, until nothing new appears.
+func dropRemovedDependants(entries []Entry, reachable map[string]bool) {
+	for i := range entries {
+		entries[i].RequiredBy = slices.DeleteFunc(entries[i].RequiredBy, func(imp string) bool {
+			return !reachable[imp]
+		})
+	}
+}
+
 func (l *Lock) reachableFrom(roots map[string]bool) map[string]bool {
 	reachable := make(map[string]bool, len(l.Packages))
 	for _, entry := range l.Packages {
@@ -242,8 +236,6 @@ func byImport(a, b Entry) int {
 	}
 }
 
-// normalise sorts and deduplicates a dependant list so the lock stays stable
-// no matter what order dependencies were resolved in.
 func normalise(imports []string) []string {
 	if len(imports) == 0 {
 		return nil

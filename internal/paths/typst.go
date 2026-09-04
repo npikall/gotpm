@@ -16,10 +16,9 @@ const (
 	InstallDirFlag = "install-dir"
 	// TypstPackagePathEnvVar is typst's own override for the package directory.
 	TypstPackagePathEnvVar = "TYPST_PACKAGE_PATH"
-	// ProvenanceFile is the name of the file recording where an installed
-	// package came from. Defined here, rather than in package store, so that
-	// pkgfiles can exclude it from a package's contents without store and
-	// pkgfiles importing one another.
+	// ProvenanceFile is the name of the file recording where an installed package
+	// came from. Defined here so pkgfiles can exclude it from a package's contents
+	// without store and pkgfiles importing one another.
 	ProvenanceFile = ".gotpm.json"
 )
 
@@ -90,11 +89,9 @@ func EnsureTypstPackagesDir() (string, error) {
 	return dir, nil
 }
 
-// InstallDir returns the package directory path without creating it, and
-// whether an override was provided (flag or env).
-// Resolution order: --install-dir flag > $GOTPM_INSTALL_DIR env > OS default.
-// When overridden, the returned path is the final destination — callers must not
-// append namespace/name/version sub-directories.
+// InstallDir returns the package directory path without creating it, and whether
+// an override was given: --install-dir, then $GOTPM_INSTALL_DIR, then the OS
+// default. An override is the final destination itself (ADR 0003).
 func InstallDir(override string) (string, bool, error) {
 	if override != "" {
 		return override, true, nil

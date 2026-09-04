@@ -21,8 +21,6 @@ import (
 	"github.com/npikall/gotpm/internal/ui"
 )
 
-// previewNamespace is the only namespace Typst Universe accepts submissions
-// into; it is not user-configurable.
 const previewNamespace = "preview"
 
 var (
@@ -43,8 +41,9 @@ type fork struct {
 	path string
 }
 
-// Run publishes the package of the current working directory to the
-// configured fork.
+// Run publishes the package of the current working directory to the configured
+// fork. A package branch that has diverged from the fork is reset onto it
+// (ADR 0005).
 func Run(opts *Options, logger *log.Logger) error {
 	fork, err := resolveTarget(logger)
 	if err != nil {
@@ -68,7 +67,6 @@ func Run(opts *Options, logger *log.Logger) error {
 	return pushAndSuggestPR(logger, fork, branchName, m)
 }
 
-// pushCommand returns the command that pushes branchName from forkPath
 func pushCommand(forkPath, branchName string) string {
 	if gitcli.TracksOwnBranch(forkPath, branchName) {
 		return fmt.Sprintf("cd %s && git push", forkPath)
@@ -76,8 +74,6 @@ func pushCommand(forkPath, branchName string) string {
 	return fmt.Sprintf("git -C %s push origin %s", forkPath, branchName)
 }
 
-// resolveTarget loads the fork configuration, erroring if fork.url is unset,
-// and resolving fork.path to its default when unset.
 func resolveTarget(logger *log.Logger) (*fork, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -98,13 +94,9 @@ func resolveTarget(logger *log.Logger) (*fork, error) {
 	return &fork{url: forkURL, path: forkPath}, nil
 }
 
-// commitToFork loads the package manifest, checks out its branch in the fork
-// clone, copies the package files in, and commits them.
 func commitToFork(
 	logger *log.Logger, sourceDir string, fork *fork, msg string,
 ) (string, *manifest.Manifest, error) {
-	// Publishing copies the package root, which is the directory holding
-	// typst.toml rather than the directory the command was run from.
 	manifestFile, err := manifest.FindFile(sourceDir)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not load manifest: %w", err)
@@ -148,11 +140,6 @@ func commitToFork(
 	return branchName, m, nil
 }
 
-// commitMessage returns "release: name version" for a fresh branch. For a
-// branch that already existed (a fix-up publish run), it reuses the source
-// package repo's own HEAD commit message so fixes made there carry over to
-// the fork, falling back to the release message when the source isn't a git
-// repo or has no commits.
 func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) string {
 	fallback := fmt.Sprintf("release: %s %s", m.Package.Name, m.Package.Version)
 	if !branchExisted {
@@ -176,10 +163,6 @@ func commitMessage(sourceDir string, m *manifest.Manifest, branchExisted bool) s
 	return fallback
 }
 
-// pushAndSuggestPR pushes branchName to the fork's origin remote. On failure
-// it returns an error containing the equivalent manual git push command. On
-// success it prints a ready-to-run `gh pr create` suggestion; gotpm never
-// talks to GitHub itself.
 func pushAndSuggestPR(
 	logger *log.Logger, fork *fork, branchName string, m *manifest.Manifest,
 ) error {

@@ -23,13 +23,14 @@ var ErrNotDeclared = errors.New("not a dependency of this project")
 // Options holds the resolved remove flags.
 type Options struct {
 	// Prune deletes the removed packages from the package directory as well. It
-	// is opt-in because that directory is shared: another project may import the
-	// same
-	// version.
+	// is opt-in because that directory is shared: another project may import
+	// the same version.
 	Prune bool
 }
 
-// Run removes the dependency written as imp, e.g. "@gotpm/cetz:0.3.1".
+// Run removes the dependency written as imp, e.g. "@gotpm/cetz:0.3.1". The
+// manifest is written before the lock, so an interrupted remove leaves a lock
+// holding more than the project declares, which the next sync prunes.
 func Run(imp string, opts *Options, logger *log.Logger) error {
 	ref, err := parse(imp)
 	if err != nil {
@@ -46,9 +47,6 @@ func Run(imp string, opts *Options, logger *log.Logger) error {
 		return err
 	}
 
-	// The manifest is written before the lock, so an interrupted remove leaves
-	// a lock holding more than the project declares, which the next sync
-	// prunes on its own.
 	if err := project.SetDependencies(remaining); err != nil {
 		return err
 	}
@@ -66,9 +64,6 @@ func Run(imp string, opts *Options, logger *log.Logger) error {
 	return nil
 }
 
-// parse reads the import string to remove. A full import is the only accepted
-// form: it is unambiguous about which version is meant, and it can be copied
-// straight out of typst.toml.
 func parse(imp string) (pkg.Ref, error) {
 	refs, err := manifest.ParseDependencies([]string{imp})
 	if err != nil {
@@ -77,7 +72,6 @@ func parse(imp string) (pkg.Ref, error) {
 	return refs[0], nil
 }
 
-// withoutDependency returns the declared dependencies with one taken out.
 func withoutDependency(project *deps.Project, imp string) ([]string, error) {
 	declared := project.Dependencies()
 	if !slices.Contains(declared, imp) {
@@ -86,8 +80,6 @@ func withoutDependency(project *deps.Project, imp string) ([]string, error) {
 	return slices.DeleteFunc(slices.Clone(declared), func(dep string) bool { return dep == imp }), nil
 }
 
-// pruneLock drops the removed dependency from the lock, together with every
-// entry only it pulled in.
 func pruneLock(project *deps.Project, remaining []string) ([]lockfile.Entry, error) {
 	lock, err := project.Lock()
 	if err != nil {
@@ -100,7 +92,6 @@ func pruneLock(project *deps.Project, remaining []string) ([]lockfile.Entry, err
 	return removed, nil
 }
 
-// uninstall deletes packages from the store.
 func uninstall(removed []lockfile.Entry, logger *log.Logger) error {
 	s, err := store.OpenPackageDir()
 	if err != nil {
@@ -119,8 +110,6 @@ func uninstall(removed []lockfile.Entry, logger *log.Logger) error {
 	return nil
 }
 
-// report says what left the project, keeping the package that was asked for
-// apart from the ones that only went with it.
 func report(imp string, removed []lockfile.Entry, pruned bool) {
 	orphans := make([]string, 0, len(removed))
 	dropped := false

@@ -33,10 +33,9 @@ type Options struct {
 
 var (
 	ErrNoEditableRemote = errors.New("install remote package in `editable` mode is disallowed")
-	// ErrUnresolvable is returned when a dependency declares a package whose
-	// own lock has no entry for it. Unlike a missing lock entirely, this
-	// means the dependant is broken, not merely unhelpful, so install stays
-	// strict about it.
+	// ErrUnresolvable is returned when a dependency declares a package whose own
+	// lock has no entry for it. Unlike a missing lock entirely, that means the
+	// dependant is broken, not merely unhelpful.
 	ErrUnresolvable = errors.New("cannot resolve dependency")
 	// ErrGraphInFlatStore is returned when a remote repository has
 	// dependencies of its own but --install-dir names a destination that
@@ -94,6 +93,10 @@ func runLocal(path string, opts *Options, log *log.Logger) error {
 	return nil
 }
 
+func countIncludingUnresolved(walked depgraph.Result) int {
+	return len(walked.Entries) - 1 + len(walked.Unresolved)
+}
+
 func runRemote(opts *Options, log *log.Logger) error {
 	s, err := store.Open(opts.InstallDir)
 	if err != nil {
@@ -111,10 +114,7 @@ func runRemote(opts *Options, log *log.Logger) error {
 		return err
 	}
 
-	// Counting only resolved entries would let a repository whose one
-	// dependency fails to resolve slip through as "single package" and get
-	// vendored anyway — it has a dependency either way, resolved or not.
-	dependencies := len(walked.Entries) - 1 + len(walked.Unresolved)
+	dependencies := countIncludingUnresolved(walked)
 	if s.Flat() && dependencies > 0 {
 		return fmt.Errorf("%w, but %s has %d dependencies"+
 			"\nnote: omit --install-dir to install them into the package directory",
@@ -138,9 +138,6 @@ func runRemote(opts *Options, log *log.Logger) error {
 	return nil
 }
 
-// Unlike add, install writes no lock for anyone else to trust, so a
-// dependant that ships no gotpm.lock at all is only a warning here; one whose
-// lock is merely missing an entry is still a defect worth stopping for.
 func splitUnresolved(unresolved []depgraph.Unresolved) ([]depgraph.Unresolved, error) {
 	var warnings []depgraph.Unresolved
 	for _, u := range unresolved {
@@ -208,8 +205,6 @@ func findRootManifest(src string) (string, *manifest.Manifest, error) {
 	return sourceDir, m, nil
 }
 
-// clearDestination removes an existing install when force is set, and rejects
-// the install otherwise.
 func clearDestination(s store.Store, ref pkg.Ref, force bool) error {
 	if !s.Has(ref) {
 		return nil
@@ -223,8 +218,6 @@ func clearDestination(s store.Store, ref pkg.Ref, force bool) error {
 	return nil
 }
 
-// resolveSourceDir determines which directory holds the package to install:
-// the given path, or the working directory when path is empty.
 func resolveSourceDir(path string) (string, error) {
 	if path == "" {
 		cwd, err := os.Getwd()
