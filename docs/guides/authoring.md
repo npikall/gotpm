@@ -33,6 +33,11 @@ takes the package name from it. The manifest is yours from here on — add
 `authors`, `license`, `description` and the rest as you go; gotpm only ever adds
 to what you wrote.
 
+A package is what `gotpm init` writes by default, and `--pkg` says so
+explicitly. If what you are starting is a thesis or a report rather than
+something others import, use `--doc` instead — see [managing
+dependencies](dependencies.md#starting-one).
+
 ## Install it while you work on it
 
 Typst can only import a package that sits in the [package

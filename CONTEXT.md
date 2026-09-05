@@ -38,9 +38,22 @@ behind it. What `install` and `publish` read.
 _Avoid_: source dir, local package, checkout
 
 **Project**:
-The package the user is working on, together with the dependencies it declares.
-Only a project has a lock.
+What the user is working on, together with the dependencies it declares. Only a
+project has a lock. A project is either a package or a document project; which
+one it is decides nothing about how its dependencies are resolved.
 _Avoid_: local package, workspace, root package
+
+**Document Project**:
+A project that is compiled into a document — a PDF, an HTML page — and that
+nothing ever imports. It carries a manifest only so it has somewhere to declare
+its dependencies, so the name, version and entrypoint in it are there to satisfy
+the manifest format and mean nothing: no coordinate names a document project,
+and it is never published. `[tool.gotpm] kind = "document"` records what it is;
+a manifest without that key is a package.
+_Note_: nothing reads the kind yet. `install` will still place a document
+project in the package directory and `publish` will still stage it for the
+Typst Universe.
+_Avoid_: document (unqualified, which is the compiled output), template
 
 **Installed Package**:
 One version of a package materialized in the package directory, where the Typst

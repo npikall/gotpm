@@ -29,6 +29,40 @@ A project using gotpm keeps two files next to each other:
 Packages are installed under the `@gotpm` namespace, which keeps them apart from
 anything you placed in `@local` yourself.
 
+## Starting one
+
+A project that uses packages needs a `typst.toml` of its own, even though it is
+not a package and will never be published. `gotpm init --doc` writes it:
+
+```console
+$ gotpm init --doc thesis
+info: initialize document "thesis"
+```
+
+Two files, as with a package, but laid out for something you compile rather than
+something you import:
+
+```toml title="typst.toml"
+[package]
+name = "thesis"
+version = "0.1.0"
+entrypoint = "main.typ"
+
+[tool.gotpm]
+kind = "document"
+```
+
+```typst title="main.typ"
+= Hello
+World
+```
+
+`kind = "document"` is what tells the two apart — without it, a manifest is a
+package, which is what `gotpm init` writes by default and what `gotpm init
+--pkg` writes explicitly. The `version` and `entrypoint` are there because the
+manifest format requires them; nothing imports a document, so nothing resolves
+them. The dependency commands below work the same either way.
+
 ## A worked example
 
 Add a repository. Everything it depends on comes along:
