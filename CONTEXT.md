@@ -44,9 +44,22 @@ never part of a package. What `install` and `publish` copy.
 _Avoid_: bundle, payload, contents
 
 **Project**:
-The package the user is working on, together with the dependencies it declares.
-Only a project has a lock.
+What the user is working on, together with the dependencies it declares. Only a
+project has a lock. A project is either a package or a document project; which
+one it is decides nothing about how its dependencies are resolved.
 _Avoid_: local package, workspace, root package
+
+**Document Project**:
+A project that is compiled into a document — a PDF, an HTML page — and that
+nothing ever imports. It carries a manifest only so it has somewhere to declare
+its dependencies, so the name, version and entrypoint in it are there to satisfy
+the manifest format and mean nothing: no coordinate names a document project,
+and it is never published. `[tool.gotpm] kind = "document"` records what it is;
+a manifest without that key is a package.
+_Note_: `add` names the kind in the question it asks before adding a
+dependency, and `install` warns before installing a document project. Neither
+refuses, and `publish` does not read the kind yet.
+_Avoid_: document (unqualified, which is the compiled output), template
 
 **Installed Package**:
 One version of a package materialized in the package directory, where the Typst

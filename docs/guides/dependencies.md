@@ -29,12 +29,58 @@ A project using gotpm keeps two files next to each other:
 Packages are installed under the `@gotpm` namespace, which keeps them apart from
 anything you placed in `@local` yourself.
 
+## Starting one
+
+A project that uses packages needs a `typst.toml` of its own, even though it is
+not a package and will never be published. `gotpm init --doc` writes it:
+
+```console
+$ gotpm init --doc thesis
+info: initialize document "thesis"
+```
+
+Two files, as with a package, but laid out for something you compile rather than
+something you import:
+
+```toml title="typst.toml"
+[package]
+name = "thesis"
+version = "0.1.0"
+entrypoint = "main.typ"
+
+[tool.gotpm]
+kind = "document"
+```
+
+```typst title="main.typ"
+= Hello
+World
+```
+
+`kind = "document"` is what tells the two apart — without it, a manifest is a
+package, which is what `gotpm init` writes by default and what `gotpm init
+--pkg` writes explicitly. The `version` and `entrypoint` are there because the
+manifest format requires them; nothing imports a document, so nothing resolves
+them. The dependency commands below work the same either way.
+
+`gotpm install` is for packages. Run it in a document project and it still
+installs, but warns first, since nothing is meant to import a document:
+
+```console
+$ gotpm install
+warning: "thesis" is a document project, not a package: nothing is meant to import it
+info: installed @local/thesis:0.1.0
+```
+
 ## A worked example
 
-Add a repository. Everything it depends on comes along:
+Add a repository. gotpm asks first, naming the project and what kind it is, so
+a dependency does not land in the wrong one. Everything it depends on comes
+along:
 
 ```console
 $ gotpm add github.com/user/cetz
+add github.com/user/cetz to document "thesis"? [y/N] y
 info: added @gotpm/cetz:0.3.1 from github.com/user/cetz
 info:   @gotpm/oxifmt:0.2.1 (via @gotpm/cetz:0.3.1)
 ```
@@ -47,6 +93,9 @@ $ gotpm add github.com/user/cetz -t v0.3.0
 $ gotpm add github.com/user/cetz -t 4f2a1c9
 $ gotpm add git@github.com:user/private-pkg.git
 ```
+
+`--yes` answers the question up front. Without a terminal to ask on — in CI,
+or with stdin redirected — `gotpm add` refuses unless `--yes` is given.
 
 Only the package you asked for is written to `typst.toml`; the rest are recorded
 in the lock as transitive:
