@@ -16,6 +16,8 @@ vars:
     sh: git rev-parse --short HEAD
   INSTALLER:
     sh: echo "${INSTALLER:-source}"
+  VCS:
+    sh: 'if [ -d .jj ]; then echo jj; else echo git; fi'
   LDFLAGS: >-
     -s -w
     -X {{.GO_URL}}/cmd.gitTag={{.LATEST_TAG}}
@@ -174,21 +176,67 @@ tasks:
     vars:
       VERSION:
         sh: "svu {{index .MATCH 0}}{{if .PRE}} --prerelease {{.PRE}}{{end}}"
+    cmds:
+      - task: "release-internal:{{.VCS}}"
+        vars:
+          VERSION: '{{.VERSION}}'
+
+  changelog:
+    internal: true
+    cmds:
+      - "git-cliff -o --tag {{.VERSION}}"
+
+  release-internal:jj:
+    internal: true
+    desc: Cuts the release in a colocated jj repo.
+    vars:
       COMPLETE_MESSAGE: |
         Release complete. Run the following:
-        
-        git push && git push --tags
 
+        jj git push --bookmark main --tag {{.VERSION}}
     preconditions:
-      - sh: test $(git rev-parse --abbrev-ref HEAD) = "main"
+      - sh: 'test -d .git'
+        msg: "This jj repo is not colocated: git-cliff and svu need .git to release"
+      - sh: 'test -n "$(jj log --no-graph -r ''@ & empty()'' -T commit_id)"'
+        msg: "The working copy must be empty to release"
+      - sh: 'test "$(jj log --no-graph --ignore-working-copy -r @- -T commit_id)" = "$(jj log --no-graph --ignore-working-copy -r main -T commit_id)"'
+        msg: "The working copy must sit directly on the main bookmark to release"
+      - sh: 'test -z "$(jj log --no-graph --ignore-working-copy -r @ -T description)"'
+        msg: "The working copy must have no description to release"
+    prompt: "Are you sure you want to release version {{.VERSION}}?"
+    cmds:
+      - cmd: echo "Releasing {{.VERSION}}"
+        silent: true
+      - task: changelog
+        vars:
+          VERSION: '{{.VERSION}}'
+      - "jj describe -m 'chore(release): {{.VERSION}}'"
+      - "jj bookmark set main -r @"
+      - "git tag -a {{.VERSION}} -m {{.VERSION}} $(jj log --no-graph -r main -T commit_id)"
+      - cmd: printf "%s" '{{.COMPLETE_MESSAGE}}'
+        silent: true
+
+  release-internal:git:
+    internal: true
+    desc: |
+      Cuts the release in a plain git repo: changelog, commit onto main, tag.
+    vars:
+      COMPLETE_MESSAGE: |
+        Release complete. Run the following:
+
+        git push && git push --tags
+    preconditions:
+      - sh: 'test "$(git rev-parse --abbrev-ref HEAD)" = "main"'
         msg: "You must be on the main branch to release"
-      - sh: "[[ -z $(git diff --shortstat main) ]]"
+      - sh: 'test -z "$(git status --porcelain)"'
         msg: "You must have a clean working tree to release"
     prompt: "Are you sure you want to release version {{.VERSION}}?"
     cmds:
       - cmd: echo "Releasing {{.VERSION}}"
         silent: true
-      - "git-cliff -o --tag {{.VERSION}}"
+      - task: changelog
+        vars:
+          VERSION: '{{.VERSION}}'
       - "git add CHANGELOG.md"
       - "git commit -m 'chore(release): {{.VERSION}}'"
       - "git tag -a {{.VERSION}} -m {{.VERSION}}"
