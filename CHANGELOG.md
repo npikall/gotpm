@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-09-07
+
+### 🐛 Bug Fixes
+
+- stale provenance files get deleted
+
+### 📚 Documentation
+
+- rename store with package directory
+- update content
+- add adr to reset diverged branch onto fork
+- add adr about fork clone location
+- update fork related documentation
+
+### 🚜 Refactor
+
+- `install` and `add` fetch packages more similar  (#68)
+- report package replacements in `add`, `install` and `sync`
+- reset onto fork when brnaches diverged
+- derive fork clone path from fork.url
+
+### 🧪 Testing
+
+- stale provenance files get drop when uninstalling packages
+- *(deps)* report replaced package version
+- diverged package branch resets onto fork
+- forks are stored in subdirectories
+
+### 💼 Other
+
+- *(task)* add documentation generation
+- update documentation build process
+- build cli help text in ci
+- migrate to goreleaser (#61)
+- *(task)* pass prerelease to svu
+- ignore generated build files
+- fix goreleaser workflow
+- strip excessive comments
+- *(task)* add release notes dry-run task
+- *(task)* add jj release workflow
+
 ## [0.5.1] - 2026-08-25
 
 ### 🐛 Bug Fixes
@@ -38,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update dependencies
 - add linting workflow
 - update dependencies
+- *(release)* v0.5.1
 
 ## [0.5.0] - 2026-08-09
 
@@ -685,6 +727,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.5.2]: https://github.com/npikall/gotpm/compare/v0.5.1..v0.5.2
 [0.5.1]: https://github.com/npikall/gotpm/compare/v0.5.0..v0.5.1
 [0.5.0]: https://github.com/npikall/gotpm/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/npikall/gotpm/compare/v0.3.13..v0.4.0
