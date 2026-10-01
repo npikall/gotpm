@@ -81,8 +81,8 @@ dependency of a project is imported under. It says nothing about who owns an
 installed package.
 
 **Provenance**:
-The record kept inside an installed package of the repository and commit it was
-built from. It is the only thing that decides whether an installed package is
+The record kept inside an installed package of the repository, commit and
+package path it was built from. It is the only thing that decides whether an installed package is
 gotpm's to replace or remove.
 _Avoid_: origin, metadata, source info
 
@@ -91,8 +91,17 @@ _Avoid_: origin, metadata, source info
 **Repository**:
 The git repository a package is developed and released in. It is what its
 author pushes to and receives pull requests against, and it is the only kind of
-source a dependency may be added from, always pinned to an exact commit.
+source a dependency may be added from, always pinned to an exact commit. One
+repository may hold several packages, each at its own package path.
 _Avoid_: remote, source, origin
+
+**Package Path**:
+Where a package's root sits inside its repository — the directory holding its
+`typst.toml`, relative to the repository root, and empty when that is the root
+itself. Written after the repository with `//`, as in
+`github.com/owner/repo//sub/dir`. Each package at a package path is a project of
+its own, with its own lock beside its own manifest.
+_Avoid_: subdirectory, subdir, folder
 
 **Local**:
 On this machine. Reserved for that meaning alone — the package directory is
@@ -130,7 +139,8 @@ resolve that package's own dependencies.
 _Avoid_: lockfile (as a concept), manifest, dependency list
 
 **Pin**:
-One entry of a lock — a package ref bound to a repository and a commit.
+One entry of a lock — a package ref bound to a repository, a commit and a
+package path.
 _Avoid_: entry, dependency record
 
 **Prune**:

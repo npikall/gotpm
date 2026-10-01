@@ -87,6 +87,38 @@ Import it the way the dependency list spells it:
 #import "@gotpm/cetz:0.3.1": *
 ```
 
+## Packages in a monorepo
+
+A repository may hold several packages, each in its own directory with its own
+`typst.toml`. Name the one you want by its *package path* — the directory
+relative to the repository root — separated from the repository by `//`:
+
+```console
+$ gotpm add github.com/user/monorepo//packages/common
+info: added @gotpm/common:0.1.0 from github.com/user/monorepo//packages/common
+```
+
+The `//` works with every spelling of a repository, including
+`https://…/monorepo.git//packages/common` and
+`git@github.com:user/monorepo.git//packages/common`, and with `gotpm install -r`.
+The whole repository is cloned, but only the package path is installed. The lock
+records the source with its `//`, which gotpm 0.5.2 and older refuse as an
+invalid repository url rather than misread.
+
+Each package in a monorepo is a project of its own: its dependencies are read
+from the `gotpm.lock` beside *its* `typst.toml`, not from one at the repository
+root. Revisions are still the repository's — `-t` picks a tag or commit of the
+whole repository, and the version is whatever the package's `typst.toml` says
+at that commit.
+
+Point at the repository root by mistake and gotpm reminds you of the `//`:
+
+```console
+$ gotpm add github.com/user/monorepo
+error: not a typst package: github.com/user/monorepo has no typst.toml at its root
+note: name a package in a subdirectory by its package path, e.g. github.com/user/monorepo//path/to/package
+```
+
 ## Commit `gotpm.lock`
 
 `gotpm.lock` is not a cache. It belongs in version control, for two reasons:
@@ -194,7 +226,8 @@ Use `gotpm add <repository>` instead. It writes both files.
 ### The same coordinate from a different repository
 
 The package directory is shared by every project on your machine. If
-`@gotpm/cetz:0.3.1` is already installed from a different repository, `add`
+`@gotpm/cetz:0.3.1` is already installed from a different repository — or from a
+different package path of the same one — `add`
 refuses rather than overwrite it, since that would change what your other
 projects import. `--force` overrides that, deliberately.
 
