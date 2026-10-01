@@ -38,6 +38,65 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
+func TestNormalize_SeparatesThePackagePath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		raw       string
+		canonical string
+		cloneURL  string
+		path      string
+	}{
+		{"bare path", "github.com/a/mono//pkg", "github.com/a/mono", "https://github.com/a/mono", "pkg"},
+		{"nested path", "github.com/a/mono//packages/pkg", "github.com/a/mono", "https://github.com/a/mono", "packages/pkg"},
+		{"https url", "https://github.com/a/mono//pkg", "github.com/a/mono", "https://github.com/a/mono", "pkg"},
+		{"git suffix", "https://github.com/a/mono.git//pkg", "github.com/a/mono", "https://github.com/a/mono.git", "pkg"},
+		{"scp style ssh", "git@github.com:a/mono.git//pkg", "github.com/a/mono", "git@github.com:a/mono.git", "pkg"},
+		{"gitlab subgroup", "gitlab.com/g/sub/mono//pkg", "gitlab.com/g/sub/mono", "https://gitlab.com/g/sub/mono", "pkg"},
+		{"surrounding slashes", "github.com/a/mono///pkg/", "github.com/a/mono", "https://github.com/a/mono", "pkg"},
+		{"local repository", "file:///tmp/mono//pkg", "file:///tmp/mono", "file:///tmp/mono", "pkg"},
+		{"no package path", "github.com/a/mono", "github.com/a/mono", "https://github.com/a/mono", ""},
+		{"empty package path", "github.com/a/mono//", "github.com/a/mono", "https://github.com/a/mono", ""},
+		{"package path of the root", "github.com/a/mono//.", "github.com/a/mono", "https://github.com/a/mono", ""},
+		{"package path back to the root", "github.com/a/mono//pkg/..", "github.com/a/mono", "https://github.com/a/mono", ""},
+		{"local without package path", "file:///tmp/mono", "file:///tmp/mono", "file:///tmp/mono", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := resolve.Normalize(tt.raw)
+			require.NoError(t, err)
+			assert.Equal(t, tt.canonical, got.Canonical, "canonical form")
+			assert.Equal(t, tt.cloneURL, got.CloneURL, "clone url")
+			assert.Equal(t, tt.path, got.Path, "package path")
+		})
+	}
+}
+
+func TestNormalize_RejectsAPackagePathLeavingTheRepository(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{
+		"github.com/a/mono//..",
+		"github.com/a/mono//pkg/../../etc",
+		"file:///tmp/mono//../other",
+	} {
+		_, err := resolve.Normalize(raw)
+		require.ErrorIs(t, err, resolve.ErrInvalidRepoURL, raw)
+	}
+}
+
+func TestSource_StringJoinsThePackagePath(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"github.com/a/mono//pkg/sub", "github.com/a/mono"} {
+		got, err := resolve.Normalize(raw)
+		require.NoError(t, err)
+		assert.Equal(t, raw, got.String())
+	}
+}
+
 func TestNormalize_SpellingsOfTheSameRepositoryAgree(t *testing.T) {
 	t.Parallel()
 

@@ -10,6 +10,7 @@ import (
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
+	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
@@ -219,4 +220,61 @@ func TestEnsure_RefusesAPackageItDidNotInstall(t *testing.T) { //nolint: paralle
 	require.ErrorIs(t, err, deps.ErrSourceConflict)
 	assert.Contains(t, err.Error(), store.ProvenanceFile,
 		"a directory without provenance is not gotpm's to overwrite")
+}
+
+func TestEnsure_InstallsOnlyThePackageAtItsPackagePath(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mono := testrepo.NewMonorepo(t, "mono")
+	mono.Package("extra", "extra", "0.1.0").Release()
+	common := mono.Package("common", "common", "0.1.0").Release()
+	i := installer(t)
+
+	result, err := i.Ensure(common.LockEntry())
+
+	require.NoError(t, err)
+	dir := i.Store.Dir(result.Ref)
+	assert.FileExists(t, filepath.Join(dir, "typst.toml"))
+	assert.FileExists(t, filepath.Join(dir, "lib.typ"))
+	assert.NoDirExists(t, filepath.Join(dir, "extra"), "the rest of the repository stays out")
+	assert.NoDirExists(t, filepath.Join(dir, "common"))
+}
+
+func TestEnsure_RecordsThePackagePathInTheProvenance(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	common := testrepo.NewMonorepo(t, "mono").Package("common", "common", "0.1.0").Release()
+	i := installer(t)
+
+	result, err := i.Ensure(common.LockEntry())
+	require.NoError(t, err)
+
+	prov, ok, err := i.Store.ReadProvenance(result.Ref)
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, common.URL(), prov.URL, "the package path is part of the source")
+}
+
+func TestEnsure_RefusesACoordinateInstalledFromAnotherPackagePath(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mono := testrepo.NewMonorepo(t, "mono")
+	mine := mono.Package("mine", "cetz", "0.3.1").Release()
+	theirs := mono.Package("theirs", "cetz", "0.3.1").Release()
+	i := installer(t)
+	_, err := i.Ensure(mine.LockEntry())
+	require.NoError(t, err)
+
+	_, err = i.Ensure(theirs.LockEntry())
+
+	require.ErrorIs(t, err, deps.ErrSourceConflict, "one repository, but a different package")
+	assert.Contains(t, err.Error(), mine.URL())
+	assert.Contains(t, err.Error(), theirs.URL())
+}
+
+func TestEnsure_RefusesAPackagePathLeavingTheRepository(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	entry := testrepo.NewMonorepo(t, "mono").Package("common", "common", "0.1.0").Release().LockEntry()
+	entry.URL += "/../.."
+
+	_, err := installer(t).Ensure(entry)
+
+	require.ErrorIs(t, err, resolve.ErrInvalidRepoURL, "a lock is read from disk and may name any path")
 }

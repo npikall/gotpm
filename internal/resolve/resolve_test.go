@@ -66,28 +66,33 @@ func seedCachedRepo(t *testing.T) *fixture {
 // release commits a package at a version and returns the commit.
 func (f *fixture) release(t *testing.T, version string) plumbing.Hash {
 	t.Helper()
-	f.writeManifest(t, version)
+	writeManifest(t, f.dir, "my-pkg", version)
 	require.NoError(t, paths.WriteFile(filepath.Join(f.dir, "lib.typ"), []byte("#let v = \""+version+"\"")))
+	return f.commit(t, "release "+version)
+}
 
+// commit commits everything in the working tree.
+func (f *fixture) commit(t *testing.T, message string) plumbing.Hash {
+	t.Helper()
 	wt, err := f.repo.Worktree()
 	require.NoError(t, err)
 	require.NoError(t, wt.AddGlob("."))
-
-	hash, err := wt.Commit("release "+version, &git.CommitOptions{
+	hash, err := wt.Commit(message, &git.CommitOptions{
 		Author: &object.Signature{Name: "test", Email: "test@example.com", When: time.Now()},
 	})
 	require.NoError(t, err)
 	return hash
 }
 
-func (f *fixture) writeManifest(t *testing.T, version string) {
+func writeManifest(t *testing.T, dir, name, version string) {
 	t.Helper()
 	content := `[package]
-name = "my-pkg"
+name = "` + name + `"
 version = "` + version + `"
 entrypoint = "lib.typ"
 `
-	require.NoError(t, paths.WriteFile(filepath.Join(f.dir, manifest.FileName), []byte(content)))
+	require.NoError(t, paths.EnsureDir(dir))
+	require.NoError(t, paths.WriteFile(filepath.Join(dir, manifest.FileName), []byte(content)))
 }
 
 func (f *fixture) tag(t *testing.T, name string, hash plumbing.Hash) {
@@ -178,15 +183,9 @@ func TestResolve_RefTakesTheVersionFromTheManifest(t *testing.T) { //nolint: par
 func TestResolve_RepositoryWithoutAManifestIsNotAPackage(t *testing.T) { //nolint: paralleltest
 	f := seedCachedRepo(t)
 	require.NoError(t, paths.WriteFile(filepath.Join(f.dir, "README.md"), []byte("hi")))
-	wt, err := f.repo.Worktree()
-	require.NoError(t, err)
-	require.NoError(t, wt.AddGlob("."))
-	_, err = wt.Commit("initial", &git.CommitOptions{
-		Author: &object.Signature{Name: "test", Email: "test@example.com", When: time.Now()},
-	})
-	require.NoError(t, err)
+	f.commit(t, "initial")
 
-	_, err = resolve.Resolve(resolve.Request{URL: testURL}, discardLogger())
+	_, err := resolve.Resolve(resolve.Request{URL: testURL}, discardLogger())
 	require.ErrorIs(t, err, resolve.ErrNotAPackage)
 }
 
@@ -245,4 +244,46 @@ func TestLatestStableTag(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// commitPackagesAt commits a minimal package into each of the given package
+// paths of the fixture, named after the last segment of its path.
+func (f *fixture) commitPackagesAt(t *testing.T, packagePaths ...string) plumbing.Hash { //nolint: unparam
+	t.Helper()
+	for _, packagePath := range packagePaths {
+		dir := filepath.Join(f.dir, filepath.FromSlash(packagePath))
+		writeManifest(t, dir, filepath.Base(packagePath), "0.1.0")
+	}
+	return f.commit(t, "packages")
+}
+
+func TestResolve_ReadsThePackageAtAPackagePath(t *testing.T) { //nolint: paralleltest
+	f := seedCachedRepo(t)
+	f.commitPackagesAt(t, "common", "packages/extra")
+
+	got, err := resolve.Resolve(resolve.Request{URL: testURL + "//packages/extra"}, discardLogger())
+	require.NoError(t, err)
+
+	assert.Equal(t, "extra", got.Manifest.Package.Name)
+	assert.Equal(t, "packages/extra", got.Source.Path)
+	assert.Equal(t, "extra", filepath.Base(got.Dir), "Dir is the package's root, not the repository's")
+	assert.FileExists(t, filepath.Join(got.Dir, manifest.FileName))
+}
+
+func TestResolve_SuggestsThePackagePathSeparatorWhenTheRootIsNoPackage(t *testing.T) { //nolint: paralleltest
+	f := seedCachedRepo(t)
+	f.commitPackagesAt(t, "common", "packages/extra")
+
+	_, err := resolve.Resolve(resolve.Request{URL: testURL}, discardLogger())
+	require.ErrorIs(t, err, resolve.ErrNotAPackage)
+	assert.Contains(t, err.Error(), "//path/to/package")
+}
+
+func TestResolve_APackagePathWithoutAManifestIsNotAPackage(t *testing.T) { //nolint: paralleltest
+	f := seedCachedRepo(t)
+	f.commitPackagesAt(t, "common")
+
+	_, err := resolve.Resolve(resolve.Request{URL: testURL + "//missing"}, discardLogger())
+	require.ErrorIs(t, err, resolve.ErrNotAPackage)
+	assert.Contains(t, err.Error(), testURL+"//missing has no")
 }

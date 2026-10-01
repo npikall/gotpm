@@ -1,8 +1,11 @@
 package remote_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +24,34 @@ func TestCloneRepo(t *testing.T) { //nolint: paralleltest
 	require.NoError(t, gotErr)
 	assert.FileExists(t, filepath.Join(dest, "README.md"))
 	assert.DirExists(t, filepath.Join(dest, ".git"))
+}
+
+func TestCloneWithoutCheckout_ReportsAMissingRepositoryBriefly(t *testing.T) {
+	t.Parallel()
+	page := "<!DOCTYPE html><html>" + strings.Repeat("<div>not found</div>", 10_000) + "</html>"
+	tests := []struct {
+		name   string
+		status int
+	}{
+		{"not found", http.StatusNotFound},
+		{"unauthorized, as for a missing or private repository", http.StatusUnauthorized},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(page))
+			}))
+			t.Cleanup(server.Close)
+			url := server.URL + "/owner/repo/sub/dir"
+
+			_, err := CloneWithoutCheckout(url, t.TempDir())
+
+			require.ErrorIs(t, err, ErrRepositoryNotFound)
+			assert.Equal(t, `repository "`+url+`" not found or not accessible`, err.Error())
+		})
+	}
 }
 
 func TestDefaultHTTPCloneURL(t *testing.T) {

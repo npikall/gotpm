@@ -20,6 +20,7 @@ import (
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,15 +54,20 @@ func Project(t *testing.T, name string) string {
 	return dir
 }
 
-// Package is a git repository holding one typst package.
+// Package is a typst package in a git repository: at its root, or at a package
+// path inside a monorepo.
 type Package struct {
 	t       *testing.T
 	dir     string
+	path    string
 	repo    *git.Repository
 	name    string
 	version string
-	hash    string
-	builds  int
+	// tagged marks a package whose releases get a version tag. A monorepo's
+	// do not: one repository cannot hold a v0.1.0 tag per package.
+	tagged bool
+	hash   string
+	builds int
 }
 
 // New creates an empty repository for a package. Nothing is committed until
@@ -73,22 +79,57 @@ func New(t *testing.T, name, version string) *Package {
 	require.NoError(t, paths.EnsureDir(dir))
 	repo, err := git.PlainInit(dir, false)
 	require.NoError(t, err)
-	return &Package{t: t, dir: dir, repo: repo, name: name, version: version}
+	return &Package{t: t, dir: dir, repo: repo, name: name, version: version, tagged: true}
+}
+
+// Monorepo is a git repository holding several packages, each at its own
+// package path.
+type Monorepo struct {
+	t    *testing.T
+	dir  string
+	repo *git.Repository
+}
+
+// NewMonorepo creates an empty repository for packages at package paths.
+func NewMonorepo(t *testing.T, name string) *Monorepo {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), name)
+	require.NoError(t, paths.EnsureDir(dir))
+	repo, err := git.PlainInit(dir, false)
+	require.NoError(t, err)
+	return &Monorepo{t: t, dir: dir, repo: repo}
+}
+
+// URL is the address of the repository itself.
+func (m *Monorepo) URL() string { return "file://" + m.dir }
+
+// Package adds a package at a package path. Packages of one monorepo share its
+// history, so releasing one commits whatever the others hold at that moment too.
+func (m *Monorepo) Package(packagePath, name, version string) *Package {
+	return &Package{t: m.t, dir: m.dir, path: packagePath, repo: m.repo, name: name, version: version}
 }
 
 // Dir is the working tree of the repository.
 func (p *Package) Dir() string { return p.dir }
 
-// URL is the address the package is reachable at.
-func (p *Package) URL() string { return "file://" + p.dir }
+// URL is the address the package is reachable at, with its package path.
+func (p *Package) URL() string {
+	return resolve.JoinPath("file://"+p.dir, p.path)
+}
 
 // Import is the statement typst source imports the package with.
 func (p *Package) Import() string {
 	return "@" + manifest.Namespace + "/" + p.name + ":" + p.version
 }
 
-// Tag is the release tag of the version.
-func (p *Package) Tag() string { return "v" + p.version }
+// Tag is the release tag of the version, or HEAD for a package whose releases
+// are not tagged.
+func (p *Package) Tag() string {
+	if !p.tagged {
+		return "HEAD"
+	}
+	return "v" + p.version
+}
 
 // Hash is the commit of the most recent release.
 func (p *Package) Hash() string { return p.hash }
@@ -115,10 +156,11 @@ func (p *Package) ReleaseWith(declared []string, lock *lockfile.Lock) *Package {
 
 	p.builds++
 	lib := fmt.Sprintf("#let name = %q\n#let build = %d\n", p.name, p.builds)
-	require.NoError(t, paths.WriteFile(filepath.Join(p.dir, manifest.FileName), p.manifest(declared)))
-	require.NoError(t, paths.WriteFile(filepath.Join(p.dir, "lib.typ"), []byte(lib)))
+	require.NoError(t, paths.EnsureDir(p.root()))
+	require.NoError(t, paths.WriteFile(filepath.Join(p.root(), manifest.FileName), p.manifest(declared)))
+	require.NoError(t, paths.WriteFile(filepath.Join(p.root(), "lib.typ"), []byte(lib)))
 	if lock != nil {
-		require.NoError(t, lockfile.Save(p.dir, lock))
+		require.NoError(t, lockfile.Save(p.root(), lock))
 	}
 
 	wt, err := p.repo.Worktree()
@@ -129,9 +171,11 @@ func (p *Package) ReleaseWith(declared []string, lock *lockfile.Lock) *Package {
 	})
 	require.NoError(t, err)
 
-	_ = p.repo.DeleteTag(p.Tag())
-	_, err = p.repo.CreateTag(p.Tag(), hash, nil)
-	require.NoError(t, err)
+	if p.tagged {
+		_ = p.repo.DeleteTag(p.Tag())
+		_, err = p.repo.CreateTag(p.Tag(), hash, nil)
+		require.NoError(t, err)
+	}
 
 	p.hash = hash.String()
 	return p
@@ -150,6 +194,8 @@ func (p *Package) LockEntry() lockfile.Entry {
 		Hash:      p.hash,
 	}
 }
+
+func (p *Package) root() string { return filepath.Join(p.dir, filepath.FromSlash(p.path)) }
 
 func (p *Package) manifest(declared []string) []byte {
 	var b strings.Builder

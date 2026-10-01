@@ -211,3 +211,51 @@ func TestWalk_ReportsWhatPulledInAnUnreachableDependency(t *testing.T) { //nolin
 	assert.Contains(t, err.Error(), gone.Import())
 	assert.Contains(t, err.Error(), middle.Import(), "a failed clone must say why gotpm went there")
 }
+
+func TestWalk_RecordsThePackagePath(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mono := testrepo.NewMonorepo(t, "mono")
+	common := mono.Package("packages/common", "common", "0.1.0").Release()
+
+	entries := walk(t, common)
+
+	require.Len(t, entries, 1)
+	assert.Equal(t, mono.URL()+"//packages/common", entries[0].URL, "the lock records the package path with the repository")
+	assert.Equal(t, common.Hash(), entries[0].Hash)
+}
+
+func TestWalk_SiblingsInOneMonorepoAreTwoPackages(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mono := testrepo.NewMonorepo(t, "mono")
+	common := mono.Package("common", "common", "0.1.0").Release()
+	extra := mono.Package("extra", "extra", "0.1.0").Release(common)
+
+	entries := walk(t, extra)
+
+	assert.Equal(t, []string{extra.Import(), common.Import()}, imports(entries),
+		"the dependency is read from the lock beside extra's own manifest")
+	dep := entryFor(t, entries, common.Import())
+	assert.Equal(t, common.URL(), dep.URL)
+	assert.Equal(t, common.Hash(), dep.Hash)
+	assert.Equal(t, []string{extra.Import()}, dep.RequiredBy)
+}
+
+func TestWalk_SiblingsAtTheSameCommitAreNotMerged(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	mono := testrepo.NewMonorepo(t, "mono")
+	common := mono.Package("common", "common", "0.1.0").Release()
+	extra := mono.Package("extra", "extra", "0.1.0").Release()
+	// Releasing extra committed common unchanged, so both sit at extra's commit.
+	commonEntry := common.LockEntry()
+	commonEntry.Hash = extra.Hash()
+	lock := lockfile.New()
+	lock.Upsert(extra.LockEntry())
+	lock.Upsert(commonEntry)
+	root := testrepo.New(t, "root", "1.0.0").ReleaseWith([]string{common.Import(), extra.Import()}, lock)
+
+	entries := walk(t, root)
+
+	require.Len(t, entries, 3, "one repository at one commit holds two packages")
+	assert.Equal(t, common.URL(), entryFor(t, entries, common.Import()).URL)
+	assert.Equal(t, extra.URL(), entryFor(t, entries, extra.Import()).URL)
+}
