@@ -47,7 +47,8 @@ type Resolved struct {
 	// the caller asked for, or HEAD for a repository without release tags.
 	Revision string
 	Hash     string
-	// Dir is the working tree of the cached clone.
+	// Dir is the package's root inside the working tree of the cached clone:
+	// the directory at the package path, holding the manifest and the lock.
 	Dir      string
 	Manifest *manifest.Manifest
 }
@@ -68,7 +69,7 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 
 	clone, err := remote.EnsureClone(src.Canonical, src.CloneURL)
 	if err != nil {
-		return nil, fmt.Errorf("%w%s", err, subdirHint(src))
+		return nil, fmt.Errorf("%w%s", err, packagePathHint(src))
 	}
 	defer clone.Repo.Close() //nolint: errcheck
 	logger.Debug("resolved remote", "url", src.Canonical, "path", clone.Dir, "cloned", clone.Cloned)
@@ -86,13 +87,14 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 	}
 	logger.Debug("checked out", "url", src.Canonical, "revision", revision, "hash", hash)
 
-	m, err := loadRootManifest(clone.Dir, src)
+	packageDir := src.PackageDir(clone.Dir)
+	m, err := loadPackageManifest(packageDir, src)
 	if err != nil {
 		return nil, err
 	}
 	warnOnVersionMismatch(m, revision, src, logger)
 
-	return &Resolved{Source: src, Revision: revision, Hash: hash, Dir: clone.Dir, Manifest: m}, nil
+	return &Resolved{Source: src, Revision: revision, Hash: hash, Dir: packageDir, Manifest: m}, nil
 }
 
 func pickRevision(repo *git.Repository, requested string, src Source, logger *log.Logger) (string, error) {
@@ -133,16 +135,23 @@ func LatestStableTag(tags []string) (string, bool) {
 	return bestName, bestVersion != nil
 }
 
-func loadRootManifest(dir string, src Source) (*manifest.Manifest, error) {
-	m, err := manifest.LoadFile(filepath.Join(dir, manifest.FileName))
+func loadPackageManifest(packageDir string, src Source) (*manifest.Manifest, error) {
+	m, err := manifest.LoadFile(filepath.Join(packageDir, manifest.FileName))
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("%w: %s has no %s at its root%s",
-			ErrNotAPackage, src.Canonical, manifest.FileName, subdirHint(src))
+		return nil, missingManifestError(src)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", src.Canonical, err)
+		return nil, fmt.Errorf("%s: %w", src, err)
 	}
 	return m, nil
+}
+
+func missingManifestError(src Source) error {
+	if src.Path != "" {
+		return fmt.Errorf("%w: %s has no %s", ErrNotAPackage, src, manifest.FileName)
+	}
+	return fmt.Errorf("%w: %s has no %s at its root%s",
+		ErrNotAPackage, src, manifest.FileName, packagePathNote(src.Canonical))
 }
 
 func warnOnVersionMismatch(m *manifest.Manifest, revision string, src Source, logger *log.Logger) {
@@ -151,12 +160,21 @@ func warnOnVersionMismatch(m *manifest.Manifest, revision string, src Source, lo
 		return
 	}
 	logger.Warn("tag disagrees with the version in the manifest, using the manifest",
-		"url", src.Canonical, "tag", revision, "manifest", m.Package.Version)
+		"url", src, "tag", revision, "manifest", m.Package.Version)
 }
 
-func subdirHint(src Source) string {
-	if IsLocal(src.Canonical) || strings.Count(src.Canonical, "/") < minSegments {
+func packagePathHint(src Source) string {
+	if IsLocal(src.Canonical) || src.Path != "" || strings.Count(src.Canonical, "/") < minSegments {
 		return ""
 	}
-	return "\nnote: if this path points inside a repository, packages in a subdirectory are not supported yet"
+	return packagePathNote(firstSegments(src.Canonical, minSegments))
+}
+
+func packagePathNote(repository string) string {
+	return "\nnote: name a package in a subdirectory by its package path, e.g. " +
+		JoinPath(repository, "path/to/package")
+}
+
+func firstSegments(canonical string, n int) string {
+	return strings.Join(strings.SplitN(canonical, "/", n+1)[:n], "/")
 }

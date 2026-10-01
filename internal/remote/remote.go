@@ -12,9 +12,25 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/transport"
 )
 
-var ErrParseRepoName = errors.New("could not parse repository name")
+var (
+	ErrParseRepoName = errors.New("could not parse repository name")
+	// ErrRepositoryNotFound means nothing cloneable answered at a URL: the
+	// repository does not exist, is private, or the URL points inside one.
+	ErrRepositoryNotFound = errors.New("repository not found or not accessible")
+)
+
+// repositoryNotFoundError names the URL that was not found. It deliberately
+// drops the transport error, whose message can carry a whole HTML page.
+type repositoryNotFoundError struct{ url string }
+
+func (e repositoryNotFoundError) Error() string {
+	return fmt.Sprintf("repository %q not found or not accessible", e.url)
+}
+
+func (repositoryNotFoundError) Unwrap() error { return ErrRepositoryNotFound }
 
 func CloneRepo(remote, dest, rev string) error {
 	repo, err := CloneWithoutCheckout(remote, dest)
@@ -39,6 +55,11 @@ func CloneWithoutCheckout(remote, dest string) (*git.Repository, error) {
 		Tags:       git.AllTags,
 		NoCheckout: true,
 	})
+	// Hosts such as GitHub and GitLab answer a missing repository with 401, so
+	// it is indistinguishable from a private one.
+	if errors.Is(err, transport.ErrRepositoryNotFound) || errors.Is(err, transport.ErrAuthenticationRequired) {
+		return nil, repositoryNotFoundError{url: remote}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cloning %q into %q: %w", remote, dest, err)
 	}

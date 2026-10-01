@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -14,16 +16,45 @@ const minSegments = 3
 
 const fileScheme = "file://"
 
+// PathSeparator splits a repository from the package path inside it, as in
+// "github.com/a/mono//pkg".
+const PathSeparator = "//"
+
 // Source is a repository in the two forms gotpm needs it: the canonical name it
 // is recorded under, and the address git is pointed at.
 type Source struct {
-	// Canonical is the scheme-less form, e.g. "github.com/a/cetz". It is what
-	// goes into gotpm.lock and into a package's provenance, so the same
-	// repository is recognised however the user happened to spell it.
+	// Canonical is the scheme-less form of the repository, e.g.
+	// "github.com/a/cetz", so the same repository is recognised however the
+	// user happened to spell it. Messages about the repository itself — its
+	// clone, tags and revisions — name it; messages about the package name
+	// the whole Source, which adds the package path.
 	Canonical string
 	// CloneURL is what git is handed. A user who asked for a repository over
 	// ssh gets ssh, so their existing credentials keep working.
 	CloneURL string
+	// Path is the package path: where the package's root sits inside the
+	// repository, empty for the repository root.
+	Path string
+}
+
+// String is the source as a user writes it: the canonical repository, followed
+// by the package path when there is one. It is what goes into gotpm.lock and
+// into a package's provenance.
+func (s Source) String() string {
+	return JoinPath(s.Canonical, s.Path)
+}
+
+// PackageDir is the package's root inside a working tree of the repository.
+func (s Source) PackageDir(worktree string) string {
+	return filepath.Join(worktree, filepath.FromSlash(s.Path))
+}
+
+// JoinPath appends a package path to a repository.
+func JoinPath(repository, packagePath string) string {
+	if packagePath == "" {
+		return repository
+	}
+	return repository + PathSeparator + packagePath
 }
 
 // Normalize reads a repository argument in any of the forms a user is likely to
@@ -34,9 +65,14 @@ func Normalize(raw string) (Source, error) {
 		return Source{}, fmt.Errorf("%w: empty", ErrInvalidRepoURL)
 	}
 
+	trimmed, packagePath, err := splitPackagePath(trimmed)
+	if err != nil {
+		return Source{}, fmt.Errorf("%w %q: %w", ErrInvalidRepoURL, raw, err)
+	}
+
 	if IsLocal(trimmed) {
 		local := strings.TrimSuffix(strings.TrimSuffix(trimmed, "/"), ".git")
-		return Source{Canonical: local, CloneURL: local}, nil
+		return Source{Canonical: local, CloneURL: local, Path: packagePath}, nil
 	}
 
 	canonical, err := canonicalize(trimmed)
@@ -51,7 +87,38 @@ func Normalize(raw string) (Source, error) {
 	if !hasScheme(trimmed) && !isSCPLike(trimmed) {
 		cloneURL = "https://" + canonical
 	}
-	return Source{Canonical: canonical, CloneURL: cloneURL}, nil
+	return Source{Canonical: canonical, CloneURL: cloneURL, Path: packagePath}, nil
+}
+
+var errPathOutsideRepository = errors.New("package path leaves the repository")
+
+// splitPackagePath cuts the package path off a repository argument.
+func splitPackagePath(raw string) (string, string, error) {
+	start := separatorSearchStart(raw)
+	i := strings.Index(raw[start:], PathSeparator)
+	if i < 0 {
+		return raw, "", nil
+	}
+	repository := raw[:start+i]
+	cleaned := path.Clean(strings.Trim(raw[start+i:], "/"))
+	if cleaned == "." {
+		return repository, "", nil
+	}
+	if !filepath.IsLocal(filepath.FromSlash(cleaned)) {
+		return "", "", errPathOutsideRepository
+	}
+	return repository, cleaned, nil
+}
+
+// separatorSearchStart skips a scheme's "://" and the character after it, so
+// neither that nor the leading slash of an absolute file:// path reads as a
+// separator.
+func separatorSearchStart(raw string) int {
+	start := 1
+	if i := strings.Index(raw, "://"); i >= 0 {
+		start = i + len("://") + 1
+	}
+	return min(start, len(raw))
 }
 
 func canonicalize(raw string) (string, error) {
