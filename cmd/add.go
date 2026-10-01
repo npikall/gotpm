@@ -21,10 +21,14 @@ where a dependency's own dependencies come from.
 
 Without --rev the newest release tag is used, or the current HEAD when the
 repository has no release tags.
+
+A package that does not sit at the root of its repository is named by its
+package path, separated from the repository by '//'.
 `,
 	Example: `gotpm add github.com/user/repo
 gotpm add github.com/user/repo -t v0.1.2
 gotpm add git@github.com:user/repo.git
+gotpm add github.com/user/monorepo//packages/common
 `,
 	Args: cobra.ExactArgs(1),
 	RunE: AddRunner,

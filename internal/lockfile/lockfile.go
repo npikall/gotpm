@@ -46,8 +46,8 @@ type Entry struct {
 	// installs check out Hash so they stay reproducible when a tag moves.
 	Revision string `json:"revision"`
 	Hash     string `json:"hash"`
-	// Subdir is the path of the package within the repository. Always empty
-	// for now; packages must sit at the repository root.
+	// Subdir is unused and always empty: a package path is part of URL, as in
+	// "github.com/a/mono//pkg", so older gotpm reject it instead of misreading.
 	Subdir string `json:"subdir"`
 	// Direct marks a dependency the project declares itself, as opposed to one
 	// pulled in through another dependency.

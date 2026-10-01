@@ -47,7 +47,7 @@ type Unresolved struct {
 	Dependency string
 	// RequiredBy is the import of the package that declared it.
 	RequiredBy string
-	// RequiredByURL is RequiredBy's repository.
+	// RequiredByURL is RequiredBy's repository, with its package path.
 	RequiredByURL string
 	Reason        Reason
 }
@@ -106,7 +106,7 @@ func (w *walker) visit(n node, chain []string) error {
 	if err != nil {
 		return w.wrapResolveError(n, err)
 	}
-	sourceCommit := resolved.Source.Canonical + "@" + resolved.Hash
+	sourceCommit := resolved.Source.String() + "@" + resolved.Hash
 
 	if i, seen := w.bySourceCommit[sourceCommit]; seen {
 		if slices.Contains(chain, sourceCommit) {
@@ -164,7 +164,7 @@ func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry,
 	}
 	ref, err := resolved.Ref(namespace)
 	if err != nil {
-		return lockfile.Entry{}, fmt.Errorf("%s: %w", resolved.Source.Canonical, err)
+		return lockfile.Entry{}, fmt.Errorf("%s: %w", resolved.Source, err)
 	}
 
 	revision := resolved.Revision
@@ -181,7 +181,7 @@ func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry,
 		Name:       ref.Name,
 		Version:    ref.Version.String(),
 		Namespace:  ref.Namespace,
-		URL:        resolved.Source.Canonical,
+		URL:        resolved.Source.String(),
 		Revision:   revision,
 		Hash:       resolved.Hash,
 		Direct:     n.direct,
@@ -210,7 +210,7 @@ func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unr
 	for _, ref := range refs {
 		entry, ok := lock.Get(ref.String())
 		if !ok {
-			unresolved = append(unresolved, newUnresolved(importing, resolved.Source.Canonical, ref.String(), locked))
+			unresolved = append(unresolved, newUnresolved(importing, resolved.Source.String(), ref.String(), locked))
 			continue
 		}
 		children = append(children, node{

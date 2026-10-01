@@ -32,13 +32,16 @@ installs everything it depends on alongside it, the same way 'add' does — a
 dependency with no gotpm.lock at all is skipped with a warning, but one whose
 lock is simply missing an entry still fails the install. Without -t/--rev the
 newest release tag is used, or the current HEAD when the repository has none;
-pass -t HEAD explicitly to keep pinning HEAD regardless of releases.
+pass -t HEAD explicitly to keep pinning HEAD regardless of releases. A package
+that does not sit at the root of its repository is named by its package path,
+separated from the repository by '//'.
 `,
 	Example: `gotpm install
 gotpm install . -e
 gotpm install -n preview
 gotpm install -r github.com/user/repo -t v0.1.2
 gotpm install -r github.com/user/repo -t HEAD
+gotpm install -r github.com/user/monorepo//packages/common
 gotpm install path/to/package -n preview
 `,
 	Args: cobra.MaximumNArgs(1),

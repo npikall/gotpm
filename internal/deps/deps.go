@@ -199,6 +199,8 @@ func (i Installer) inspect(ref pkg.Ref, entry lockfile.Entry) (state, store.Prov
 }
 
 func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
+	// Normalize also rejects a package path leaving the repository: a lock is
+	// read from disk and may name any path.
 	src, err := resolve.Normalize(entry.URL)
 	if err != nil {
 		return "", err
@@ -213,7 +215,7 @@ func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 	if err := remote.CheckoutRevision(clone.Repo, entry.Hash); err != nil {
 		return "", fmt.Errorf("could not check out %s of %s: %w", entry.Hash, entry.URL, err)
 	}
-	if err := i.Store.Install(ref, clone.Dir); err != nil {
+	if err := i.Store.Install(ref, src.PackageDir(clone.Dir)); err != nil {
 		return "", err
 	}
 	i.Logger.Debug("installed", "package", ref, "url", entry.URL, "hash", entry.Hash)
