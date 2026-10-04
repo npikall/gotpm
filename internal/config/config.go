@@ -126,42 +126,55 @@ func fieldByTOMLPath(cfg any, key string) (reflect.Value, error) {
 		if v.Kind() != reflect.Struct {
 			return reflect.Value{}, fmt.Errorf("%w: %q", ErrNotSettablePath, key)
 		}
-		found := false
-		t := v.Type()
-		for f := range t.NumField() {
-			tag := t.Field(f).Tag.Get("toml")
-			tag, _, _ = strings.Cut(tag, ",")
-			if tag == part {
-				v = v.Field(f)
-				found = true
-				break
-			}
-		}
+		field, found := fieldByTag(v, part)
 		if !found {
 			return reflect.Value{}, fmt.Errorf("%w: %q", ErrUnknownKey, strings.Join(parts[:i+1], "."))
 		}
+		v = field
 	}
 	return v, nil
+}
+
+// fieldByTag finds the field of struct v whose toml tag names it.
+func fieldByTag(v reflect.Value, name string) (reflect.Value, bool) {
+	t := v.Type()
+	for f := range t.NumField() {
+		tag, _, _ := strings.Cut(t.Field(f).Tag.Get("toml"), ",")
+		if tag == name {
+			return v.Field(f), true
+		}
+	}
+	return reflect.Value{}, false
 }
 
 func assign(field reflect.Value, value string) error {
 	switch field.Kind() { //nolint: exhaustive
 	case reflect.String:
 		field.SetString(value)
+		return nil
 	case reflect.Bool:
-		b, err := strconv.ParseBool(value)
-		if err != nil {
-			return fmt.Errorf("expected bool: %w", err)
-		}
-		field.SetBool(b)
+		return assignBool(field, value)
 	case reflect.Int, reflect.Int64:
-		n, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return fmt.Errorf("expected int: %w", err)
-		}
-		field.SetInt(n)
+		return assignInt(field, value)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnsupportedField, field.Kind())
 	}
+}
+
+func assignBool(field reflect.Value, value string) error {
+	b, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("expected bool: %w", err)
+	}
+	field.SetBool(b)
+	return nil
+}
+
+func assignInt(field reflect.Value, value string) error {
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return fmt.Errorf("expected int: %w", err)
+	}
+	field.SetInt(n)
 	return nil
 }

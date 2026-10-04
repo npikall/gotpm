@@ -86,7 +86,10 @@ func Load(projectDir string) (*Lock, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read %q: %w", path, err)
 	}
+	return parse(path, data)
+}
 
+func parse(path string, data []byte) (*Lock, error) {
 	var lock Lock
 	if err := json.Unmarshal(data, &lock); err != nil {
 		return nil, fmt.Errorf("%w: %q: %w", ErrInvalidLock, path, err)
@@ -198,23 +201,24 @@ func (l *Lock) reachableFrom(roots map[string]bool) map[string]bool {
 			reachable[entry.Import] = true
 		}
 	}
-
-	for changed := true; changed; {
-		changed = false
-		for _, entry := range l.Packages {
-			if reachable[entry.Import] {
-				continue
-			}
-			for _, dependant := range entry.RequiredBy {
-				if reachable[dependant] {
-					reachable[entry.Import] = true
-					changed = true
-					break
-				}
-			}
-		}
+	for l.spread(reachable) {
 	}
 	return reachable
+}
+
+// spread marks the entries a reachable entry requires, and reports whether it
+// marked any. Repeating it until it does not finds everything reachable.
+func (l *Lock) spread(reachable map[string]bool) bool {
+	changed := false
+	for _, entry := range l.Packages {
+		if !reachable[entry.Import] && slices.ContainsFunc(entry.RequiredBy, func(dependant string) bool {
+			return reachable[dependant]
+		}) {
+			reachable[entry.Import] = true
+			changed = true
+		}
+	}
+	return changed
 }
 
 func (l *Lock) indexOf(imp string) int {

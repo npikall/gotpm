@@ -69,51 +69,71 @@ func SetDependencies(file string, deps []string) error {
 		return fmt.Errorf("could not read %q: %w", file, err)
 	}
 
-	newline := "\n"
-	if strings.Contains(string(content), "\r\n") {
-		newline = "\r\n"
-	}
-	text := string(content)
-	trailing := strings.HasSuffix(text, newline)
-	lines := strings.Split(strings.TrimSuffix(text, newline), newline)
-
+	lines, newline, trailing := splitLines(string(content))
 	updated, err := setDependencyLines(lines, deps)
 	if err != nil {
 		return fmt.Errorf("%q: %w", file, err)
 	}
+	return paths.WriteFile(file, []byte(joinLines(updated, newline, trailing)))
+}
 
-	out := strings.Join(updated, newline)
+// splitLines splits text into lines, and reports the line ending it uses and
+// whether it ends with one, so joinLines can put it back the same way.
+func splitLines(text string) ([]string, string, bool) {
+	newline := "\n"
+	if strings.Contains(text, "\r\n") {
+		newline = "\r\n"
+	}
+	trailing := strings.HasSuffix(text, newline)
+	return strings.Split(strings.TrimSuffix(text, newline), newline), newline, trailing
+}
+
+func joinLines(lines []string, newline string, trailing bool) string {
+	out := strings.Join(lines, newline)
 	if trailing || out != "" {
 		out += newline
 	}
-	return paths.WriteFile(file, []byte(out))
+	return out
 }
 
 func setDependencyLines(lines, deps []string) ([]string, error) {
 	header := findTable(lines, toolTable, gotpmTable)
 	if header < 0 {
-		if err := rejectInlineToolSection(lines); err != nil {
-			return nil, err
-		}
-		if len(deps) == 0 {
-			return lines, nil
-		}
-		return appendSection(lines, deps), nil
+		return setWithoutSection(lines, deps)
 	}
+	return setInSection(lines, header, deps), nil
+}
 
+// setWithoutSection adds a [tool.gotpm] section for deps, if there are any.
+func setWithoutSection(lines, deps []string) ([]string, error) {
+	if err := rejectInlineToolSection(lines); err != nil {
+		return nil, err
+	}
+	if len(deps) == 0 {
+		return lines, nil
+	}
+	return appendSection(lines, deps), nil
+}
+
+// setInSection writes deps into the [tool.gotpm] section starting at header.
+func setInSection(lines []string, header int, deps []string) []string {
 	end := tableEnd(lines, header)
 	start, stop, found := findArray(lines, header+1, end)
-
-	switch {
-	case !found && len(deps) == 0:
-		return lines, nil
-	case !found:
-		return splice(lines, header+1, header+1, renderArray(deps)), nil
-	case len(deps) == 0:
-		return removeArray(lines, header, start, stop, end), nil
-	default:
-		return splice(lines, start, stop+1, renderArray(deps)), nil
+	if !found {
+		return insertArray(lines, header, deps)
 	}
+	if len(deps) == 0 {
+		return removeArray(lines, header, start, stop, end)
+	}
+	return splice(lines, start, stop+1, renderArray(deps))
+}
+
+// insertArray writes deps right below a section header that has no array yet.
+func insertArray(lines []string, header int, deps []string) []string {
+	if len(deps) == 0 {
+		return lines
+	}
+	return splice(lines, header+1, header+1, renderArray(deps))
 }
 
 func rejectInlineToolSection(lines []string) error {
@@ -121,12 +141,16 @@ func rejectInlineToolSection(lines []string) error {
 	if tool < 0 {
 		return nil
 	}
-	for _, line := range lines[tool+1 : tableEnd(lines, tool)] {
-		if key, _, ok := strings.Cut(line, "="); ok && strings.TrimSpace(key) == gotpmTable {
-			return ErrInlineToolSection
-		}
+	if slices.ContainsFunc(lines[tool+1:tableEnd(lines, tool)], isInlineGotpmKey) {
+		return ErrInlineToolSection
 	}
 	return nil
+}
+
+// isInlineGotpmKey reports whether line is "gotpm = ..." inside [tool].
+func isInlineGotpmKey(line string) bool {
+	key, _, ok := strings.Cut(line, "=")
+	return ok && strings.TrimSpace(key) == gotpmTable
 }
 
 func appendSection(lines, deps []string) []string {
@@ -170,19 +194,32 @@ func renderArray(deps []string) []string {
 
 func findArray(lines []string, from, to int) (int, int, bool) {
 	for i := from; i < to; i++ {
-		key, value, ok := strings.Cut(lines[i], "=")
-		if !ok || strings.TrimSpace(key) != dependencies || isComment(lines[i]) {
-			continue
-		}
-		depth := bracketDepth(value, 0)
-		for j := i; ; j++ {
-			if depth <= 0 || j+1 >= to {
-				return i, j, true
-			}
-			depth = bracketDepth(lines[j+1], depth)
+		if value, ok := dependenciesValue(lines[i]); ok {
+			return i, arrayEnd(lines, i, to, value), true
 		}
 	}
 	return 0, 0, false
+}
+
+// dependenciesValue returns what follows "dependencies =" on line.
+func dependenciesValue(line string) (string, bool) {
+	key, value, ok := strings.Cut(line, "=")
+	if !ok || isComment(line) {
+		return "", false
+	}
+	return value, strings.TrimSpace(key) == dependencies
+}
+
+// arrayEnd is the line, at or after start and before to, closing the array
+// whose first line holds value.
+func arrayEnd(lines []string, start, to int, value string) int {
+	depth := bracketDepth(value, 0)
+	end := start
+	for depth > 0 && end+1 < to {
+		end++
+		depth = bracketDepth(lines[end], depth)
+	}
+	return end
 }
 
 func findTable(lines []string, want ...string) int {
@@ -210,14 +247,17 @@ func tableName(line string) ([]string, bool) {
 	}
 	inner := strings.TrimSuffix(strings.TrimPrefix(trimmed, "["), "]")
 	inner = strings.TrimSuffix(strings.TrimPrefix(inner, "["), "]")
+	return tableKeys(inner)
+}
+
+// tableKeys splits a table name into its dotted keys, unquoted.
+func tableKeys(inner string) ([]string, bool) {
 	if inner == "" {
 		return nil, false
 	}
-
 	parts := strings.Split(inner, ".")
 	for i, part := range parts {
-		part = strings.TrimSpace(part)
-		part = strings.Trim(part, `"'`)
+		part = strings.Trim(strings.TrimSpace(part), `"'`)
 		if part == "" {
 			return nil, false
 		}
@@ -233,13 +273,22 @@ func bracketDepth(line string, depth int) int {
 			i = skipString(line, i)
 		case '#':
 			return depth
-		case '[':
-			depth++
-		case ']':
-			depth--
+		default:
+			depth += bracketDelta(line[i])
 		}
 	}
 	return depth
+}
+
+func bracketDelta(c byte) int {
+	switch c {
+	case '[':
+		return 1
+	case ']':
+		return -1
+	default:
+		return 0
+	}
 }
 
 func skipString(line string, i int) int {

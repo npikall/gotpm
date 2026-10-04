@@ -5,6 +5,7 @@ package typstsrc
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,33 +46,42 @@ func scanInto(path string, imports *[]Import) error {
 		return fmt.Errorf("could not open file: %w", err)
 	}
 	defer file.Close() //nolint: errcheck
+	return scanLines(file, filepath.Dir(path), imports)
+}
 
-	baseDir := filepath.Dir(path)
-
-	scanner := bufio.NewScanner(file)
+func scanLines(r io.Reader, baseDir string, imports *[]Import) error {
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		line := scanner.Text()
-		switch {
-		case strings.HasPrefix(line, importPrefix):
-			statement, _, ok := strings.Cut(line[len(importPrefix):], `"`)
-			if !ok {
-				continue
-			}
-			*imports = append(*imports, newImport(statement, baseDir))
-		case strings.HasPrefix(line, includePrefix):
-			included, _, ok := strings.Cut(line[len(includePrefix):], `"`)
-			if !ok {
-				continue
-			}
-			if err := scanInto(filepath.Join(baseDir, included), imports); err != nil {
-				return err
-			}
+		if err := scanLine(scanner.Text(), baseDir, imports); err != nil {
+			return err
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("could not scan file: %w", err)
 	}
 	return nil
+}
+
+// scanLine records the import on line, or scans the file it includes.
+func scanLine(line, baseDir string, imports *[]Import) error {
+	if statement, ok := quoted(line, importPrefix); ok {
+		*imports = append(*imports, newImport(statement, baseDir))
+		return nil
+	}
+	if included, ok := quoted(line, includePrefix); ok {
+		return scanInto(filepath.Join(baseDir, included), imports)
+	}
+	return nil
+}
+
+// quoted returns the string a line opens with prefix, when it is closed.
+func quoted(line, prefix string) (string, bool) {
+	rest, ok := strings.CutPrefix(line, prefix)
+	if !ok {
+		return "", false
+	}
+	value, _, ok := strings.Cut(rest, `"`)
+	return value, ok
 }
 
 func newImport(statement, baseDir string) Import {

@@ -272,3 +272,72 @@ func TestParseDependencies_ReportsEveryBadEntry(t *testing.T) {
 	assert.Contains(t, err.Error(), "nonsense")
 	assert.Contains(t, err.Error(), "@preview/x:1.0.0")
 }
+
+func TestSetDependencies_IgnoresBracketsInStringsAndComments(t *testing.T) {
+	t.Parallel()
+	got := setDeps(t, `[tool.gotpm]
+dependencies = [
+  "@gotpm/a:0.1.0", # ] closes nothing
+  "x\"]",
+  'y]',
+]
+other = 1
+`, []string{"@gotpm/b:1.0.0"})
+
+	assert.Equal(t, `[tool.gotpm]
+dependencies = [
+  "@gotpm/b:1.0.0",
+]
+other = 1
+`, got)
+}
+
+func TestSetDependencies_ToleratesAnUnterminatedString(t *testing.T) {
+	t.Parallel()
+	got := setDeps(t, "[tool.gotpm]\ndependencies = \"unterminated\n", []string{"@gotpm/b:1.0.0"})
+
+	assert.Equal(t, "[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
+}
+
+func TestSetDependencies_SkipsACommentedOutArray(t *testing.T) {
+	t.Parallel()
+	got := setDeps(t, "[tool.gotpm]\n# dependencies = []\n", []string{"@gotpm/b:1.0.0"})
+
+	assert.Equal(t, "[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n# dependencies = []\n", got)
+}
+
+func TestSetDependencies_ReportsAnUnreadableFile(t *testing.T) {
+	t.Parallel()
+
+	err := manifest.SetDependencies(filepath.Join(t.TempDir(), "typst.toml"), nil)
+
+	require.ErrorContains(t, err, "could not read")
+}
+
+func TestSetDependencies_EmptyOnASectionWithoutAnArrayIsANoOp(t *testing.T) {
+	t.Parallel()
+	const content = "[tool.gotpm]\nother = 1\n"
+
+	assert.Equal(t, content, setDeps(t, content, nil))
+}
+
+func TestSetDependencies_AddsTheSectionBesideAToolTable(t *testing.T) {
+	t.Parallel()
+	got := setDeps(t, "[tool]\nother = 1\n", []string{"@gotpm/b:1.0.0"})
+
+	assert.Equal(t, "[tool]\nother = 1\n\n[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
+}
+
+func TestSetDependencies_FillsAnEmptyFile(t *testing.T) {
+	t.Parallel()
+	got := setDeps(t, "", []string{"@gotpm/b:1.0.0"})
+
+	assert.Equal(t, "[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
+}
+
+func TestSetDependencies_MalformedHeadersAreNotTables(t *testing.T) {
+	t.Parallel()
+	got := setDeps(t, "x = 1\n[]\n[a..b]\n", []string{"@gotpm/b:1.0.0"})
+
+	assert.Equal(t, "x = 1\n[]\n[a..b]\n\n[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
+}
