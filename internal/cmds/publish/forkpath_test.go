@@ -1,6 +1,7 @@
 package publish_test
 
 import (
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -83,6 +84,21 @@ func TestResolveForkPathLeavesForeignLegacyClone(t *testing.T) { //nolint: paral
 	require.NoError(t, err)
 
 	assert.DirExists(t, filepath.Join(legacy, ".git"), "another fork's clone stays where it is")
+	assert.NoDirExists(t, forkPath)
+}
+
+// TestResolveForkPathLeavesLegacyCloneWithoutOrigin covers a legacy clone
+// gotpm cannot tell the fork of: moving it could put the wrong fork's clone in
+// place, so it stays.
+func TestResolveForkPathLeavesLegacyCloneWithoutOrigin(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	testrepo.Isolate(t)
+	legacy := legacyClone(t, setupOriginRepo(t, []string{pkgDir}))
+	require.NoError(t, exec.CommandContext(t.Context(), "git", "-C", legacy, "remote", "remove", "origin").Run())
+
+	forkPath, err := publish.ResolveForkPath(testLogger(), &config.Config{}, "https://github.com/me/packages")
+	require.NoError(t, err)
+
+	assert.DirExists(t, filepath.Join(legacy, ".git"))
 	assert.NoDirExists(t, forkPath)
 }
 

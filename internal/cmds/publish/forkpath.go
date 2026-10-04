@@ -77,31 +77,52 @@ func sameFork(a, b string) bool {
 }
 
 func migrateLegacyClone(logger *log.Logger, forkURL, forkPath string) {
-	dataDir, err := paths.GotpmDataDir()
-	if err != nil {
+	legacyPath, ok := legacyCloneOf(logger, forkURL, forkPath)
+	if !ok {
 		return
 	}
-	legacyPath := filepath.Join(dataDir, legacyForkDirName)
-	if !paths.IsDir(filepath.Join(legacyPath, ".git")) {
-		return
+	moveLegacyClone(logger, legacyPath, forkPath)
+}
+
+// legacyCloneOf finds the clone gotpm kept at the old location, when it is a
+// clone of forkURL and nothing is in the way of moving it to forkPath.
+func legacyCloneOf(logger *log.Logger, forkURL, forkPath string) (string, bool) {
+	legacyPath, ok := legacyClonePath()
+	if !ok {
+		return "", false
 	}
 	if paths.IsDir(forkPath) {
 		logger.Debug("derived fork clone already exists, leaving the legacy one",
 			"legacy", legacyPath, "path", forkPath)
-		return
+		return "", false
 	}
+	return legacyPath, isCloneOf(logger, legacyPath, forkURL)
+}
 
+func legacyClonePath() (string, bool) {
+	dataDir, err := paths.GotpmDataDir()
+	if err != nil {
+		return "", false
+	}
+	legacyPath := filepath.Join(dataDir, legacyForkDirName)
+	return legacyPath, paths.IsDir(filepath.Join(legacyPath, ".git"))
+}
+
+func isCloneOf(logger *log.Logger, legacyPath, forkURL string) bool {
 	origin, err := originURL(legacyPath)
 	if err != nil {
 		logger.Warn("could not read the legacy fork clone's origin", "path", legacyPath, "err", err)
-		return
+		return false
 	}
 	if !sameFork(origin, forkURL) {
 		logger.Warn("the fork clone at the old location is a clone of another fork; delete it when you no longer need it",
 			"path", legacyPath, "origin", origin)
-		return
+		return false
 	}
+	return true
+}
 
+func moveLegacyClone(logger *log.Logger, legacyPath, forkPath string) {
 	if err := paths.EnsureDir(filepath.Dir(forkPath)); err != nil {
 		logger.Warn("could not prepare the fork clone's new location", "path", forkPath, "err", err)
 		return
