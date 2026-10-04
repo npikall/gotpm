@@ -68,9 +68,5 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 		Revision:   Must(cmd.Flags().GetString("rev")),
 	}
 
-	path := ""
-	if len(args) > 0 {
-		path = args[0]
-	}
-	return install.Run(path, opts, newLogger(cmd))
+	return install.Run(firstArg(args), opts, newLogger(cmd))
 }

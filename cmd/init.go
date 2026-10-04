@@ -23,9 +23,5 @@ func init() {
 }
 
 func InitRunner(cmd *cobra.Command, args []string) error {
-	name := ""
-	if len(args) > 0 {
-		name = args[0]
-	}
-	return scaffold.Run(name, newLogger(cmd))
+	return scaffold.Run(firstArg(args), newLogger(cmd))
 }

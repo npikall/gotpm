@@ -41,9 +41,5 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 		Indent:   Must(cmd.Flags().GetBool("indent")),
 	}
 
-	increment := ""
-	if len(args) > 0 {
-		increment = args[0]
-	}
-	return bump.Run(increment, opts, newLogger(cmd))
+	return bump.Run(firstArg(args), opts, newLogger(cmd))
 }
