@@ -40,38 +40,49 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
+	entries, results, err := fetch(url, opts, logger)
+	if err != nil {
+		return err
+	}
+	if err := record(project, entries); err != nil {
+		return err
+	}
+	report(results)
+	return nil
+}
+
+// fetch resolves url and everything it depends on, and installs it all. The
+// package at url comes first.
+func fetch(url string, opts *Options, logger *log.Logger) ([]lockfile.Entry, []deps.Result, error) {
 	walked, err := ui.WithSpinner("resolving "+url, func() (depgraph.Result, error) {
 		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{}, logger)
 	})
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if err := errorForUnresolved(walked.Unresolved); err != nil {
-		return err
+		return nil, nil, err
 	}
-	entries := walked.Entries
-	direct := entries[0]
+	results, err := installAll(walked.Entries, opts.Force, logger)
+	return walked.Entries, results, err
+}
 
-	installer, err := deps.OpenInstaller(opts.Force, logger)
+func installAll(entries []lockfile.Entry, force bool, logger *log.Logger) ([]deps.Result, error) {
+	installer, err := deps.OpenInstaller(force, logger)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	results, err := ui.WithSpinner("installing", func() ([]deps.Result, error) {
+	return ui.WithSpinner("installing", func() ([]deps.Result, error) {
 		return installer.EnsureAll(entries)
 	})
-	if err != nil {
-		return err
-	}
+}
 
+// record locks every entry and declares the first, the package that was added.
+func record(project *deps.Project, entries []lockfile.Entry) error {
 	if err := updateLock(project, entries); err != nil {
 		return err
 	}
-	if err := declare(project, direct.Import); err != nil {
-		return err
-	}
-
-	report(results)
-	return nil
+	return declare(project, entries[0].Import)
 }
 
 func errorForUnresolved(unresolved []depgraph.Unresolved) error {
@@ -109,20 +120,22 @@ func declare(project *deps.Project, imp string) error {
 
 func report(results []deps.Result) {
 	for i, result := range results {
-		switch {
-		case i == 0 && result.Outcome == deps.UpToDate:
-			ui.Infof("%s is already installed", ui.Package(result.Ref.String()))
-		case i == 0:
-			ui.Infof("added %s from %s", ui.Package(result.Ref.String()), result.Entry.URL)
-		default:
-			ui.Infof("  %s (via %s)", ui.Package(result.Ref.String()), via(result.Entry))
-		}
-		if notice := result.ReplacedNotice(); notice != "" {
-			ui.Infof("%s", notice)
-		}
-		if warning := result.DriftWarning(); warning != "" {
-			ui.Warnf("%s", warning)
-		}
+		ui.Infof("%s", headline(i, result))
+		ui.Notes(result.ReplacedNotice(), result.DriftWarning())
+	}
+}
+
+// headline says what happened to the i-th result: the added package comes
+// first, followed by what it pulled in.
+func headline(i int, result deps.Result) string {
+	ref := ui.Package(result.Ref.String())
+	switch {
+	case i > 0:
+		return fmt.Sprintf("  %s (via %s)", ref, via(result.Entry))
+	case result.Outcome == deps.UpToDate:
+		return ref + " is already installed"
+	default:
+		return fmt.Sprintf("added %s from %s", ref, result.Entry.URL)
 	}
 }
 

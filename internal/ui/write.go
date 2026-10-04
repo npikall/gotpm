@@ -47,3 +47,13 @@ func Error(err error) {
 func Package(ref string) string {
 	return AccentBold.Render(ref)
 }
+
+// Notes prints info and then warning, skipping whichever is empty.
+func Notes(info, warning string) {
+	if info != "" {
+		Infof("%s", info)
+	}
+	if warning != "" {
+		Warnf("%s", warning)
+	}
+}

@@ -159,3 +159,25 @@ func TestRun_PrunesFromThePackageDirectoryDespiteAnInstallDirOverride(t *testing
 			"%s must be pruned from the package directory it was installed into", name)
 	}
 }
+
+func TestRun_KeepsADirectDependencySomethingElseNeeds(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	project := testrepo.Project(t, "my-doc")
+	shared := testrepo.New(t, "shared", "1.0.0").Release()
+	user := testrepo.New(t, "user", "1.0.0").Release(shared)
+	require.NoError(t, add.Run(shared.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(user.URL(), &add.Options{}, discardLogger()))
+
+	require.NoError(t, remove.Run(shared.Import(), &remove.Options{}, discardLogger()))
+
+	assert.Equal(t, []string{user.Import()}, declared(t, project))
+	_, ok := lockOf(t, project).Get(shared.Import())
+	assert.True(t, ok, "user still requires it")
+}
+
+func TestRun_OutsideAProject(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	t.Chdir(t.TempDir())
+
+	require.Error(t, remove.Run("@gotpm/cetz:0.3.1", &remove.Options{}, discardLogger()))
+}

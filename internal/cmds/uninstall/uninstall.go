@@ -6,6 +6,7 @@ package uninstall
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/manifest"
@@ -53,7 +54,11 @@ func Run(name string, opts *Options, log *log.Logger) error {
 	if wipesNamespace(name, opts) {
 		return removeNamespace(s, opts, log)
 	}
+	return removeNamed(s, name, opts, log)
+}
 
+// removeNamed removes one version of a package, or all of them.
+func removeNamed(s store.Store, name string, opts *Options, log *log.Logger) error {
 	name, version, err := resolveIdentity(name, opts)
 	if err != nil {
 		return err
@@ -111,15 +116,9 @@ func removePackage(s store.Store, name string, opts *Options, log *log.Logger) e
 }
 
 func removeNamespace(s store.Store, opts *Options, log *log.Logger) error {
-	if s.Flat() {
-		return store.ErrFlatStore
-	}
-
-	target := s.NamespaceDir(opts.Namespace)
-	log.Debug("uninstalling namespace from", "path", target)
-
-	if !s.HasNamespace(opts.Namespace) {
-		return fmt.Errorf("%w: no namespace at %q", store.ErrNotInstalled, target)
+	target, err := namespaceTarget(s, opts.Namespace, log)
+	if err != nil {
+		return err
 	}
 
 	packages, versions := count(s, opts.Namespace, log)
@@ -130,6 +129,24 @@ func removeNamespace(s store.Store, opts *Options, log *log.Logger) error {
 
 	ui.Warnf("will delete %s: %d packages, %d versions",
 		ui.Package(namespaceRef(opts.Namespace)), packages, versions)
+	return removeNamespaceIfApproved(s, opts)
+}
+
+// namespaceTarget is the directory of an installed namespace.
+func namespaceTarget(s store.Store, namespace string, log *log.Logger) (string, error) {
+	if s.Flat() {
+		return "", store.ErrFlatStore
+	}
+	target := s.NamespaceDir(namespace)
+	log.Debug("uninstalling namespace from", "path", target)
+
+	if !s.HasNamespace(namespace) {
+		return "", fmt.Errorf("%w: no namespace at %q", store.ErrNotInstalled, target)
+	}
+	return target, nil
+}
+
+func removeNamespaceIfApproved(s store.Store, opts *Options) error {
 	approved, err := approve(opts)
 	if err != nil {
 		return err
@@ -166,17 +183,20 @@ func count(s store.Store, namespace string, log *log.Logger) (int, int) {
 		log.Debug("could not count namespace contents", "err", err)
 		return 0, 0
 	}
-	for _, ns := range namespaces {
-		if ns.Name != namespace {
-			continue
-		}
-		versions := 0
-		for _, p := range ns.Packages {
-			versions += len(p.Versions)
-		}
-		return len(ns.Packages), versions
+	i := slices.IndexFunc(namespaces, func(ns store.Namespace) bool { return ns.Name == namespace })
+	if i < 0 {
+		return 0, 0
 	}
-	return 0, 0
+	return tally(namespaces[i])
+}
+
+// tally counts a namespace's packages and their versions.
+func tally(ns store.Namespace) (int, int) {
+	versions := 0
+	for _, p := range ns.Packages {
+		versions += len(p.Versions)
+	}
+	return len(ns.Packages), versions
 }
 
 func namespaceRef(namespace string) string {
@@ -184,22 +204,32 @@ func namespaceRef(namespace string) string {
 }
 
 func resolveIdentity(name string, opts *Options) (string, string, error) {
-	if name != "" {
-		if opts.Version == "" && !opts.All {
-			return "", "", ErrInsufficientPackage
-		}
-		return name, opts.Version, nil
+	if name == "" {
+		return identityFromManifest(opts)
 	}
+	if opts.Version == "" && !opts.All {
+		return "", "", ErrInsufficientPackage
+	}
+	return name, opts.Version, nil
+}
+
+// identityFromManifest names the package of the working directory, at the
+// version asked for, every version for --all, or else the manifest's version.
+func identityFromManifest(opts *Options) (string, string, error) {
 	m, err := manifest.Load()
 	if err != nil {
 		return "", "", fmt.Errorf("could not load typst manifest: %w", err)
 	}
+	return m.Package.Name, versionFor(m, opts), nil
+}
+
+func versionFor(m *manifest.Manifest, opts *Options) string {
 	switch {
 	case opts.Version != "":
-		return m.Package.Name, opts.Version, nil
+		return opts.Version
 	case opts.All:
-		return m.Package.Name, "", nil
+		return ""
 	default:
-		return m.Package.Name, m.Package.Version, nil
+		return m.Package.Version
 	}
 }

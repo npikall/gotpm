@@ -42,25 +42,34 @@ func Run(imp string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("removing from project", "dir", project.Dir, "package", ref)
 
-	remaining, err := withoutDependency(project, ref.String())
+	removed, err := drop(project, ref.String())
 	if err != nil {
 		return err
 	}
+	return finish(ref.String(), removed, opts, logger)
+}
 
+// drop removes imp from the manifest, then prunes the lock of everything that
+// is no longer required, and returns what it pruned.
+func drop(project *deps.Project, imp string) ([]lockfile.Entry, error) {
+	remaining, err := withoutDependency(project, imp)
+	if err != nil {
+		return nil, err
+	}
 	if err := project.SetDependencies(remaining); err != nil {
-		return err
+		return nil, err
 	}
-	removed, err := pruneLock(project, remaining)
-	if err != nil {
-		return err
-	}
+	return pruneLock(project, remaining)
+}
 
+// finish deletes the removed packages' files when asked to, and reports.
+func finish(imp string, removed []lockfile.Entry, opts *Options, logger *log.Logger) error {
 	if opts.Prune {
 		if err := uninstall(removed, logger); err != nil {
 			return err
 		}
 	}
-	report(ref.String(), removed, opts.Prune)
+	report(imp, removed, opts.Prune)
 	return nil
 }
 
@@ -98,19 +107,43 @@ func uninstall(removed []lockfile.Entry, logger *log.Logger) error {
 		return err
 	}
 	for _, entry := range removed {
-		ref, err := pkg.New(entry.Namespace, entry.Name, entry.Version)
-		if err != nil {
+		if err := removeEntry(s, entry, logger); err != nil {
 			return err
 		}
-		if err := s.Remove(ref); err != nil {
-			return err
-		}
-		logger.Debug("deleted from the package directory", "package", ref, "path", s.Dir(ref))
 	}
 	return nil
 }
 
+func removeEntry(s store.Store, entry lockfile.Entry, logger *log.Logger) error {
+	ref, err := pkg.New(entry.Namespace, entry.Name, entry.Version)
+	if err != nil {
+		return err
+	}
+	if err := s.Remove(ref); err != nil {
+		return err
+	}
+	logger.Debug("deleted from the package directory", "package", ref, "path", s.Dir(ref))
+	return nil
+}
+
 func report(imp string, removed []lockfile.Entry, pruned bool) {
+	dropped, orphans := partition(imp, removed)
+
+	ui.Infof("removed %s", ui.Package(imp))
+	if !dropped {
+		ui.Warnf("%s stays installed: another dependency still requires it", ui.Package(imp))
+	}
+	if len(orphans) > 0 {
+		ui.Infof("  no longer needed: %s", strings.Join(orphans, ", "))
+	}
+	if hint := pruneHint(removed, pruned); hint != "" {
+		ui.Infof("%s", hint)
+	}
+}
+
+// partition reports whether imp itself was pruned from the lock, and the
+// sorted imports of the others that went with it.
+func partition(imp string, removed []lockfile.Entry) (bool, []string) {
 	orphans := make([]string, 0, len(removed))
 	dropped := false
 	for _, entry := range removed {
@@ -120,16 +153,13 @@ func report(imp string, removed []lockfile.Entry, pruned bool) {
 		}
 		orphans = append(orphans, entry.Import)
 	}
+	slices.Sort(orphans)
+	return dropped, orphans
+}
 
-	ui.Infof("removed %s", ui.Package(imp))
-	if !dropped {
-		ui.Warnf("%s stays installed: another dependency still requires it", ui.Package(imp))
+func pruneHint(removed []lockfile.Entry, pruned bool) string {
+	if len(removed) == 0 || pruned {
+		return ""
 	}
-	if len(orphans) > 0 {
-		slices.Sort(orphans)
-		ui.Infof("  no longer needed: %s", strings.Join(orphans, ", "))
-	}
-	if len(removed) > 0 && !pruned {
-		ui.Infof("the package files are still in the package directory; pass --prune to delete them")
-	}
+	return "the package files are still in the package directory; pass --prune to delete them"
 }
