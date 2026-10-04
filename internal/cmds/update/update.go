@@ -88,14 +88,9 @@ func Run(inputs []string, opts *Options, log *log.Logger) error {
 func update(ctx context.Context, content []byte, opts *Options, log *log.Logger) []byte {
 	refs := typstsrc.FindRefs(content)
 
-	spin := ui.Spinner("")
-	spin.Start()
-	updates, events := latestVersions(ctx, refs, opts.NoCache)
-	spin.Stop()
-
-	for _, event := range events {
-		event.emit(log)
-	}
+	updates, _ := ui.WithSpinner("", func() (map[string]Result, error) {
+		return latestVersions(ctx, refs, opts.NoCache, log), nil
+	})
 
 	summarise(updates)
 
@@ -106,47 +101,41 @@ func update(ctx context.Context, content []byte, opts *Options, log *log.Logger)
 	return typstsrc.RewriteRefs(content, latest)
 }
 
-func latestVersions(ctx context.Context, refs []pkg.Ref, noCache bool) (map[string]Result, []logEvent) {
+func latestVersions(ctx context.Context, refs []pkg.Ref, noCache bool, log *log.Logger) map[string]Result {
 	idx, _ := index.Load(ctx, index.Opts{NoCache: noCache})
 
 	resultCh := make(chan Result, len(refs))
-	logCh := make(chan logEvent, len(refs))
 
 	var wg sync.WaitGroup
 	for _, ref := range refs {
 		wg.Go(func() {
-			resolve(ctx, ref, idx, resultCh, logCh)
+			resolve(ctx, ref, idx, resultCh, log)
 		})
 	}
 	wg.Wait()
 	close(resultCh)
-	close(logCh)
 
 	results := make(map[string]Result)
 	for result := range resultCh {
 		results[result.Name] = result
 	}
-	var events []logEvent
-	for event := range logCh {
-		events = append(events, event)
-	}
-	return results, events
+	return results
 }
 
-func resolve(ctx context.Context, ref pkg.Ref, idx index.Index, resultCh chan<- Result, logCh chan<- logEvent) {
+func resolve(ctx context.Context, ref pkg.Ref, idx index.Index, resultCh chan<- Result, log *log.Logger) {
 	latest, source, err := lookup(ctx, idx, ref.Name)
 	if err != nil {
-		logCh <- logEvent{"error", err.Error(), nil}
+		log.Error(err.Error(), "package", ref.Name)
 		return
 	}
 
 	current := ref.Version.String()
 	if latest == current {
-		logCh <- logEvent{"debug", "already at latest", []any{"package", ref.Name}}
+		log.Debug("already at latest", "package", ref.Name)
 		return
 	}
 
-	logCh <- logEvent{"info", "update", []any{"package", ref.Name, "from", current, "to", latest, "via", source}}
+	log.Info("update", "package", ref.Name, "from", current, "to", latest, "via", source)
 	resultCh <- Result{Name: ref.Name, Current: current, Latest: latest}
 }
 

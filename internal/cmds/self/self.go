@@ -101,13 +101,9 @@ func Update(info BuildInfo, opts *Options) error {
 		return fmt.Errorf("failed to create updater: %w", err)
 	}
 
-	spin := ui.Spinner(" Checking for updates...")
-	spin.Start()
-	release, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug(repository))
-	spin.Stop()
-
+	release, found, err := detectLatest(ctx, updater)
 	if err != nil {
-		return fmt.Errorf("failed to check for updates: %w", err)
+		return err
 	}
 	if !found {
 		ui.Warnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
@@ -127,17 +123,34 @@ func Update(info BuildInfo, opts *Options) error {
 		return nil
 	}
 
-	spin = ui.Spinner(" Downloading update...")
-	spin.Start()
-	_, err = updater.UpdateSelf(ctx, currentVersion, selfupdate.ParseSlug(repository))
-	spin.Stop()
-
+	err = ui.Spin("Downloading update...", func() error {
+		if _, updateErr := updater.UpdateSelf(ctx, currentVersion, selfupdate.ParseSlug(repository)); updateErr != nil {
+			return fmt.Errorf("update failed: %w", updateErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("update failed: %w", err)
+		return err
 	}
 
 	ui.Infof("updated gotpm %s → %s",
 		ui.AccentBold.Render(info.Version),
 		ui.AccentBold.Render("v"+latestVersion))
 	return nil
+}
+
+// detectLatest looks up the newest release for this platform, with a spinner
+// showing while it asks.
+func detectLatest(ctx context.Context, updater *selfupdate.Updater) (*selfupdate.Release, bool, error) {
+	var release *selfupdate.Release
+	var found bool
+	err := ui.Spin("Checking for updates...", func() error {
+		var err error
+		release, found, err = updater.DetectLatest(ctx, selfupdate.ParseSlug(repository))
+		if err != nil {
+			return fmt.Errorf("failed to check for updates: %w", err)
+		}
+		return nil
+	})
+	return release, found, err
 }

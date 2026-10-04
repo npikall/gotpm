@@ -8,13 +8,12 @@ import (
 	"os"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 )
 
 // Confirm asks a yes/no question on stdin and reports the answer.
 func Confirm(question string) (bool, error) {
-	_, _ = lipgloss.Printf("%s %s ", Normal.Render(question), Muted.Render("[y/N]"))
+	_, _ = fmt.Fprintf(stdout, "%s %s ", Normal.Render(question), Muted.Render("[y/N]"))
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
