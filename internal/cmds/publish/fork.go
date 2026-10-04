@@ -29,10 +29,9 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 		return err
 	}
 	logger.Debug("no local fork clone found, cloning", "url", forkURL, "path", forkPath)
-	spin := ui.Spinner(" Cloning fork (first publish, this can take a while)...")
-	spin.Start()
-	err := gitcli.Clone(forkURL, forkPath)
-	spin.Stop()
+	err := ui.Spin("Cloning fork (first publish, this can take a while)...", func() error {
+		return gitcli.Clone(forkURL, forkPath)
+	})
 	if err != nil {
 		return fmt.Errorf("cloning fork %q: %w", forkURL, err)
 	}
@@ -42,10 +41,7 @@ func EnsureForkRepo(logger *log.Logger, forkURL, forkPath string) error {
 
 func fetchFork(logger *log.Logger, forkPath string) error {
 	logger.Debug("fetching fork", "path", forkPath)
-	spin := ui.Spinner(" Fetching fork...")
-	spin.Start()
-	err := gitcli.Fetch(forkPath)
-	spin.Stop()
+	err := ui.Spin("Fetching fork...", func() error { return gitcli.Fetch(forkPath) })
 	if err != nil {
 		return fmt.Errorf("fetching fork at %q: %w", forkPath, err)
 	}
@@ -64,15 +60,13 @@ func CheckoutPackageBranch(logger *log.Logger, forkPath, branchName, pkgDir stri
 	local := gitcli.BranchExists(forkPath, branchName)
 	logger.Debug("resolved package branch", "branch", branchName, "local", local, "fork", onFork)
 
-	spin := ui.Spinner(" Checking out package branch...")
-	spin.Start()
-	defer spin.Stop()
-
-	if err := gitcli.SparseCheckoutSet(forkPath, pkgDir); err != nil {
-		return false, fmt.Errorf("setting sparse-checkout scope %q: %w", pkgDir, err)
-	}
-
-	if err := checkoutFrom(logger, forkPath, branchName, local, onFork); err != nil {
+	err := ui.Spin("Checking out package branch...", func() error {
+		if err := gitcli.SparseCheckoutSet(forkPath, pkgDir); err != nil {
+			return fmt.Errorf("setting sparse-checkout scope %q: %w", pkgDir, err)
+		}
+		return checkoutFrom(logger, forkPath, branchName, local, onFork)
+	})
+	if err != nil {
 		return false, err
 	}
 
