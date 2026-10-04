@@ -224,3 +224,12 @@ func TestRemoveNamespace_RejectedOnAFlatStore(t *testing.T) {
 	assert.False(t, s.HasNamespace("local"))
 	assert.Empty(t, s.NamespaceDir("local"))
 }
+
+func TestOpenPackageDirHonoursTypstPackagePath(t *testing.T) {
+	t.Setenv(paths.TypstPackagePathEnvVar, "/typst/packages")
+
+	s, err := store.OpenPackageDir()
+
+	require.NoError(t, err)
+	assert.Equal(t, "/typst/packages", s.Root())
+}

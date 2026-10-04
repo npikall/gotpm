@@ -148,27 +148,48 @@ func (i Installer) Ensure(entry lockfile.Entry) (Result, error) {
 		i.Logger.Debug("already installed", "package", ref, "hash", entry.Hash)
 		return Result{Ref: ref, Entry: entry, Outcome: UpToDate}, nil
 	}
-	if present == foreign && !i.Force {
-		return Result{}, conflictError(ref, entry, prov)
-	}
-	if present != absent {
-		if err := i.Store.Remove(ref); err != nil {
-			return Result{}, fmt.Errorf("could not remove %s before reinstalling it: %w", ref, err)
-		}
-	}
+	return i.replace(ref, entry, present, prov)
+}
 
+// replace installs entry at ref in place of whatever is present there.
+func (i Installer) replace(ref pkg.Ref, entry lockfile.Entry, present state, prov store.Provenance) (Result, error) {
+	if err := i.makeRoom(ref, entry, present, prov); err != nil {
+		return Result{}, err
+	}
 	moved, err := i.install(ref, entry)
 	if err != nil {
 		return Result{}, err
 	}
-	outcome := Installed
-	if present != absent {
-		outcome = Replaced
-	}
 	return Result{
-		Ref: ref, Entry: entry, Outcome: outcome, MovedTag: moved,
+		Ref: ref, Entry: entry, Outcome: outcomeOf(present), MovedTag: moved,
 		ReplacedSource: prov,
 	}, nil
+}
+
+func outcomeOf(present state) Outcome {
+	if present == absent {
+		return Installed
+	}
+	return Replaced
+}
+
+// makeRoom removes whatever is installed at ref so entry can take its place,
+// refusing to remove a package gotpm did not install unless forced.
+func (i Installer) makeRoom(ref pkg.Ref, entry lockfile.Entry, present state, prov store.Provenance) error {
+	if present == absent {
+		return nil
+	}
+	if present == foreign && !i.Force {
+		return conflictError(ref, entry, prov)
+	}
+	return i.remove(ref)
+}
+
+func (i Installer) remove(ref pkg.Ref) error {
+	if err := i.Store.Remove(ref); err != nil {
+		return fmt.Errorf("could not remove %s before reinstalling it: %w", ref, err)
+	}
+	return nil
 }
 
 type state int
@@ -188,13 +209,19 @@ func (i Installer) inspect(ref pkg.Ref, entry lockfile.Entry) (state, store.Prov
 	if err != nil {
 		return absent, prov, err
 	}
+	return classify(prov, ok, entry), prov, nil
+}
+
+// classify compares what is installed, by its provenance, with what entry
+// pins. Without provenance, or from another repository, it is not gotpm's.
+func classify(prov store.Provenance, ok bool, entry lockfile.Entry) state {
 	switch {
 	case !ok || prov.URL != entry.URL:
-		return foreign, prov, nil
+		return foreign
 	case prov.Hash == entry.Hash:
-		return current, prov, nil
+		return current
 	default:
-		return stale, prov, nil
+		return stale
 	}
 }
 
@@ -226,7 +253,7 @@ func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 }
 
 func movedTag(repo *git.Repository, entry lockfile.Entry) string {
-	if entry.Revision == "" || entry.Revision == "HEAD" || entry.Revision == entry.Hash {
+	if pinsACommit(entry) {
 		return ""
 	}
 	hash, err := remote.ResolveHash(repo, entry.Revision)
@@ -234,6 +261,12 @@ func movedTag(repo *git.Repository, entry lockfile.Entry) string {
 		return ""
 	}
 	return hash
+}
+
+// pinsACommit reports whether entry's revision names a commit rather than a
+// tag that could move.
+func pinsACommit(entry lockfile.Entry) bool {
+	return entry.Revision == "" || entry.Revision == "HEAD" || entry.Revision == entry.Hash
 }
 
 func conflictError(ref pkg.Ref, entry lockfile.Entry, prov store.Provenance) error {

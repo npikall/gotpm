@@ -103,30 +103,53 @@ func ShouldIgnore(rel string, matcher *ignore.GitIgnore) bool {
 // Collect walks the package rooted at src and returns the files to transfer
 // into dst. Ignored directories are skipped whole.
 func Collect(src, dst string, matcher *ignore.GitIgnore) ([]Job, error) {
-	var jobs []Job
-	err := filepath.WalkDir(src, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return fmt.Errorf("walking %q: %w", path, walkErr)
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return fmt.Errorf("resolving relative path %q: %w", path, err)
-		}
-		if ShouldIgnore(rel, matcher) {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !d.IsDir() {
-			jobs = append(jobs, Job{Src: path, Dst: filepath.Join(dst, rel)})
-		}
-		return nil
-	})
-	if err != nil {
+	c := &collector{src: src, dst: dst, matcher: matcher}
+	if err := filepath.WalkDir(src, c.visit); err != nil {
 		return nil, fmt.Errorf("could not collect all files to transfer: %w", err)
 	}
-	return jobs, nil
+	return c.jobs, nil
+}
+
+// collector gathers a copy job for every file below src the matcher keeps.
+type collector struct {
+	src     string
+	dst     string
+	matcher *ignore.GitIgnore
+	jobs    []Job
+}
+
+func (c *collector) visit(path string, d fs.DirEntry, walkErr error) error {
+	rel, err := c.relative(path, walkErr)
+	if err != nil {
+		return err
+	}
+	if ShouldIgnore(rel, c.matcher) {
+		return skip(d)
+	}
+	if !d.IsDir() {
+		c.jobs = append(c.jobs, Job{Src: path, Dst: filepath.Join(c.dst, rel)})
+	}
+	return nil
+}
+
+// relative is path relative to src, unless walking to it failed.
+func (c *collector) relative(path string, walkErr error) (string, error) {
+	if walkErr != nil {
+		return "", fmt.Errorf("walking %q: %w", path, walkErr)
+	}
+	rel, err := filepath.Rel(c.src, path)
+	if err != nil {
+		return "", fmt.Errorf("resolving relative path %q: %w", path, err)
+	}
+	return rel, nil
+}
+
+// skip leaves out an ignored entry, and everything below it for a directory.
+func skip(d fs.DirEntry) error {
+	if d.IsDir() {
+		return filepath.SkipDir
+	}
+	return nil
 }
 
 // Run performs every transfer job concurrently, reporting all failures.
@@ -168,15 +191,19 @@ func CopyFile(src, dest string) error {
 	if err != nil {
 		return fmt.Errorf("reading file info %q: %w", src, err)
 	}
+	return writeCopy(srcFile, dest, info.Mode())
+}
 
-	destFile, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode()) //nolint: gosec
+// writeCopy writes everything read from srcFile to dest, created with mode.
+func writeCopy(srcFile *os.File, dest string, mode fs.FileMode) error {
+	destFile, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode) //nolint: gosec
 	if err != nil {
 		return fmt.Errorf("creating destination file %q: %w", dest, err)
 	}
 	defer destFile.Close() //nolint: errcheck
 
 	if _, err := io.Copy(destFile, srcFile); err != nil {
-		return fmt.Errorf("copying %q to %q: %w", src, dest, err)
+		return fmt.Errorf("copying %q to %q: %w", srcFile.Name(), dest, err)
 	}
 	return nil
 }
