@@ -238,3 +238,34 @@ func TestRun(t *testing.T) {
 		assert.NoError(t, pkgfiles.Run(nil))
 	})
 }
+
+func TestCopyFile_ReportsFailures(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.typ")
+	require.NoError(t, paths.WriteFile(src, []byte("x")))
+	blocker := filepath.Join(dir, "file")
+	require.NoError(t, paths.WriteFile(blocker, []byte("x")))
+	existingDir := filepath.Join(dir, "existing")
+	require.NoError(t, os.Mkdir(existingDir, 0o750))
+
+	tests := map[string]struct{ src, dest, want string }{
+		"missing source":       {filepath.Join(dir, "missing"), filepath.Join(dir, "out"), "opening source file"},
+		"parent is a file":     {src, filepath.Join(blocker, "out"), "creating parent directories"},
+		"destination is a dir": {src, existingDir, "creating destination file"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.ErrorContains(t, pkgfiles.CopyFile(tt.src, tt.dest), tt.want)
+		})
+	}
+}
+
+func TestCollect_ReportsAMissingSource(t *testing.T) {
+	t.Parallel()
+
+	_, err := pkgfiles.Collect(filepath.Join(t.TempDir(), "missing"), t.TempDir(), nil)
+
+	require.ErrorContains(t, err, "walking")
+}

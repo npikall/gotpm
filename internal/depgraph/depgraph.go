@@ -11,6 +11,7 @@
 package depgraph
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/pkg"
 	"github.com/npikall/gotpm/internal/resolve"
 )
 
@@ -109,13 +111,22 @@ func (w *walker) visit(n node, chain []string) error {
 	sourceCommit := resolved.Source.String() + "@" + resolved.Hash
 
 	if i, seen := w.bySourceCommit[sourceCommit]; seen {
-		if slices.Contains(chain, sourceCommit) {
-			w.logger.Debug("skipping dependency cycle", "package", w.entries[i].Import, "via", n.requiredBy)
-		}
-		w.record(i, n)
+		w.revisit(i, n, chain, sourceCommit)
 		return nil
 	}
+	return w.add(resolved, n, sourceCommit, append(slices.Clip(chain), sourceCommit))
+}
 
+// revisit records another route to the i-th entry, which is not walked again.
+func (w *walker) revisit(i int, n node, chain []string, sourceCommit string) {
+	if slices.Contains(chain, sourceCommit) {
+		w.logger.Debug("skipping dependency cycle", "package", w.entries[i].Import, "via", n.requiredBy)
+	}
+	w.record(i, n)
+}
+
+// add records a package seen for the first time, then walks its dependencies.
+func (w *walker) add(resolved *resolve.Resolved, n node, sourceCommit string, chain []string) error {
 	entry, err := newEntry(resolved, n, w.opts)
 	if err != nil {
 		return err
@@ -123,15 +134,17 @@ func (w *walker) visit(n node, chain []string) error {
 	w.warnOnCoordinateMismatch(entry, n)
 	w.bySourceCommit[sourceCommit] = len(w.entries)
 	w.entries = append(w.entries, entry)
+	return w.visitDependencies(resolved, entry.Import, chain)
+}
 
-	children, unresolved, err := dependenciesOf(resolved, entry.Import)
+func (w *walker) visitDependencies(resolved *resolve.Resolved, importing string, chain []string) error {
+	children, unresolved, err := dependenciesOf(resolved, importing)
 	if err != nil {
 		return err
 	}
 	w.unresolved = append(w.unresolved, unresolved...)
-	childChain := append(slices.Clip(chain), sourceCommit)
 	for _, child := range children {
-		if err := w.visit(child, childChain); err != nil {
+		if err := w.visit(child, chain); err != nil {
 			return err
 		}
 	}
@@ -158,19 +171,11 @@ func (w *walker) record(i int, n node) {
 }
 
 func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry, error) {
-	namespace := manifest.Namespace
-	if n.direct && opts.RootNamespace != "" {
-		namespace = opts.RootNamespace
-	}
-	ref, err := resolved.Ref(namespace)
+	ref, err := resolved.Ref(namespaceFor(n, opts))
 	if err != nil {
 		return lockfile.Entry{}, fmt.Errorf("%s: %w", resolved.Source, err)
 	}
 
-	revision := resolved.Revision
-	if n.revision != "" {
-		revision = n.revision
-	}
 	var requiredBy []string
 	if n.requiredBy != "" {
 		requiredBy = []string{n.requiredBy}
@@ -182,11 +187,20 @@ func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry,
 		Version:    ref.Version.String(),
 		Namespace:  ref.Namespace,
 		URL:        resolved.Source.String(),
-		Revision:   revision,
+		Revision:   cmp.Or(n.revision, resolved.Revision),
 		Hash:       resolved.Hash,
 		Direct:     n.direct,
 		RequiredBy: requiredBy,
 	}, nil
+}
+
+// namespaceFor is the namespace a package is installed under: the requested
+// one for the package asked for, and gotpm's own for its dependencies.
+func namespaceFor(n node, opts Options) string {
+	if n.direct && opts.RootNamespace != "" {
+		return opts.RootNamespace
+	}
+	return manifest.Namespace
 }
 
 func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unresolved, error) {
@@ -203,6 +217,16 @@ func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unr
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading the lock of %s: %w", importing, err)
 	}
+	children, unresolved := lockedDependencies(refs, lock, resolved, importing)
+	return children, unresolved, nil
+}
+
+// lockedDependencies looks each of refs up in the lock shipped beside the
+// package importing them: what it records is walked next, the rest is
+// unresolved.
+func lockedDependencies(
+	refs []pkg.Ref, lock *lockfile.Lock, resolved *resolve.Resolved, importing string,
+) ([]node, []Unresolved) {
 	locked := paths.FileExists(lockfile.Path(resolved.Dir)) == nil
 
 	var children []node
@@ -220,7 +244,7 @@ func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unr
 			requiredBy: importing,
 		})
 	}
-	return children, unresolved, nil
+	return children, unresolved
 }
 
 func pin(entry lockfile.Entry) string {

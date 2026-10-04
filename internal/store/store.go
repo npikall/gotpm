@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/npikall/gotpm/internal/paths"
@@ -127,23 +126,34 @@ func (s Store) Install(ref pkg.Ref, srcDir string) error {
 	if s.flat {
 		return pkgfiles.CopyTree(srcDir, dest)
 	}
+	return stageAndMove(parent, srcDir, dest)
+}
 
+// stageAndMove copies srcDir into a hidden directory in parent, then moves it
+// to dest in one step.
+func stageAndMove(parent, srcDir, dest string) error {
 	staging, err := os.MkdirTemp(parent, stagingPrefix)
 	if err != nil {
 		return fmt.Errorf("could not create staging directory in %q: %w", parent, err)
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
 
-	if err := os.Chmod(staging, paths.DirPerm); err != nil {
-		return fmt.Errorf("could not set permissions on %q: %w", staging, err)
-	}
-	if err := pkgfiles.CopyTree(srcDir, staging); err != nil {
+	if err := fill(staging, srcDir); err != nil {
 		return err
 	}
 	if err := os.Rename(staging, dest); err != nil {
 		return fmt.Errorf("could not move staged package into %q: %w", dest, err)
 	}
 	return nil
+}
+
+// fill makes the staging directory readable like any other package directory
+// and copies srcDir into it.
+func fill(staging, srcDir string) error {
+	if err := os.Chmod(staging, paths.DirPerm); err != nil {
+		return fmt.Errorf("could not set permissions on %q: %w", staging, err)
+	}
+	return pkgfiles.CopyTree(srcDir, staging)
 }
 
 // Link installs a package as a symlink to srcDir, so edits to the source are
@@ -214,26 +224,34 @@ func (s Store) Exists() bool {
 // disk, whether or not that name is valid semver.
 func (s Store) Scan() ([]Namespace, error) {
 	entries, err := os.ReadDir(s.root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("could not read typst packages: %w", err)
 	}
+	return collect(s.root, entries, scanNamespace), nil
+}
 
-	var namespaces []Namespace
+// collect scans each of the entries of dir, keeping what scan accepts. The
+// entries come from os.ReadDir, so the result is sorted by name.
+func collect[T any](dir string, entries []fs.DirEntry, scan func(dir string, entry fs.DirEntry) (T, bool)) []T {
+	var out []T
 	for _, entry := range entries {
-		if !entry.IsDir() || hidden(entry.Name()) {
-			continue
+		if item, ok := scan(dir, entry); ok {
+			out = append(out, item)
 		}
-		packages := scanPackages(filepath.Join(s.root, entry.Name()))
-		if len(packages) == 0 {
-			continue
-		}
-		namespaces = append(namespaces, Namespace{Name: entry.Name(), Packages: packages})
 	}
-	slices.SortFunc(namespaces, func(a, b Namespace) int { return strings.Compare(a.Name, b.Name) })
-	return namespaces, nil
+	return out
+}
+
+// scanNamespace lists a namespace that holds at least one package.
+func scanNamespace(root string, entry fs.DirEntry) (Namespace, bool) {
+	if !entry.IsDir() || hidden(entry.Name()) {
+		return Namespace{}, false
+	}
+	packages := scanPackages(filepath.Join(root, entry.Name()))
+	return Namespace{Name: entry.Name(), Packages: packages}, len(packages) > 0
 }
 
 func scanPackages(namespaceDir string) []Package {
@@ -241,20 +259,16 @@ func scanPackages(namespaceDir string) []Package {
 	if err != nil {
 		return nil
 	}
+	return collect(namespaceDir, entries, scanPackage)
+}
 
-	var packages []Package
-	for _, entry := range entries {
-		if !entry.IsDir() || hidden(entry.Name()) {
-			continue
-		}
-		versions := scanVersions(filepath.Join(namespaceDir, entry.Name()))
-		if len(versions) == 0 {
-			continue
-		}
-		packages = append(packages, Package{Name: entry.Name(), Versions: versions})
+// scanPackage lists a package that holds at least one version.
+func scanPackage(namespaceDir string, entry fs.DirEntry) (Package, bool) {
+	if !entry.IsDir() || hidden(entry.Name()) {
+		return Package{}, false
 	}
-	slices.SortFunc(packages, func(a, b Package) int { return strings.Compare(a.Name, b.Name) })
-	return packages
+	versions := scanVersions(filepath.Join(namespaceDir, entry.Name()))
+	return Package{Name: entry.Name(), Versions: versions}, len(versions) > 0
 }
 
 func scanVersions(packageDir string) []Version {
@@ -262,22 +276,16 @@ func scanVersions(packageDir string) []Version {
 	if err != nil {
 		return nil
 	}
+	return collect(packageDir, entries, scanVersion)
+}
 
-	var versions []Version
-	for _, entry := range entries {
-		if hidden(entry.Name()) {
-			continue
-		}
-		if !isDirFollowingLinks(filepath.Join(packageDir, entry.Name())) {
-			continue
-		}
-		versions = append(versions, Version{
-			Name:     entry.Name(),
-			Editable: entry.Type()&fs.ModeSymlink != 0,
-		})
+// scanVersion lists a version directory, or a symlink to one for an editable
+// install.
+func scanVersion(packageDir string, entry fs.DirEntry) (Version, bool) {
+	if hidden(entry.Name()) || !isDirFollowingLinks(filepath.Join(packageDir, entry.Name())) {
+		return Version{}, false
 	}
-	slices.SortFunc(versions, func(a, b Version) int { return strings.Compare(a.Name, b.Name) })
-	return versions
+	return Version{Name: entry.Name(), Editable: entry.Type()&fs.ModeSymlink != 0}, true
 }
 
 func hidden(name string) bool {
