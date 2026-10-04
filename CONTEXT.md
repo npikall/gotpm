@@ -234,3 +234,10 @@ compiler downloads it and gotpm does not interfere.
 **Publish**:
 Get the project's working tree into a fork of the Typst Universe package
 repository, ready for a pull request.
+
+**Publish Hook**:
+Shell commands the manifest runs in the package root around a publish — the
+pre-publish hook before the package files are copied, the post-publish hook
+after, to clean up. For files the submission needs but the repository does not
+keep, like a generated thumbnail.
+_Avoid_: script, task

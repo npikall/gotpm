@@ -108,6 +108,42 @@ $ gotpm publish -m "fix: entrypoint path in the manifest"
     in the Universe, its content is fixed: one coordinate names one content, for
     good. Publish a fix as a new version.
 
+### Generated files
+
+Some files belong in the submission but not in your repository — a
+`thumbnail.png` rendered from Typst source, say. Hooks in the manifest generate
+them for the publish and clean them up after it:
+
+```toml
+[tool.gotpm]
+pre-publish-hook = ["typst compile docs/thumbnail.typ thumbnail.png"]
+post-publish-hook = ["rm -f thumbnail.png"]
+```
+
+Each is a list of shell commands, run in order from the package root. The
+pre-publish hook runs before the package files are copied, and a failing command
+stops the publish before anything reaches the fork clone. The post-publish hook
+runs once publish is done, whether it succeeded or not, so what the pre-publish
+hook left behind is always cleaned up. Commands are interpreted by a built-in
+POSIX shell, so the same hook works on every platform; the programs it calls,
+like `typst`, must still be on your `$PATH`. Publish prints each command, prefixed
+with `$`, before it runs it.
+
+Hooks are not sandboxed: they run as you, with your environment, and can do
+anything you can. Review changes to `[tool.gotpm]` the way you would review a
+script, and pass `--no-hooks` to publish without running either hook. Files a
+hook would generate are then missing from the submission unless they already
+exist.
+
+A generated file is usually listed in `.gitignore`, and publish honours
+`.gitignore` — so re-include it in `.typstignore`, or it never reaches the
+submission:
+
+```gitignore
+# .typstignore
+!thumbnail.png
+```
+
 ## A release checklist
 
 ```console
