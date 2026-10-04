@@ -63,7 +63,22 @@ func Analyze(file string, log *log.Logger) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	c, err := newChecker(log)
+	if err != nil {
+		return Result{}, err
+	}
+	return c.checkAll(imports), nil
+}
 
+// checker holds what imports are checked against: the local packages and the
+// Universe index, or why the index is unavailable.
+type checker struct {
+	store    store.Store
+	idx      index.Index
+	indexErr error
+}
+
+func newChecker(log *log.Logger) (checker, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), index.Timeout)
 	defer cancel()
 	idx, indexErr := index.Load(ctx, index.Opts{})
@@ -73,10 +88,13 @@ func Analyze(file string, log *log.Logger) (Result, error) {
 
 	root, err := paths.TypstPackagesDir()
 	if err != nil {
-		return Result{}, err
+		return checker{}, err
 	}
-	s := store.At(root)
+	return checker{store: store.At(root), idx: idx, indexErr: indexErr}, nil
+}
 
+// checkAll checks each distinct import once.
+func (c checker) checkAll(imports []typstsrc.Import) Result {
 	var result Result
 	seen := make(map[string]struct{})
 	for _, imp := range imports {
@@ -85,11 +103,11 @@ func Analyze(file string, log *log.Logger) (Result, error) {
 		}
 		seen[imp.Statement] = struct{}{}
 
-		if err := checkImport(imp, s, idx, indexErr, &result); err != nil {
+		if err := checkImport(imp, c.store, c.idx, c.indexErr, &result); err != nil {
 			result.Issues = append(result.Issues, Issue{Import: imp.Statement, Err: err})
 		}
 	}
-	return result, nil
+	return result
 }
 
 func checkImport(imp typstsrc.Import, s store.Store, idx index.Index, indexErr error, result *Result) error {

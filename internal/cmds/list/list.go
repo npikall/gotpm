@@ -25,11 +25,7 @@ func Run(log *log.Logger) error {
 	}
 	log.Debug("looking in", "directory", s.Root())
 
-	if !s.Exists() {
-		return ErrNoPackages
-	}
-
-	namespaces, err := s.Scan()
+	namespaces, err := scan(s)
 	if err != nil {
 		return err
 	}
@@ -40,6 +36,13 @@ func Run(log *log.Logger) error {
 
 	render(namespaces)
 	return nil
+}
+
+func scan(s store.Store) ([]store.Namespace, error) {
+	if !s.Exists() {
+		return nil, ErrNoPackages
+	}
+	return s.Scan()
 }
 
 func render(namespaces []store.Namespace) {

@@ -27,8 +27,8 @@ var (
 )
 
 func Run(increment string, opts *Options, log *log.Logger) error {
-	if increment == "" && !opts.ShowCur {
-		return ErrMissingArgument
+	if err := checkArgument(increment, opts); err != nil {
+		return err
 	}
 
 	project, err := deps.OpenProject()
@@ -36,15 +36,25 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 		return err
 	}
 	log.Debug("load", "manifest", project.File)
+	log.Debug("manifest", "version", project.Manifest.Package.Version)
 
-	m := project.Manifest
-	oldVersion := m.Package.Version
-	log.Debug("manifest", "version", oldVersion)
 	if opts.ShowCur {
-		_, _ = lg.Println(m.Package.Version)
+		_, _ = lg.Println(project.Manifest.Package.Version)
 		return nil
 	}
+	return bumpProject(project, increment, opts, log)
+}
 
+// checkArgument requires an increment unless only the current version is shown.
+func checkArgument(increment string, opts *Options) error {
+	if increment == "" && !opts.ShowCur {
+		return ErrMissingArgument
+	}
+	return nil
+}
+
+func bumpProject(project *deps.Project, increment string, opts *Options, log *log.Logger) error {
+	oldVersion := project.Manifest.Package.Version
 	newVersion, err := bumpVersion(oldVersion, increment)
 	if err != nil {
 		return fmt.Errorf("could not bump version: %w", err)
@@ -56,14 +66,18 @@ func Run(increment string, opts *Options, log *log.Logger) error {
 		_, _ = lg.Printf("updated version %s -> %s", oldVersion, newVersion)
 		return nil
 	}
-
 	if opts.ShowNext {
 		_, _ = lg.Println(newVersion)
 		return nil
 	}
+	return setVersion(project, newVersion, opts.Indent)
+}
 
+func setVersion(project *deps.Project, newVersion string, indent bool) error {
+	m := project.Manifest
+	oldVersion := m.Package.Version
 	m.Package.Version = newVersion
-	if err := manifest.Update(project.File, m, opts.Indent); err != nil {
+	if err := manifest.Update(project.File, m, indent); err != nil {
 		return fmt.Errorf("could not update %q: %w", project.File, err)
 	}
 

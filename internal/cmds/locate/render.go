@@ -1,6 +1,7 @@
 package locate
 
 import (
+	"io"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -9,31 +10,31 @@ import (
 
 const indent = "  "
 
-func render(groups []Group) {
+func render(w io.Writer, groups []Group) {
 	width := keyWidth(groups)
 	for i, group := range groups {
 		if i > 0 {
-			_, _ = lipgloss.Println()
+			_, _ = lipgloss.Fprintln(w)
 		}
-		_, _ = lipgloss.Println(ui.Green.Render(group.Name))
+		_, _ = lipgloss.Fprintln(w, ui.Green.Render(group.Name))
 		for _, entry := range group.Entries {
-			renderEntry(entry, width)
+			renderEntry(w, entry, width)
 		}
 	}
 }
 
-func renderEntry(entry Entry, width int) {
+func renderEntry(w io.Writer, entry Entry, width int) {
 	key := ui.Normal.Render(entry.Key + strings.Repeat(" ", width-len(entry.Key)))
 	if entry.Err != nil {
-		_, _ = lipgloss.Printf("%s%s %s\n", indent, key, ui.RedBold.Render("unresolved"))
-		_, _ = lipgloss.Printf("%s%s %s\n", indent, strings.Repeat(" ", width), ui.Muted.Render(entry.Err.Error()))
+		_, _ = lipgloss.Fprintf(w, "%s%s %s\n", indent, key, ui.RedBold.Render("unresolved"))
+		_, _ = lipgloss.Fprintf(w, "%s%s %s\n", indent, strings.Repeat(" ", width), ui.Muted.Render(entry.Err.Error()))
 		return
 	}
 	line := ui.AccentBold.Render(entry.Path)
 	if entry.Note != "" {
 		line += " " + ui.Muted.Render("("+entry.Note+")")
 	}
-	_, _ = lipgloss.Printf("%s%s %s\n", indent, key, line)
+	_, _ = lipgloss.Fprintf(w, "%s%s %s\n", indent, key, line)
 }
 
 func keyWidth(groups []Group) int {

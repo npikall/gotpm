@@ -5,6 +5,7 @@ package locate
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -21,7 +22,7 @@ func Run(key string, log *log.Logger) error {
 	}
 	groups := entries(log)
 	log.Debug("resolved", "groups", len(groups))
-	render(groups)
+	render(os.Stdout, groups)
 	return nil
 }
 

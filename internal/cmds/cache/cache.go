@@ -22,33 +22,39 @@ type Options struct {
 
 // Clear removes the cloned remote repositories and the package index cache.
 func Clear(opts *Options, log *log.Logger) error {
-	remotesDir, err := remote.CacheDir()
-	if err != nil {
-		return err
-	}
-	cachePath, err := index.CachePath()
+	remotesDir, cachePath, err := cachePaths()
 	if err != nil {
 		return err
 	}
 	log.Debug("clearing", "remotes", remotesDir, "index", cachePath)
-
 	size, err := paths.Size(remotesDir, cachePath)
 	if err != nil {
 		return err
 	}
-
 	if opts.DryRun {
 		ui.Warnf("dry-run, would clear %s \n remotes: %q\n index cache: %q", format(size), remotesDir, cachePath)
 		return nil
 	}
+	return clearAll(size, remotesDir, cachePath)
+}
 
+// cachePaths are where the cloned remotes and the index cache are kept.
+func cachePaths() (string, string, error) {
+	remotesDir, err := remote.CacheDir()
+	if err != nil {
+		return "", "", err
+	}
+	cachePath, err := index.CachePath()
+	return remotesDir, cachePath, err
+}
+
+func clearAll(size int64, remotesDir, cachePath string) error {
 	if err := remote.ClearCache(); err != nil {
 		return err
 	}
 	if err := index.ClearCache(); err != nil {
 		return err
 	}
-
 	ui.Infof("cleared %s \n remotes: %q\n index cache: %q", format(size), remotesDir, cachePath)
 	return nil
 }
