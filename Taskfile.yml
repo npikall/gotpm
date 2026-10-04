@@ -73,6 +73,8 @@ tasks:
 
   test:install:
     internal: True
+    preconditions:
+      - command -v gotestsum
     cmds:
       - go install gotest.tools/gotestsum@latest
 
@@ -92,6 +94,11 @@ tasks:
     cmds:
       - go test -coverprofile=c.out ./...
       - go tool cover -html=c.out
+
+  crap:
+    desc: Run CRAP (Change Risk Anti-Pattern) analysis
+    cmds:
+      - go run github.com/unclebob/crap4go/cmd/crap4go@latest
 
   build:
     desc: Build the binary

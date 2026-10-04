@@ -10,3 +10,4 @@ scripts/bench-results/
 .task/*
 docs/includes/cli/
 dist-extra/
+**/coverage.out
