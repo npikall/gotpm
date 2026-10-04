@@ -1,6 +1,8 @@
 package publish_test
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -136,4 +138,84 @@ func TestRunWithBrokenConfig(t *testing.T) { //nolint: paralleltest // Isolate u
 	testrepo.Project(t, "foo")
 
 	require.Error(t, publish.Run(&publish.Options{Local: true}, testLogger()))
+}
+
+// writeHooks appends a [tool.gotpm] section with publish hooks to the manifest
+// in dir.
+func writeHooks(t *testing.T, dir, pre, post string) {
+	t.Helper()
+	file := filepath.Join(dir, "typst.toml")
+	content, err := os.ReadFile(file)
+	require.NoError(t, err)
+	hooks := fmt.Sprintf("\n[tool.gotpm]\npre-publish-hook = [%q]\npost-publish-hook = [%q]\n", pre, post)
+	require.NoError(t, paths.WriteFile(file, append(content, hooks...)))
+}
+
+// TestRunPublishHooksGenerateAndCleanUp covers a file that exists only for the
+// submission: the pre-publish hook generates it before the package is copied,
+// and the post-publish hook removes it from the working tree afterwards.
+func TestRunPublishHooksGenerateAndCleanUp(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	origin := isolatePublish(t)
+	src := testrepo.Project(t, "foo")
+	writeHooks(t, src, "echo png > thumbnail.png", "rm thumbnail.png")
+
+	require.NoError(t, publish.Run(&publish.Options{Local: true}, testLogger()))
+
+	assert.FileExists(t, filepath.Join(forkClone(t, origin), "packages", "preview", "foo", "0.1.0", "thumbnail.png"))
+	assert.NoFileExists(t, filepath.Join(src, "thumbnail.png"))
+}
+
+// TestRunFailingPreHookAbortsAndCleansUp covers a pre-publish hook that fails
+// halfway: nothing is committed to the fork, and the post-publish hook still
+// cleans up what the hook left behind.
+func TestRunFailingPreHookAbortsAndCleansUp(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	origin := isolatePublish(t)
+	src := testrepo.Project(t, "foo")
+	writeHooks(t, src, "touch thumbnail.png && exit 1", "rm thumbnail.png")
+
+	err := publish.Run(&publish.Options{Local: true}, testLogger())
+
+	require.ErrorContains(t, err, "pre-publish hook")
+	assert.NoDirExists(t, forkClone(t, origin))
+	assert.NoFileExists(t, filepath.Join(src, "thumbnail.png"))
+}
+
+// TestRunFailingPostHookFailsPublish covers a post-publish hook that fails
+// after the submission was committed.
+func TestRunFailingPostHookFailsPublish(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	origin := isolatePublish(t)
+	src := testrepo.Project(t, "foo")
+	writeHooks(t, src, "true", "exit 1")
+
+	err := publish.Run(&publish.Options{Local: true}, testLogger())
+
+	require.ErrorContains(t, err, "post-publish hook")
+	assert.Equal(t, "release: foo 0.1.0", gitOut(t, forkClone(t, origin), "log", "-1", "--format=%s"))
+}
+
+// TestRunNoHooksSkipsPublishHooks covers --no-hooks: neither hook runs, so a
+// failing pre-publish hook no longer stops the publish.
+func TestRunNoHooksSkipsPublishHooks(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	origin := isolatePublish(t)
+	src := testrepo.Project(t, "foo")
+	writeHooks(t, src, "exit 1", "touch ran.txt")
+
+	require.NoError(t, publish.Run(&publish.Options{Local: true, NoHooks: true}, testLogger()))
+
+	assert.Equal(t, "release: foo 0.1.0", gitOut(t, forkClone(t, origin), "log", "-1", "--format=%s"))
+	assert.NoFileExists(t, filepath.Join(src, "ran.txt"))
+}
+
+// TestRunPublishesGitignoredGeneratedFile covers a generated file kept out of
+// the repository by .gitignore: .typstignore re-includes it in the submission.
+func TestRunPublishesGitignoredGeneratedFile(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	origin := isolatePublish(t)
+	src := testrepo.Project(t, "foo")
+	writePackageFile(t, src, ".gitignore", "thumbnail.png\n")
+	writePackageFile(t, src, ".typstignore", "!thumbnail.png\n")
+	writeHooks(t, src, "echo png > thumbnail.png", "rm thumbnail.png")
+
+	require.NoError(t, publish.Run(&publish.Options{Local: true}, testLogger()))
+
+	assert.FileExists(t, filepath.Join(forkClone(t, origin), "packages", "preview", "foo", "0.1.0", "thumbnail.png"))
 }
