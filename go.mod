@@ -16,6 +16,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/term v0.45.0
+	mvdan.cc/sh/v3 v3.14.1
 )
 
 require (
