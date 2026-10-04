@@ -4,7 +4,7 @@ charm.land/fang/v2
 # charm.land/lipgloss/v2 v2.0.6
 ## explicit; go 1.25.0
 charm.land/lipgloss/v2
-# charm.land/log/v2 v2.0.0
+# charm.land/log/v2 v2.0.1
 ## explicit; go 1.25.8
 charm.land/log/v2
 # code.gitea.io/sdk/gitea v0.25.1
@@ -57,8 +57,8 @@ github.com/briandowns/spinner
 # github.com/charmbracelet/colorprofile v0.4.3
 ## explicit; go 1.25.0
 github.com/charmbracelet/colorprofile
-# github.com/charmbracelet/ultraviolet v0.0.0-20260812204455-68fa937c71be
-## explicit; go 1.25.0
+# github.com/charmbracelet/ultraviolet v0.0.0-20261001125412-878653296cfd
+## explicit; go 1.26.0
 github.com/charmbracelet/ultraviolet
 # github.com/charmbracelet/x/ansi v0.11.8
 ## explicit; go 1.24.2
@@ -233,7 +233,7 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.24
 ## explicit; go 1.20
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.28
+# github.com/mattn/go-runewidth v0.0.30
 ## explicit; go 1.23
 github.com/mattn/go-runewidth
 # github.com/muesli/cancelreader v0.2.2
@@ -284,8 +284,8 @@ github.com/ulikunitz/xz
 github.com/ulikunitz/xz/internal/hash
 github.com/ulikunitz/xz/internal/xlog
 github.com/ulikunitz/xz/lzma
-# github.com/xo/terminfo v1.0.0
-## explicit; go 1.19
+# github.com/xo/terminfo v1.2.0
+## explicit; go 1.25
 github.com/xo/terminfo
 # gitlab.com/gitlab-org/api/client-go v1.46.0
 ## explicit; go 1.24.0
@@ -320,7 +320,7 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
-# golang.org/x/exp v0.0.0-20260820142414-ca536658362e
+# golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 ## explicit; go 1.26.0
 golang.org/x/exp/slices
 golang.org/x/exp/slog
@@ -334,12 +334,12 @@ golang.org/x/net/proxy
 ## explicit; go 1.25.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.22.0
-## explicit; go 1.25.0
+# golang.org/x/sync v0.23.0
+## explicit; go 1.26.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.47.0
-## explicit; go 1.25.0
+# golang.org/x/sys v0.48.0
+## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
