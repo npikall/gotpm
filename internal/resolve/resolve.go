@@ -73,19 +73,16 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 	}
 	defer clone.Repo.Close() //nolint: errcheck
 	logger.Debug("resolved remote", "url", src.Canonical, "path", clone.Dir, "cloned", clone.Cloned)
+	return resolveIn(clone, src, req.Revision, logger)
+}
 
-	revision, err := pickRevision(clone.Repo, req.Revision, src, logger)
+// resolveIn checks out the requested revision of a cloned repository and reads
+// the package at its package path.
+func resolveIn(clone *remote.Clone, src Source, requested string, logger *log.Logger) (*Resolved, error) {
+	revision, hash, err := checkout(clone.Repo, requested, src, logger)
 	if err != nil {
 		return nil, err
 	}
-	hash, err := remote.ResolveHash(clone.Repo, revision)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", src.Canonical, err)
-	}
-	if err := remote.CheckoutRevision(clone.Repo, hash); err != nil {
-		return nil, fmt.Errorf("checking out %s of %s: %w", revision, src.Canonical, err)
-	}
-	logger.Debug("checked out", "url", src.Canonical, "revision", revision, "hash", hash)
 
 	packageDir := src.PackageDir(clone.Dir)
 	m, err := loadPackageManifest(packageDir, src)
@@ -95,6 +92,24 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 	warnOnVersionMismatch(m, revision, src, logger)
 
 	return &Resolved{Source: src, Revision: revision, Hash: hash, Dir: packageDir, Manifest: m}, nil
+}
+
+// checkout picks the revision to use and checks out the commit it names,
+// returning both.
+func checkout(repo *git.Repository, requested string, src Source, logger *log.Logger) (string, string, error) {
+	revision, err := pickRevision(repo, requested, src, logger)
+	if err != nil {
+		return "", "", err
+	}
+	hash, err := remote.ResolveHash(repo, revision)
+	if err != nil {
+		return "", "", fmt.Errorf("%s: %w", src.Canonical, err)
+	}
+	if err := remote.CheckoutRevision(repo, hash); err != nil {
+		return "", "", fmt.Errorf("checking out %s of %s: %w", revision, src.Canonical, err)
+	}
+	logger.Debug("checked out", "url", src.Canonical, "revision", revision, "hash", hash)
+	return revision, hash, nil
 }
 
 func pickRevision(repo *git.Repository, requested string, src Source, logger *log.Logger) (string, error) {

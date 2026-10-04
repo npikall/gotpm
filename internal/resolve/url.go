@@ -65,29 +65,43 @@ func Normalize(raw string) (Source, error) {
 		return Source{}, fmt.Errorf("%w: empty", ErrInvalidRepoURL)
 	}
 
-	trimmed, packagePath, err := splitPackagePath(trimmed)
+	repository, packagePath, err := splitPackagePath(trimmed)
 	if err != nil {
 		return Source{}, fmt.Errorf("%w %q: %w", ErrInvalidRepoURL, raw, err)
 	}
+	src, err := normalizeRepository(repository, raw)
+	if err != nil {
+		return Source{}, err
+	}
+	src.Path = packagePath
+	return src, nil
+}
 
-	if IsLocal(trimmed) {
-		local := strings.TrimSuffix(strings.TrimSuffix(trimmed, "/"), ".git")
-		return Source{Canonical: local, CloneURL: local, Path: packagePath}, nil
+// normalizeRepository reads the repository part of raw, without its package
+// path.
+func normalizeRepository(repository, raw string) (Source, error) {
+	if IsLocal(repository) {
+		local := strings.TrimSuffix(strings.TrimSuffix(repository, "/"), ".git")
+		return Source{Canonical: local, CloneURL: local}, nil
 	}
 
-	canonical, err := canonicalize(trimmed)
+	canonical, err := canonicalize(repository)
 	if err != nil {
 		return Source{}, err
 	}
 	if err := validate(canonical, raw); err != nil {
 		return Source{}, err
 	}
+	return Source{Canonical: canonical, CloneURL: cloneURLFor(repository, canonical)}, nil
+}
 
-	cloneURL := trimmed
-	if !hasScheme(trimmed) && !isSCPLike(trimmed) {
-		cloneURL = "https://" + canonical
+// cloneURLFor keeps a url or ssh address as written, and clones a bare path
+// over https.
+func cloneURLFor(repository, canonical string) string {
+	if hasScheme(repository) || isSCPLike(repository) {
+		return repository
 	}
-	return Source{Canonical: canonical, CloneURL: cloneURL, Path: packagePath}, nil
+	return "https://" + canonical
 }
 
 var errPathOutsideRepository = errors.New("package path leaves the repository")
@@ -127,11 +141,13 @@ func canonicalize(raw string) (string, error) {
 	if host, path, ok := cutSCPLike(trimmed); ok {
 		return host + "/" + strings.Trim(path, "/"), nil
 	}
-
 	if !hasScheme(trimmed) {
 		return strings.Trim(trimmed, "/"), nil
 	}
+	return canonicalizeURL(trimmed, raw)
+}
 
+func canonicalizeURL(trimmed, raw string) (string, error) {
 	parsed, err := url.Parse(trimmed)
 	if err != nil {
 		return "", fmt.Errorf("%w %q: %w", ErrInvalidRepoURL, raw, err)
@@ -157,17 +173,24 @@ func validate(canonical, raw string) error {
 }
 
 func cutSCPLike(raw string) (string, string, bool) {
-	if hasScheme(raw) {
-		return "", "", false
-	}
-	before, after, found := strings.Cut(raw, ":")
-	if !found || after == "" || strings.Contains(after, ":") {
+	before, after, ok := splitSCPLike(raw)
+	if !ok {
 		return "", "", false
 	}
 	if _, hostPart, hasUser := strings.Cut(before, "@"); hasUser {
 		return hostPart, after, hostPart != ""
 	}
 	return before, after, true
+}
+
+// splitSCPLike cuts "host:path" at its colon, refusing urls and anything with
+// a second colon.
+func splitSCPLike(raw string) (string, string, bool) {
+	if hasScheme(raw) {
+		return "", "", false
+	}
+	before, after, found := strings.Cut(raw, ":")
+	return before, after, found && after != "" && !strings.Contains(after, ":")
 }
 
 func isSCPLike(raw string) bool {

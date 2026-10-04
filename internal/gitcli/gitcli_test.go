@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/npikall/gotpm/internal/gitcli"
@@ -74,4 +75,32 @@ func runGit(t *testing.T, dir string, args ...string) {
 	cmd := exec.CommandContext(context.Background(), "git", append([]string{"-C", dir}, args...)...)
 	out, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "git %v: %s", args, out)
+}
+
+func TestClone(t *testing.T) {
+	t.Parallel()
+	origin := repoWithBranchAndRemoteRef(t, "foo-0.1.0", 0, 0)
+	dest := filepath.Join(t.TempDir(), "clone")
+
+	require.NoError(t, gitcli.Clone("file://"+origin, dest))
+
+	assert.DirExists(t, filepath.Join(dest, ".git"))
+}
+
+func TestClone_ReportsGitsOutput(t *testing.T) {
+	t.Parallel()
+
+	err := gitcli.Clone("file://"+filepath.Join(t.TempDir(), "missing"), filepath.Join(t.TempDir(), "clone"))
+
+	require.ErrorContains(t, err, "git clone")
+}
+
+func TestSetUpstream(t *testing.T) {
+	t.Parallel()
+	dir := repoWithBranchAndRemoteRef(t, "foo-0.1.0", 0, 0)
+	require.False(t, gitcli.TracksOwnBranch(dir, "foo-0.1.0"))
+
+	require.NoError(t, gitcli.SetUpstream(dir, "foo-0.1.0"))
+
+	assert.True(t, gitcli.TracksOwnBranch(dir, "foo-0.1.0"))
 }
