@@ -40,3 +40,10 @@ func TestSpin_PassesTheErrorThrough(t *testing.T) {
 	require.NoError(t, ui.Spin("working", func() error { return nil }))
 	require.ErrorIs(t, ui.Spin("working", func() error { return errBoom }), errBoom)
 }
+
+func TestNotesPrintsWhatIsThere(t *testing.T) {
+	t.Parallel()
+	ui.Notes("", "")
+	ui.Notes("replaced", "")
+	ui.Notes("", "drifted")
+}

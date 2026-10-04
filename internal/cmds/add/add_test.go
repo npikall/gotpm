@@ -224,3 +224,29 @@ func TestRun_InstallsIntoThePackageDirectoryDespiteAnInstallDirOverride(t *testi
 	require.NoError(t, err)
 	assert.Empty(t, entries, "the install dir is not add's destination")
 }
+
+// addUnlocked adds a package that depends on another but ships lock instead of
+// an entry for it, and returns the project and the error.
+func addUnlocked(t *testing.T, lock *lockfile.Lock) (string, error) {
+	t.Helper()
+	testrepo.Isolate(t)
+	project := testrepo.Project(t, "my-doc")
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	pkg := testrepo.New(t, "fletcher", "0.5.0").ReleaseWith([]string{dep.Import()}, lock)
+	return project, add.Run(pkg.URL(), &add.Options{}, discardLogger())
+}
+
+func TestRun_RefusesAPackageWithoutLock(t *testing.T) { //nolint: paralleltest
+	project, err := addUnlocked(t, nil)
+
+	require.ErrorIs(t, err, add.ErrUnresolvable)
+	assert.Contains(t, err.Error(), "ships no "+lockfile.FileName)
+	assert.Empty(t, declared(t, project), "nothing is recorded")
+}
+
+func TestRun_RefusesAPackageWhoseLockMissesADependency(t *testing.T) { //nolint: paralleltest
+	_, err := addUnlocked(t, lockfile.New())
+
+	require.ErrorIs(t, err, add.ErrUnresolvable)
+	assert.Contains(t, err.Error(), "has no entry for it")
+}

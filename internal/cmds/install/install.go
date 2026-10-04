@@ -56,36 +56,54 @@ func Run(path string, opts *Options, log *log.Logger) error {
 }
 
 func runLocal(path string, opts *Options, log *log.Logger) error {
-	sourceDir, err := resolveSourceDir(path)
+	sourceDir, m, err := loadSource(path, log)
 	if err != nil {
 		return err
+	}
+	s, ref, err := destination(opts, m, log)
+	if err != nil {
+		return err
+	}
+	return place(s, ref, sourceDir, opts.Editable)
+}
+
+// loadSource finds the package at path, or of the working directory, and
+// returns its root and manifest.
+func loadSource(path string, log *log.Logger) (string, *manifest.Manifest, error) {
+	sourceDir, err := resolveSourceDir(path)
+	if err != nil {
+		return "", nil, err
 	}
 	log.Debug("operating in source", "path", sourceDir)
 
 	sourceDir, m, err := findRootManifest(sourceDir)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 	log.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
+	return sourceDir, m, nil
+}
 
+// destination is where the package goes, cleared of what was there when
+// forced.
+func destination(opts *Options, m *manifest.Manifest, log *log.Logger) (store.Store, pkg.Ref, error) {
 	s, err := store.Open(opts.InstallDir)
 	if err != nil {
-		return err
+		return store.Store{}, pkg.Ref{}, err
 	}
 	ref, err := pkg.New(opts.Namespace, m.Package.Name, m.Package.Version)
 	if err != nil {
-		return err
+		return store.Store{}, pkg.Ref{}, err
 	}
 	log.Debug("resolved destination", "path", s.Dir(ref))
+	return s, ref, clearDestination(s, ref, opts.Force)
+}
 
-	if err := clearDestination(s, ref, opts.Force); err != nil {
-		return err
-	}
-
-	if opts.Editable {
+// place copies the package into the store, or links it when editable.
+func place(s store.Store, ref pkg.Ref, sourceDir string, editable bool) error {
+	if editable {
 		return linkAndReport(s, ref, sourceDir)
 	}
-
 	if err := ui.Spin("", func() error { return s.Install(ref, sourceDir) }); err != nil {
 		return err
 	}
@@ -102,25 +120,7 @@ func runRemote(opts *Options, log *log.Logger) error {
 	if err != nil {
 		return err
 	}
-
-	walked, err := ui.WithSpinner("resolving "+opts.Remote, func() (depgraph.Result, error) {
-		return depgraph.Walk(
-			resolve.Request{URL: opts.Remote, Revision: opts.Revision},
-			depgraph.Options{RootNamespace: opts.Namespace},
-			log,
-		)
-	})
-	if err != nil {
-		return err
-	}
-
-	dependencies := countIncludingUnresolved(walked)
-	if s.Flat() && dependencies > 0 {
-		return fmt.Errorf("%w, but %s has %d dependencies"+
-			"\nnote: omit --install-dir to install them into the package directory",
-			ErrGraphInFlatStore, opts.Remote, dependencies)
-	}
-	warnings, err := splitUnresolved(walked.Unresolved)
+	walked, warnings, err := resolveRemote(s, opts, log)
 	if err != nil {
 		return err
 	}
@@ -135,6 +135,37 @@ func runRemote(opts *Options, log *log.Logger) error {
 
 	report(results)
 	reportWarnings(warnings)
+	return nil
+}
+
+// resolveRemote walks the remote package's dependency graph, and returns it
+// with the dependencies to warn about rather than install.
+func resolveRemote(s store.Store, opts *Options, log *log.Logger) (depgraph.Result, []depgraph.Unresolved, error) {
+	walked, err := ui.WithSpinner("resolving "+opts.Remote, func() (depgraph.Result, error) {
+		return depgraph.Walk(
+			resolve.Request{URL: opts.Remote, Revision: opts.Revision},
+			depgraph.Options{RootNamespace: opts.Namespace},
+			log,
+		)
+	})
+	if err != nil {
+		return depgraph.Result{}, nil, err
+	}
+	if err := checkFits(s, walked, opts.Remote); err != nil {
+		return depgraph.Result{}, nil, err
+	}
+	warnings, err := splitUnresolved(walked.Unresolved)
+	return walked, warnings, err
+}
+
+// checkFits refuses a graph for a store that holds a single package's files.
+func checkFits(s store.Store, walked depgraph.Result, remote string) error {
+	dependencies := countIncludingUnresolved(walked)
+	if s.Flat() && dependencies > 0 {
+		return fmt.Errorf("%w, but %s has %d dependencies"+
+			"\nnote: omit --install-dir to install them into the package directory",
+			ErrGraphInFlatStore, remote, dependencies)
+	}
 	return nil
 }
 
@@ -154,20 +185,22 @@ func splitUnresolved(unresolved []depgraph.Unresolved) ([]depgraph.Unresolved, e
 
 func report(results []deps.Result) {
 	for i, result := range results {
-		switch {
-		case i == 0 && result.Outcome == deps.UpToDate:
-			ui.Infof("%s is already installed", ui.Package(result.Ref.String()))
-		case i == 0:
-			ui.Infof("installed %s from %s", ui.Package(result.Ref.String()), result.Entry.URL)
-		default:
-			ui.Infof("  %s (via %s)", ui.Package(result.Ref.String()), via(result.Entry))
-		}
-		if notice := result.ReplacedNotice(); notice != "" {
-			ui.Infof("%s", notice)
-		}
-		if warning := result.DriftWarning(); warning != "" {
-			ui.Warnf("%s", warning)
-		}
+		ui.Infof("%s", headline(i, result))
+		ui.Notes(result.ReplacedNotice(), result.DriftWarning())
+	}
+}
+
+// headline says what happened to the i-th result: the requested package comes
+// first, followed by what it pulled in.
+func headline(i int, result deps.Result) string {
+	ref := ui.Package(result.Ref.String())
+	switch {
+	case i > 0:
+		return fmt.Sprintf("  %s (via %s)", ref, via(result.Entry))
+	case result.Outcome == deps.UpToDate:
+		return ref + " is already installed"
+	default:
+		return fmt.Sprintf("installed %s from %s", ref, result.Entry.URL)
 	}
 }
 

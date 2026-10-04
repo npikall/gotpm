@@ -44,38 +44,52 @@ func Run(opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("syncing project", "dir", project.Dir)
 
-	lock, err := project.Lock()
+	lock, removed, err := reconcileLock(project, opts)
 	if err != nil {
 		return err
 	}
-	declared, err := declaredImports(project)
-	if err != nil {
-		return err
-	}
-	if err := checkKnownSources(lock, declared); err != nil {
-		return err
-	}
-
-	wasDirect := lock.Direct()
-	removed := lock.Prune(declared)
-	changed := len(removed) > 0 || !slices.Equal(wasDirect, lock.Direct())
-
-	if err := saveLock(project, lock, removed, changed, opts); err != nil {
-		return err
-	}
-
-	installer, err := deps.OpenInstaller(opts.Force, logger)
-	if err != nil {
-		return err
-	}
-	results, err := ui.WithSpinner("installing", func() ([]deps.Result, error) {
-		return installer.EnsureAll(lock.Packages)
-	})
+	results, err := installAll(lock, opts.Force, logger)
 	if err != nil {
 		return err
 	}
 	report(results, removed)
 	return nil
+}
+
+// reconcileLock brings the project's lock in line with what its manifest
+// declares, and returns it with the entries it dropped.
+func reconcileLock(project *deps.Project, opts *Options) (*lockfile.Lock, []lockfile.Entry, error) {
+	lock, err := project.Lock()
+	if err != nil {
+		return nil, nil, err
+	}
+	declared, err := declaredImports(project)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := checkKnownSources(lock, declared); err != nil {
+		return nil, nil, err
+	}
+	removed, changed := prune(lock, declared)
+	return lock, removed, saveLock(project, lock, removed, changed, opts)
+}
+
+// prune drops what nothing declares any more, and reports whether the lock
+// changed, which includes a package moving between direct and indirect.
+func prune(lock *lockfile.Lock, declared []string) ([]lockfile.Entry, bool) {
+	wasDirect := lock.Direct()
+	removed := lock.Prune(declared)
+	return removed, len(removed) > 0 || !slices.Equal(wasDirect, lock.Direct())
+}
+
+func installAll(lock *lockfile.Lock, force bool, logger *log.Logger) ([]deps.Result, error) {
+	installer, err := deps.OpenInstaller(force, logger)
+	if err != nil {
+		return nil, err
+	}
+	return ui.WithSpinner("installing", func() ([]deps.Result, error) {
+		return installer.EnsureAll(lock.Packages)
+	})
 }
 
 func declaredImports(project *deps.Project) ([]string, error) {
@@ -125,26 +139,32 @@ func obsolete(removed []lockfile.Entry) string {
 }
 
 func report(results []deps.Result, removed []lockfile.Entry) {
-	if len(removed) > 0 {
-		ui.Infof("dropped from %s: %s", lockfile.FileName, strings.Join(importsOf(removed), ", "))
-	}
-
+	reportDropped(removed)
 	changed := 0
 	for _, result := range results {
-		if result.Outcome != deps.UpToDate {
-			ui.Infof("installed %s", ui.Package(result.Ref.String()))
+		if reportResult(result) {
 			changed++
-		}
-		if notice := result.ReplacedNotice(); notice != "" {
-			ui.Infof("%s", notice)
-		}
-		if warning := result.DriftWarning(); warning != "" {
-			ui.Warnf("%s", warning)
 		}
 	}
 	if changed == 0 {
 		ui.Infof("%d packages already up to date", len(results))
 	}
+}
+
+func reportDropped(removed []lockfile.Entry) {
+	if len(removed) > 0 {
+		ui.Infof("dropped from %s: %s", lockfile.FileName, strings.Join(importsOf(removed), ", "))
+	}
+}
+
+// reportResult tells what happened to one package, and whether it changed.
+func reportResult(result deps.Result) bool {
+	changed := result.Outcome != deps.UpToDate
+	if changed {
+		ui.Infof("installed %s", ui.Package(result.Ref.String()))
+	}
+	ui.Notes(result.ReplacedNotice(), result.DriftWarning())
+	return changed
 }
 
 func importsOf(entries []lockfile.Entry) []string {
