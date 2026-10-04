@@ -73,6 +73,53 @@ func TestDefaultHTTPCloneURL(t *testing.T) {
 	}
 }
 
+func TestOwnerFromURL(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"https", "https://github.com/npikall/packages", "npikall"},
+		{"https with .git", "https://github.com/npikall/packages.git", "npikall"},
+		{"no scheme", "github.com/npikall/packages", "npikall"},
+		{"scp-like ssh", "git@github.com:npikall/packages.git", "npikall"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := OwnerFromURL(tt.url)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestOwnerFromURL_RejectsAnEmptyURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := OwnerFromURL("  ")
+
+	require.ErrorIs(t, err, ErrParseRepoName)
+}
+
+func TestTags_ListsTagsByShortName(t *testing.T) { //nolint: paralleltest
+	dir := setupTestRepo(t)
+	repo, err := git.PlainOpen(dir)
+	require.NoError(t, err)
+	head, err := repo.Head()
+	require.NoError(t, err)
+	for _, tag := range []string{"v0.1.0", "v0.2.0"} {
+		_, err := repo.CreateTag(tag, head.Hash(), nil)
+		require.NoError(t, err)
+	}
+
+	tags, err := Tags(repo)
+
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"v0.1.0", "v0.2.0"}, tags)
+}
+
 // setupTestRepo sets up a repo for testing purposes. It does NOT work in parallel tests
 func setupTestRepo(t *testing.T) string {
 	t.Helper()

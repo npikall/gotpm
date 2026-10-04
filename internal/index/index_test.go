@@ -123,3 +123,65 @@ func TestIndex_Latest(t *testing.T) {
 	_, ok = idx.Latest("missing")
 	assert.False(t, ok)
 }
+
+func TestLatestOnGitHub_PicksTheHighestRelease(t *testing.T) { //nolint: paralleltest
+	var requested string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requested = r.URL.Path
+		_, _ = w.Write([]byte(`[{"name":"0.1.0"},{"name":"0.3.0"},{"name":"0.2.1"}]`))
+	}))
+	t.Cleanup(srv.Close)
+	index.UsePackageEndpoint(t, srv.URL+"/preview/")
+
+	latest, err := index.LatestOnGitHub(context.Background(), "cetz")
+
+	require.NoError(t, err)
+	assert.Equal(t, "0.3.0", latest)
+	assert.Equal(t, "/preview/cetz", requested)
+}
+
+func TestLatestOnGitHub_ReportsAnUnknownPackage(t *testing.T) { //nolint: paralleltest
+	srv := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(srv.Close)
+	index.UsePackageEndpoint(t, srv.URL)
+
+	_, err := index.LatestOnGitHub(context.Background(), "nope")
+
+	require.ErrorIs(t, err, index.ErrHTTPFailedRequest)
+	assert.Contains(t, err.Error(), `"nope"`)
+}
+
+func TestLatestOnGitHub_ReportsAMalformedVersion(t *testing.T) { //nolint: paralleltest
+	index.UsePackageEndpoint(t, serve(t, `[{"name":"not-a-version"}]`).URL)
+
+	_, err := index.LatestOnGitHub(context.Background(), "cetz")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "latest version")
+}
+
+func TestFetchReleases_ReportsAnUnusableURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := index.FetchReleases(context.Background(), "http://\x7f")
+
+	require.ErrorContains(t, err, "could not create new request")
+}
+
+func TestFetchReleases_ReportsAnUnreachableServer(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.NotFoundHandler())
+	srv.Close()
+
+	_, err := index.FetchReleases(context.Background(), srv.URL)
+
+	require.ErrorContains(t, err, "could not send request")
+}
+
+func TestFetchReleases_ReportsMalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	_, err := index.FetchReleases(context.Background(), serve(t, "{").URL)
+
+	require.ErrorContains(t, err, "could not decode response")
+}

@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/npikall/gotpm/internal/remote"
+	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -92,4 +94,50 @@ func TestClearCache_RemovesTheWholeTree(t *testing.T) { //nolint: paralleltest
 
 	require.NoError(t, remote.ClearCache())
 	assert.NoDirExists(t, cacheDir, "nested clones must go with the cache, not survive it")
+}
+
+func TestEnsureClone_ClonesThenReusesTheCache(t *testing.T) { //nolint: paralleltest
+	isolateDataDir(t)
+	pkg := testrepo.New(t, "cetz", "0.4.0").Release()
+
+	first, err := remote.EnsureClone(pkg.URL(), pkg.URL())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = first.Repo.Close() })
+	assert.True(t, first.Cloned)
+	_, err = remote.ResolveHash(first.Repo, pkg.Tag())
+	require.NoError(t, err, "tags come along with the clone")
+
+	pkg.Release()
+	second, err := remote.EnsureClone(pkg.URL(), pkg.URL())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = second.Repo.Close() })
+	assert.False(t, second.Cloned, "an existing clone is reused")
+	assert.Equal(t, first.Dir, second.Dir)
+	_, err = second.Repo.CommitObject(plumbing.NewHash(pkg.Hash()))
+	require.NoError(t, err, "a reused clone is fetched first")
+}
+
+func TestEnsureClone_RejectsAnEmptyURL(t *testing.T) { //nolint: paralleltest
+	isolateDataDir(t)
+
+	_, err := remote.EnsureClone("", "")
+	require.ErrorIs(t, err, remote.ErrInvalidCacheKey)
+}
+
+func TestEnsureClone_ReportsABrokenCacheEntry(t *testing.T) { //nolint: paralleltest
+	isolateDataDir(t)
+	dir, err := remote.CachePath("github.com/a/cetz")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+
+	_, err = remote.EnsureClone("github.com/a/cetz", "https://github.com/a/cetz")
+	require.ErrorContains(t, err, "opening cached clone")
+}
+
+func TestEnsureClone_ReportsAFailedClone(t *testing.T) { //nolint: paralleltest
+	isolateDataDir(t)
+	missing := "file://" + filepath.Join(t.TempDir(), "missing")
+
+	_, err := remote.EnsureClone(missing, missing)
+	require.Error(t, err)
 }

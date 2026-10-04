@@ -130,24 +130,6 @@ func fetchBestEffort(repo *git.Repository) {
 	_ = repo.Fetch(&git.FetchOptions{Tags: git.AllTags})
 }
 
-// Ensure returns the local clone of a remote repository, checked out at rev,
-// cloning it into the cache when it is not there yet. It reports whether a
-// clone was performed.
-func Ensure(remoteURL, rev string) (string, bool, error) {
-	clone, err := EnsureClone(remoteURL, DefaultHTTPCloneURL(remoteURL))
-	if err != nil {
-		return "", false, err
-	}
-	defer clone.Repo.Close() //nolint: errcheck
-
-	if rev != "" {
-		if err := CheckoutRevision(clone.Repo, rev); err != nil {
-			return "", false, err
-		}
-	}
-	return clone.Dir, clone.Cloned, nil
-}
-
 // ClearCache removes every cloned remote repository.
 func ClearCache() error {
 	dir, err := CacheDir()

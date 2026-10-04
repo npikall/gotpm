@@ -42,6 +42,10 @@ func LoadCache() (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
+	return readCache(path)
+}
+
+func readCache(path string) (*Cache, error) {
 	data, err := os.ReadFile(path) //nolint: gosec
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("cache does not exist: %w", err)

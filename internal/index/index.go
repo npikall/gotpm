@@ -25,6 +25,13 @@ const (
 
 var ErrHTTPFailedRequest = errors.New("http request failed")
 
+// indexURL is where Fetch downloads the index from; tests point it elsewhere.
+var indexURL = URL
+
+// packageEndpoint is where LatestOnGitHub looks packages up; tests point it
+// elsewhere.
+var packageEndpoint = PackageEndpoint
+
 // Index maps a package name to its latest published version.
 type Index map[string]string
 
@@ -56,25 +63,31 @@ type Opts struct {
 // Load returns the package index, preferring a still-valid on-disk cache over
 // fetching it. A successful fetch refreshes the cache.
 func Load(ctx context.Context, opts Opts) (Index, error) {
-	if !opts.NoCache {
-		if cache, err := LoadCache(); err == nil && cache.IsValid() {
-			return cache.Index, nil
-		}
+	if opts.NoCache {
+		return fetchIndex(ctx)
 	}
+	if cache, err := LoadCache(); err == nil && cache.IsValid() {
+		return cache.Index, nil
+	}
+	idx, err := fetchIndex(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_ = SaveCache(idx)
+	return idx, nil
+}
+
+func fetchIndex(ctx context.Context) (Index, error) {
 	entries, err := Fetch(ctx)
 	if err != nil {
 		return nil, err
 	}
-	idx := Build(entries)
-	if !opts.NoCache {
-		_ = SaveCache(idx)
-	}
-	return idx, nil
+	return Build(entries), nil
 }
 
 // Fetch downloads the full package index of the Typst Universe.
 func Fetch(ctx context.Context) ([]Entry, error) {
-	return FetchFrom(ctx, URL)
+	return FetchFrom(ctx, indexURL)
 }
 
 // FetchFrom downloads a package index from an arbitrary URL.
@@ -90,30 +103,28 @@ func FetchFrom(ctx context.Context, indexURL string) ([]Entry, error) {
 func Build(entries []Entry) Index {
 	idx := make(Index)
 	for _, entry := range entries {
-		current, exists := idx[entry.Name]
-		if !exists {
-			idx[entry.Name] = entry.Version
-			continue
-		}
-		currentV, err := semver.Parse(current)
-		if err != nil {
-			continue
-		}
-		entryV, err := semver.Parse(entry.Version)
-		if err != nil {
-			continue
-		}
-		if entryV.Compare(currentV) > 0 {
+		if current, exists := idx[entry.Name]; !exists || newer(entry.Version, current) {
 			idx[entry.Name] = entry.Version
 		}
 	}
 	return idx
 }
 
+// newer reports whether candidate is a higher version than current. A version
+// that does not parse is never newer, and never replaced.
+func newer(candidate, current string) bool {
+	currentV, err := semver.Parse(current)
+	if err != nil {
+		return false
+	}
+	candidateV, err := semver.Parse(candidate)
+	return err == nil && candidateV.Compare(currentV) > 0
+}
+
 // LatestOnGitHub looks a package up through the GitHub API, for packages the
 // index does not know about or when the index is unavailable.
 func LatestOnGitHub(ctx context.Context, pkgName string) (string, error) {
-	apiURL, err := url.JoinPath(PackageEndpoint, pkgName)
+	apiURL, err := url.JoinPath(packageEndpoint, pkgName)
 	if err != nil {
 		return "", fmt.Errorf("could not create url for %q: %w", pkgName, err)
 	}
@@ -164,11 +175,13 @@ func getJSON(ctx context.Context, requestURL string, target any) error {
 		return fmt.Errorf("could not send request: %w", err)
 	}
 	defer resp.Body.Close() //nolint: errcheck
+	return decode(resp, requestURL, target)
+}
 
+func decode(resp *http.Response, requestURL string, target any) error {
 	if resp.StatusCode >= http.StatusBadRequest {
 		return fmt.Errorf("%w with status %s for %s", ErrHTTPFailedRequest, resp.Status, requestURL)
 	}
-
 	if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
 		return fmt.Errorf("could not decode response: %w", err)
 	}

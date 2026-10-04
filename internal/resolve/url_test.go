@@ -136,12 +136,44 @@ func TestNormalize_Rejects(t *testing.T) {
 		{"host only", "github.com"},
 		{"not a host", "some/owner/repo"},
 		{"empty segment", "github.com//cetz"},
+		{"url without host", "https:///a/cetz"},
+		{"unparsable url", "https://git hub.com/a/cetz"},
+		{"scp without host", "git@:a/cetz"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := resolve.Normalize(tt.raw)
 			require.ErrorIs(t, err, resolve.ErrInvalidRepoURL)
+		})
+	}
+}
+
+func TestPackagePathHint(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"names a subdirectory without the separator", "github.com/a/mono/pkg", "github.com/a/mono//path/to/package"},
+		{"names only the repository", "github.com/a/mono", ""},
+		{"already has a package path", "github.com/a/mono//pkg", ""},
+		{"is a local repository", "file:///tmp/mono/pkg", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			src, err := resolve.Normalize(tt.raw)
+			require.NoError(t, err)
+
+			hint := resolve.PackagePathHint(src)
+
+			if tt.want == "" {
+				assert.Empty(t, hint)
+				return
+			}
+			assert.Contains(t, hint, tt.want)
 		})
 	}
 }
