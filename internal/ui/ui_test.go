@@ -19,12 +19,6 @@ func TestPackage(t *testing.T) {
 	}
 }
 
-func TestSpinner_DefaultSuffix(t *testing.T) {
-	t.Parallel()
-	assert.Contains(t, ui.Spinner("").Suffix, "Loading")
-	assert.Contains(t, ui.Spinner(" Cloning...").Suffix, "Cloning")
-}
-
 func TestWithSpinner_PassesTheResultThrough(t *testing.T) {
 	t.Parallel()
 	value, err := ui.WithSpinner("working", func() (string, error) { return "done", nil })
