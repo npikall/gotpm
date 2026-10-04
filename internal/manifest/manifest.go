@@ -42,6 +42,12 @@ type Gotpm struct {
 	// Dependencies lists packages the way they are imported in typst source,
 	// e.g. "@gotpm/cetz:0.3.1".
 	Dependencies []string `toml:"dependencies,omitempty"`
+	// PrePublishHook lists shell commands publish runs in the package root
+	// before it copies the package, e.g. to generate a thumbnail.
+	PrePublishHook []string `toml:"pre-publish-hook,omitempty"`
+	// PostPublishHook lists shell commands publish runs in the package root
+	// once it is done, e.g. to remove what the pre-publish hook generated.
+	PostPublishHook []string `toml:"post-publish-hook,omitempty"`
 }
 
 type PackageMeta struct {

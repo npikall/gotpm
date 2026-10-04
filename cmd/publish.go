@@ -16,7 +16,8 @@ on a dedicated branch, ready for you to open a Pull Request from.
 GoTPM will know where your fork lives on disc, and handle committing your
 Package files to the correct location.`,
 	Example: `gotpm publish
-gotpm publish --local`,
+gotpm publish --local
+gotpm publish --no-hooks`,
 	Args: cobra.NoArgs,
 	RunE: PublishRunner,
 }
@@ -25,12 +26,14 @@ func init() {
 	rootCmd.AddCommand(publishCmd)
 	publishCmd.Flags().Bool("local", false, "Stop after committing to the local fork clone; do not push.")
 	publishCmd.Flags().StringP("message", "m", "", "Custom commit message")
+	publishCmd.Flags().Bool("no-hooks", false, "Skip the package's pre- and post-publish hooks.")
 }
 
 func PublishRunner(cmd *cobra.Command, _ []string) error {
 	opts := &publish.Options{
 		Local:   Must(cmd.Flags().GetBool("local")),
 		Message: Must(cmd.Flags().GetString("message")),
+		NoHooks: Must(cmd.Flags().GetBool("no-hooks")),
 	}
 	return publish.Run(opts, newLogger(cmd))
 }

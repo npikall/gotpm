@@ -4,6 +4,7 @@ package publish
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ import (
 	git "github.com/go-git/go-git/v6"
 	"github.com/npikall/gotpm/internal/config"
 	"github.com/npikall/gotpm/internal/gitcli"
+	"github.com/npikall/gotpm/internal/hooks"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkgfiles"
@@ -35,6 +37,8 @@ type Options struct {
 	Local bool
 	// Custom commit message
 	Message string
+	// NoHooks skips the package's pre- and post-publish hooks.
+	NoHooks bool
 }
 
 type fork struct {
@@ -44,19 +48,55 @@ type fork struct {
 
 // Run publishes the package of the current working directory to the configured
 // fork. A package branch that has diverged from the fork is reset onto it
-// (ADR 0005).
+// (ADR 0005). The package's pre- and post-publish hooks run around it, unless
+// opts.NoHooks is set.
 func Run(opts *Options, logger *log.Logger) error {
 	fork, err := resolveTarget(logger)
 	if err != nil {
 		return err
 	}
 
-	sourceDir, err := os.Getwd()
+	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not get current working directory: %w", err)
 	}
+	sourceDir, m, err := loadPackage(cwd)
+	if err != nil {
+		return err
+	}
+	publish := func() error {
+		return publishPackage(logger, sourceDir, m, fork, opts)
+	}
+	if opts.NoHooks {
+		return publish()
+	}
+	return withPublishHooks(sourceDir, m.Tool.Gotpm, publish)
+}
 
-	branchName, m, err := commitToFork(logger, sourceDir, fork, opts.Message)
+// withPublishHooks runs publish between the package's pre- and post-publish
+// hooks. The post-publish hook cleans up after the pre-publish one, so it runs
+// even when the pre-publish hook or publish fail.
+func withPublishHooks(dir string, g manifest.Gotpm, publish func() error) (err error) {
+	defer func() {
+		err = errors.Join(err, runHook(dir, "post-publish", g.PostPublishHook))
+	}()
+	if err := runHook(dir, "pre-publish", g.PrePublishHook); err != nil {
+		return err
+	}
+	return publish()
+}
+
+func runHook(dir, name string, cmds []string) error {
+	if err := hooks.Run(context.Background(), dir, cmds, ui.Stderr()); err != nil {
+		return fmt.Errorf("%s hook: %w", name, err)
+	}
+	return nil
+}
+
+func publishPackage(
+	logger *log.Logger, sourceDir string, m *manifest.Manifest, fork *fork, opts *Options,
+) error {
+	branchName, err := commitToFork(logger, sourceDir, m, fork, opts.Message)
 	if err != nil {
 		return err
 	}
@@ -104,26 +144,22 @@ func configuredForkURL(cfg *config.Config) (string, error) {
 }
 
 func commitToFork(
-	logger *log.Logger, sourceDir string, fork *fork, msg string,
-) (string, *manifest.Manifest, error) {
-	sourceDir, m, err := loadPackage(sourceDir)
-	if err != nil {
-		return "", nil, err
-	}
+	logger *log.Logger, sourceDir string, m *manifest.Manifest, fork *fork, msg string,
+) (string, error) {
 	logger.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
 
 	branchName := m.Package.Name + "-" + m.Package.Version
 	relDestDir, branchExisted, err := stageVersion(logger, sourceDir, fork, m, branchName)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	msg = commitMessage(msg, sourceDir, m, branchExisted)
 	if err := commitFork(logger, fork.path, relDestDir, msg); err != nil {
-		return "", nil, err
+		return "", err
 	}
 	ui.Infof("committed %q on branch %s", msg, branchName)
-	return branchName, m, nil
+	return branchName, nil
 }
 
 // stageVersion checks out the package's branch in the fork and puts the
