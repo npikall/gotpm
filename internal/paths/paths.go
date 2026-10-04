@@ -19,7 +19,11 @@ var (
 
 // DataDir returns the platform specific path to the users data directory
 func DataDir() (string, error) {
-	switch runtime.GOOS {
+	return dataDirFor(runtime.GOOS)
+}
+
+func dataDirFor(goos string) (string, error) {
+	switch goos {
 	case "linux":
 		return LinuxDataDir()
 	case "darwin":
@@ -27,7 +31,7 @@ func DataDir() (string, error) {
 	case "windows":
 		return WindowsDataDir()
 	default:
-		return "", fmt.Errorf("%w: unsupported OS %q", ErrDataDirNotResolvable, runtime.GOOS)
+		return "", fmt.Errorf("%w: unsupported OS %q", ErrDataDirNotResolvable, goos)
 	}
 }
 
