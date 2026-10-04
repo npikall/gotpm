@@ -37,30 +37,38 @@ func Size(targets ...string) (int64, error) {
 	var total int64
 	for _, target := range targets {
 		err := filepath.WalkDir(target, func(_ string, entry fs.DirEntry, err error) error {
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return nil
-				}
-				return err
-			}
-			if entry.IsDir() {
-				return nil
-			}
-			info, err := entry.Info()
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return nil
-				}
-				return fmt.Errorf("reading file info: %w", err)
-			}
-			total += info.Size()
-			return nil
+			size, err := fileSize(entry, err)
+			total += size
+			return err
 		})
 		if err != nil {
 			return 0, fmt.Errorf("measuring %q: %w", target, err)
 		}
 	}
 	return total, nil
+}
+
+// fileSize is the bytes one WalkDir entry adds to a Size. Directories add
+// nothing themselves, and neither does an entry that vanished mid-walk.
+func fileSize(entry fs.DirEntry, walkErr error) (int64, error) {
+	if walkErr != nil {
+		return 0, ignoreNotExist(walkErr)
+	}
+	if entry.IsDir() {
+		return 0, nil
+	}
+	info, err := entry.Info()
+	if err != nil {
+		return 0, ignoreNotExist(fmt.Errorf("reading file info: %w", err))
+	}
+	return info.Size(), nil
+}
+
+func ignoreNotExist(err error) error {
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 // Remove deletes path from disk. A symlink is removed itself rather than
@@ -71,14 +79,12 @@ func Remove(path string) error {
 	if err != nil {
 		return fmt.Errorf("checking target %q: %w", path, err)
 	}
+	remove := os.RemoveAll
 	if info.Mode()&os.ModeSymlink != 0 {
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("could not remove %q: %w", path, err)
-		}
-		return nil
+		remove = os.Remove
 	}
-	if err := os.RemoveAll(path); err != nil {
-		return fmt.Errorf("could not remove-all %q: %w", path, err)
+	if err := remove(path); err != nil {
+		return fmt.Errorf("could not remove %q: %w", path, err)
 	}
 	return nil
 }

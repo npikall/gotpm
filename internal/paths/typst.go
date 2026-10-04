@@ -34,19 +34,15 @@ const (
 	OriginTypstEnv
 )
 
+var originEnvVars = map[Origin]string{
+	OriginInstallEnv: InstallDirEnvVar,
+	OriginTypstEnv:   TypstPackagePathEnvVar,
+}
+
 // EnvVar names the environment variable behind an origin, or "" when the
 // location was not overridden.
 func (o Origin) EnvVar() string {
-	switch o {
-	case OriginInstallEnv:
-		return InstallDirEnvVar
-	case OriginTypstEnv:
-		return TypstPackagePathEnvVar
-	case OriginDefault:
-		return ""
-	default:
-		return ""
-	}
+	return originEnvVars[o]
 }
 
 // PackagesDir reports where packages land for a plain command run, and why.
