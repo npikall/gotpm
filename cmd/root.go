@@ -73,3 +73,11 @@ func Must[T any](t T, err error) T { //nolint: ireturn
 	}
 	return t
 }
+
+// firstArg returns the optional positional argument, or "" when none was given.
+func firstArg(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return args[0]
+}

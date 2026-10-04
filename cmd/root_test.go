@@ -33,3 +33,31 @@ func TestInstallDirIsAcceptedByTheSinglePackageCommands(t *testing.T) {
 		})
 	}
 }
+
+func TestFirstArg(t *testing.T) {
+	t.Parallel()
+	require.Empty(t, firstArg(nil))
+	require.Equal(t, "a", firstArg([]string{"a", "b"}))
+}
+
+func TestMustPassesTheValueThrough(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, 42, Must(42, nil))
+}
+
+func TestNewLoggerToleratesACommandWithoutVerboseFlag(t *testing.T) {
+	t.Parallel()
+	require.NotNil(t, newLogger(&cobra.Command{}))
+
+	withFlag := &cobra.Command{}
+	withFlag.Flags().CountP("verbose", "v", "")
+	require.NoError(t, withFlag.ParseFlags([]string{"-vv"}))
+	require.NotNil(t, newLogger(withFlag))
+}
+
+func TestExecuteRunsTheRootCommand(t *testing.T) { //nolint: paralleltest // rootCmd is shared
+	rootCmd.SetArgs([]string{"--version"})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	Execute()
+}

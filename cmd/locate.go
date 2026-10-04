@@ -41,9 +41,5 @@ func init() {
 }
 
 func LocateRunner(cmd *cobra.Command, args []string) error {
-	var key string
-	if len(args) > 0 {
-		key = args[0]
-	}
-	return locate.Run(key, newLogger(cmd))
+	return locate.Run(firstArg(args), newLogger(cmd))
 }

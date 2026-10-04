@@ -65,9 +65,5 @@ func UninstallRunner(cmd *cobra.Command, args []string) error {
 		InstallDir:   Must(cmd.Flags().GetString(paths.InstallDirFlag)),
 	}
 
-	name := ""
-	if len(args) > 0 {
-		name = args[0]
-	}
-	return uninstall.Run(name, opts, newLogger(cmd))
+	return uninstall.Run(firstArg(args), opts, newLogger(cmd))
 }
