@@ -71,13 +71,19 @@ tasks:
     cmds:
       - golangci-lint fmt
 
+  test:install:
+    internal: True
+    cmds:
+      - go install gotest.tools/gotestsum@latest
+
   test:
     desc: Run the test suite
+    deps: [test:install]
     aliases: [t]
     sources:
       - '**/*.go'
     cmds:
-      - go test {{.CLI_ARGS}} ./...
+      - gotestsum {{.CLI_ARGS}} ./...
 
   test:cover:
     desc: Run test suite with code coverage
