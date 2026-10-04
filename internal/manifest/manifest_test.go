@@ -166,3 +166,12 @@ func TestUpdate(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestLoadReadsTheWorkingDirectory(t *testing.T) { //nolint: paralleltest // t.Chdir
+	t.Chdir(writeManifest(t, validManifestTOML))
+
+	m, err := manifest.Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, "my-pkg", m.Package.Name)
+}

@@ -1,7 +1,9 @@
 package typstsrc_test
 
 import (
+	"bufio"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/npikall/gotpm/internal/paths"
@@ -109,6 +111,25 @@ func TestScanFile_NoImports(t *testing.T) {
 	path := write(t, dir, "main.typ", "#let x = 1\n")
 
 	imports, err := typstsrc.ScanFile(path)
+	require.NoError(t, err)
+	assert.Empty(t, imports)
+}
+
+func TestScanFile_ReportsALineTooLongToScan(t *testing.T) {
+	t.Parallel()
+	path := write(t, t.TempDir(), "main.typ", strings.Repeat("x", bufio.MaxScanTokenSize+1))
+
+	_, err := typstsrc.ScanFile(path)
+
+	assert.ErrorContains(t, err, "could not scan file")
+}
+
+func TestScanFile_IgnoresAnUnterminatedInclude(t *testing.T) {
+	t.Parallel()
+	path := write(t, t.TempDir(), "main.typ", "#include \"chapter.typ\n")
+
+	imports, err := typstsrc.ScanFile(path)
+
 	require.NoError(t, err)
 	assert.Empty(t, imports)
 }
