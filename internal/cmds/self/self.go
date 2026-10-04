@@ -84,36 +84,48 @@ func assetFilterFor(goos, goarch string) string {
 // install is detected from the executable's path and sent to brew instead
 // (ADR 0004).
 func Update(info BuildInfo, opts *Options) error {
-	ctx := context.Background()
-
-	if info.IsDevelopment() {
-		return ErrUpdateDevelopmentBuild
-	}
-
-	if isBrewInstall(info) {
-		return ErrUpdateBrewBuild
-	}
-
-	currentVersion := strings.TrimPrefix(info.Version, "v")
-
 	updater, err := selfupdate.NewUpdater(selfupdate.Config{Filters: []string{assetFilter()}})
 	if err != nil {
 		return fmt.Errorf("failed to create updater: %w", err)
 	}
+	return update(context.Background(), info, opts, githubReleases{updater: updater})
+}
 
-	release, found, err := detectLatest(ctx, updater)
-	if err != nil {
+// releases is where Update looks for a newer version and installs it from.
+type releases interface {
+	// Latest returns the newest release's version, without a leading "v", and
+	// whether there is one for this platform at all.
+	Latest(ctx context.Context) (string, bool, error)
+	// Install replaces the running binary with the newest release.
+	Install(ctx context.Context, current string) error
+}
+
+type githubReleases struct {
+	updater *selfupdate.Updater
+}
+
+func (g githubReleases) Latest(ctx context.Context) (string, bool, error) {
+	release, found, err := g.updater.DetectLatest(ctx, selfupdate.ParseSlug(repository))
+	return versionOf(release), found, err
+}
+
+// versionOf returns a release's version, or "" when there is no release.
+func versionOf(release *selfupdate.Release) string {
+	if release == nil {
+		return ""
+	}
+	return release.Version()
+}
+
+func (g githubReleases) Install(ctx context.Context, current string) error {
+	_, err := g.updater.UpdateSelf(ctx, current, selfupdate.ParseSlug(repository))
+	return err //nolint: wrapcheck
+}
+
+func update(ctx context.Context, info BuildInfo, opts *Options, src releases) error {
+	latestVersion, err := newerRelease(ctx, info, src)
+	if err != nil || latestVersion == "" {
 		return err
-	}
-	if !found {
-		ui.Warnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
-		return nil
-	}
-
-	latestVersion := release.Version()
-	if latestVersion == currentVersion {
-		ui.Infof("already up to date (%s)", info.Version)
-		return nil
 	}
 
 	if opts.CheckOnly {
@@ -124,13 +136,10 @@ func Update(info BuildInfo, opts *Options) error {
 	}
 
 	err = ui.Spin("Downloading update...", func() error {
-		if _, updateErr := updater.UpdateSelf(ctx, currentVersion, selfupdate.ParseSlug(repository)); updateErr != nil {
-			return fmt.Errorf("update failed: %w", updateErr)
-		}
-		return nil
+		return src.Install(ctx, strings.TrimPrefix(info.Version, "v"))
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("update failed: %w", err)
 	}
 
 	ui.Infof("updated gotpm %s → %s",
@@ -139,18 +148,42 @@ func Update(info BuildInfo, opts *Options) error {
 	return nil
 }
 
-// detectLatest looks up the newest release for this platform, with a spinner
-// showing while it asks.
-func detectLatest(ctx context.Context, updater *selfupdate.Updater) (*selfupdate.Release, bool, error) {
-	var release *selfupdate.Release
+// newerRelease returns the version to update to, or "" when there is nothing
+// to install. Builds that must not replace themselves are refused before
+// anything is looked up.
+func newerRelease(ctx context.Context, info BuildInfo, src releases) (string, error) {
+	if err := refuse(info); err != nil {
+		return "", err
+	}
+
+	var latestVersion string
 	var found bool
 	err := ui.Spin("Checking for updates...", func() error {
 		var err error
-		release, found, err = updater.DetectLatest(ctx, selfupdate.ParseSlug(repository))
-		if err != nil {
-			return fmt.Errorf("failed to check for updates: %w", err)
-		}
-		return nil
+		latestVersion, found, err = src.Latest(ctx)
+		return err
 	})
-	return release, found, err
+	if err != nil {
+		return "", fmt.Errorf("failed to check for updates: %w", err)
+	}
+	if !found {
+		ui.Warnf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
+		return "", nil
+	}
+	if latestVersion == strings.TrimPrefix(info.Version, "v") {
+		ui.Infof("already up to date (%s)", info.Version)
+		return "", nil
+	}
+	return latestVersion, nil
+}
+
+// refuse reports why this build must not replace itself, if it must not.
+func refuse(info BuildInfo) error {
+	if info.IsDevelopment() {
+		return ErrUpdateDevelopmentBuild
+	}
+	if isBrewInstall(info) {
+		return ErrUpdateBrewBuild
+	}
+	return nil
 }
