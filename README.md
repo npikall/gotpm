@@ -1,7 +1,7 @@
 # GoTPM
 
 [![Go Test](https://github.com/npikall/gotpm/actions/workflows/test.yml/badge.svg)](https://github.com/npikall/gotpm/actions/workflows/test.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/npikall/gotpm)](https://goreportcard.com/report/github.com/npikall/gotpm)
+[![golangci-lint](https://github.com/npikall/gotpm/actions/workflows/lint.yml/badge.svg)](https://github.com/npikall/gotpm/actions/workflows/lint.yml)
 
 A minimal Typst Package Manager written in Go.
 
