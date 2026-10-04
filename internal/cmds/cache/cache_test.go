@@ -88,3 +88,24 @@ func TestClear_DryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
 	assert.FileExists(t, cachePath, "dry-run must not remove index cache")
 	assert.FileExists(t, configPath, "dry-run must not touch config.toml")
 }
+
+func TestClear_FailsWithoutADataDirectory(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("APPDATA", "")
+
+	require.Error(t, cachecmd.Clear(&cachecmd.Options{}, discardLogger()))
+}
+
+func TestClear_FailsOnAnUnreadableCache(t *testing.T) { //nolint: paralleltest
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	isolateCacheDir(t)
+	remotesDir, _, _ := seedCacheState(t)
+	locked := filepath.Join(remotesDir, "locked")
+	require.NoError(t, os.Mkdir(locked, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) }) // so TempDir can clean up
+
+	require.Error(t, cachecmd.Clear(&cachecmd.Options{}, discardLogger()))
+}

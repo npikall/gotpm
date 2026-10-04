@@ -51,38 +51,57 @@ func Run(inputs []string, opts *Options, log *log.Logger) error {
 	ctx := context.Background()
 
 	if isStdinPiped() {
-		content, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("could not read from stdin: %w", err)
-		}
-		announce("stdin")
-		return writeOutput(update(ctx, content, opts, log), "", opts.Output)
+		return updateStdin(ctx, opts, log)
 	}
 
-	if len(inputs) == 0 {
-		return ErrMissingInput
-	}
-
-	files, err := collectInputFiles(inputs, opts)
+	files, err := filesToUpdate(inputs, opts)
 	if err != nil {
 		return err
 	}
-	if opts.Output != "" && len(files) > 1 {
-		return ErrInvalidOutputOption
-	}
-
-	for _, file := range files {
-		announce(file)
-		content, err := os.ReadFile(file) //nolint: gosec
-		if err != nil {
-			log.Error(err.Error(), "file", file)
-			continue
-		}
-		if err := writeOutput(update(ctx, content, opts, log), file, opts.Output); err != nil {
-			log.Error(err.Error(), "file", file)
-		}
-	}
+	updateFiles(ctx, files, opts, log)
 	return nil
+}
+
+func filesToUpdate(inputs []string, opts *Options) ([]string, error) {
+	if len(inputs) == 0 {
+		return nil, ErrMissingInput
+	}
+	files, err := collectInputFiles(inputs, opts)
+	if err != nil {
+		return nil, err
+	}
+	if opts.Output != "" && len(files) > 1 {
+		return nil, ErrInvalidOutputOption
+	}
+	return files, nil
+}
+
+// updateFiles updates each file in turn. A file that fails is reported and
+// skipped, so it does not hold up the others.
+func updateFiles(ctx context.Context, files []string, opts *Options, log *log.Logger) {
+	for _, file := range files {
+		if err := updateFile(ctx, file, opts, log); err != nil {
+			log.Error(err.Error(), "file", file)
+		}
+	}
+}
+
+func updateStdin(ctx context.Context, opts *Options, log *log.Logger) error {
+	content, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return fmt.Errorf("could not read from stdin: %w", err)
+	}
+	announce("stdin")
+	return writeOutput(update(ctx, content, opts, log), "", opts.Output)
+}
+
+func updateFile(ctx context.Context, file string, opts *Options, log *log.Logger) error {
+	announce(file)
+	content, err := os.ReadFile(file) //nolint: gosec
+	if err != nil {
+		return err //nolint: wrapcheck
+	}
+	return writeOutput(update(ctx, content, opts, log), file, opts.Output)
 }
 
 func update(ctx context.Context, content []byte, opts *Options, log *log.Logger) []byte {
@@ -168,34 +187,53 @@ func collectInputFiles(inputs []string, opts *Options) ([]string, error) {
 }
 
 func collectDir(root string, opts *Options) ([]string, error) {
-	extensions := make(map[string]bool, len(opts.Extensions))
-	for _, ext := range opts.Extensions {
+	walk := &dirWalk{root: root, recursive: opts.Recursive, wanted: extensionSet(opts.Extensions)}
+	if err := filepath.WalkDir(root, walk.visit); err != nil {
+		return nil, fmt.Errorf("could not walk directory %q: %w", root, err)
+	}
+	return walk.files, nil
+}
+
+// extensionSet normalises extensions to lower case with a leading dot.
+func extensionSet(extensions []string) map[string]bool {
+	set := make(map[string]bool, len(extensions))
+	for _, ext := range extensions {
 		if !strings.HasPrefix(ext, ".") {
 			ext = "." + ext
 		}
-		extensions[strings.ToLower(ext)] = true
+		set[strings.ToLower(ext)] = true
 	}
+	return set
+}
 
-	var files []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if path != root && !opts.Recursive {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if extensions[strings.ToLower(filepath.Ext(path))] {
-			files = append(files, path)
-		}
-		return nil
-	})
+// dirWalk collects the files below root with a wanted extension.
+type dirWalk struct {
+	root      string
+	recursive bool
+	wanted    map[string]bool
+	files     []string
+}
+
+func (w *dirWalk) visit(path string, d fs.DirEntry, err error) error {
 	if err != nil {
-		return nil, fmt.Errorf("could not walk directory %q: %w", root, err)
+		return err
 	}
-	return files, nil
+	if d.IsDir() {
+		return w.enter(path)
+	}
+	if w.wanted[strings.ToLower(filepath.Ext(path))] {
+		w.files = append(w.files, path)
+	}
+	return nil
+}
+
+// enter allows walking into the root, and into sub-directories only when
+// recursing.
+func (w *dirWalk) enter(path string) error {
+	if path != w.root && !w.recursive {
+		return filepath.SkipDir
+	}
+	return nil
 }
 
 func writeOutput(content []byte, inputFile, outputPath string) error {

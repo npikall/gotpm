@@ -21,22 +21,38 @@ var LibFile = []byte("#let greet(name) = [Hello #name]")
 // Run creates a new package in the working directory, or in a new
 // sub-directory of that name when one is given.
 func Run(name string, log *log.Logger) error {
-	dir, err := os.Getwd()
+	dir, name, err := packageDir(name)
 	if err != nil {
-		return fmt.Errorf("could not get the current working directory: %w", err)
-	}
-
-	if name != "" {
-		dir = filepath.Join(dir, name)
-		if err := os.Mkdir(dir, paths.DirPerm); err != nil {
-			return fmt.Errorf("could not create directory: %w", err)
-		}
-	} else {
-		name = filepath.Base(dir)
+		return err
 	}
 	log.Debug("working directory", "current", dir)
 	log.Debug("new package", "name", name)
 
+	if err := writeFiles(dir, name); err != nil {
+		return err
+	}
+	ui.Infof("initialize package %q", name)
+	return nil
+}
+
+// packageDir is the directory the package is scaffolded in, and its name: a
+// new directory called name, or the working directory, named after itself.
+func packageDir(name string) (string, string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", "", fmt.Errorf("could not get the current working directory: %w", err)
+	}
+	if name == "" {
+		return dir, filepath.Base(dir), nil
+	}
+	dir = filepath.Join(dir, name)
+	if err := os.Mkdir(dir, paths.DirPerm); err != nil {
+		return "", "", fmt.Errorf("could not create directory: %w", err)
+	}
+	return dir, name, nil
+}
+
+func writeFiles(dir, name string) error {
 	files := []struct {
 		path    string
 		content []byte
@@ -49,8 +65,6 @@ func Run(name string, log *log.Logger) error {
 			return err
 		}
 	}
-
-	ui.Infof("initialize package %q", name)
 	return nil
 }
 

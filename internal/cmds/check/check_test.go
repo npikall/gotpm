@@ -151,3 +151,25 @@ func TestAnalyze_UnreadableFile(t *testing.T) { //nolint: paralleltest
 	_, err := check.Analyze(filepath.Join(t.TempDir(), "nope.typ"), discardLogger())
 	assert.ErrorContains(t, err, "could not open file")
 }
+
+func TestRun_ReportsIssuesAndWarnings(t *testing.T) { //nolint: paralleltest
+	isolate(t, index.Index{"cetz": "0.5.2"})
+	file := write(t, t.TempDir(), "main.typ", `#import "@preview/cetz:0.1.0"
+#import "@local/missing:0.1.0"
+`)
+
+	require.NoError(t, check.Run(file, discardLogger()), "problems are reported, not returned")
+}
+
+func TestRun_ReportsAllGood(t *testing.T) { //nolint: paralleltest
+	isolate(t, index.Index{"cetz": "0.5.2"})
+	file := write(t, t.TempDir(), "main.typ", `#import "@preview/cetz:0.5.2"`)
+
+	require.NoError(t, check.Run(file, discardLogger()))
+}
+
+func TestRun_FailsOnAnUnreadableFile(t *testing.T) { //nolint: paralleltest
+	isolate(t, index.Index{})
+
+	require.Error(t, check.Run(filepath.Join(t.TempDir(), "nope.typ"), discardLogger()))
+}

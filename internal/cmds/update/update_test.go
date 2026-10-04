@@ -153,3 +153,71 @@ func TestRun_UnknownPackageLeavesTheFileAlone(t *testing.T) { //nolint: parallel
 	require.NoError(t, update.Run([]string{file}, defaultOpts(), discardLogger()))
 	assert.Equal(t, `#import "@local/mine:0.1.0"`, read(t, file), "other namespaces are not touched")
 }
+
+// pipeStdin makes content what the command reads from stdin for the rest of
+// the test.
+func pipeStdin(t *testing.T, content string) {
+	t.Helper()
+	stdin, err := os.Open(write(t, t.TempDir(), "stdin", content))
+	require.NoError(t, err)
+	previous := os.Stdin
+	os.Stdin = stdin
+	t.Cleanup(func() {
+		os.Stdin = previous
+		_ = stdin.Close()
+	})
+}
+
+func TestRun_UpdatesPipedInput(t *testing.T) { //nolint: paralleltest
+	isolate(t, index.Index{"cetz": "0.5.2"})
+	pipeStdin(t, `#import "@preview/cetz:0.1.0"`)
+	out := filepath.Join(t.TempDir(), "out.typ")
+
+	opts := defaultOpts()
+	opts.Output = out
+	require.NoError(t, update.Run(nil, opts, discardLogger()), "piped input needs no file")
+
+	assert.Equal(t, `#import "@preview/cetz:0.5.2"`, read(t, out))
+}
+
+func TestRun_AFailingFileDoesNotStopTheOthers(t *testing.T) { //nolint: paralleltest
+	isolate(t, index.Index{"cetz": "0.5.2"})
+	dir := t.TempDir()
+	unreadable := write(t, dir, "a.typ", `#import "@preview/cetz:0.1.0"`)
+	require.NoError(t, os.Chmod(unreadable, 0o000))
+	file := write(t, dir, "b.typ", `#import "@preview/cetz:0.1.0"`)
+
+	require.NoError(t, update.Run([]string{dir}, defaultOpts(), discardLogger()))
+
+	assert.Equal(t, `#import "@preview/cetz:0.5.2"`, read(t, file))
+}
+
+func TestRun_WritesPipedInputToStdout(t *testing.T) { //nolint: paralleltest
+	isolate(t, index.Index{"cetz": "0.5.2"})
+	pipeStdin(t, `#import "@preview/cetz:0.1.0"`)
+	stdout, err := os.Create(filepath.Join(t.TempDir(), "stdout"))
+	require.NoError(t, err)
+	previous := os.Stdout
+	os.Stdout = stdout
+	t.Cleanup(func() { os.Stdout = previous })
+
+	require.NoError(t, update.Run(nil, defaultOpts(), discardLogger()))
+
+	require.NoError(t, stdout.Close())
+	assert.Equal(t, `#import "@preview/cetz:0.5.2"`, read(t, stdout.Name()))
+}
+
+func TestRun_UnreadableDirectory(t *testing.T) { //nolint: paralleltest
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	isolate(t, index.Index{})
+	dir := t.TempDir()
+	locked := filepath.Join(dir, "locked")
+	require.NoError(t, os.Mkdir(locked, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) }) // so TempDir can clean up
+
+	err := update.Run([]string{locked}, defaultOpts(), discardLogger())
+
+	require.ErrorContains(t, err, "could not walk directory")
+}
