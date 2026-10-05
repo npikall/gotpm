@@ -78,6 +78,11 @@ Manage the repositories gotpm has cloned and the Universe index it has fetched.
 The cache exists only to avoid repeating work. Deleting it loses nothing; the
 [package directory](concepts.md#the-package-directory) is never cache.
 
+The fork clones `publish` stages submissions in are not cache either, and a
+plain `gotpm cache clear` leaves them alone. `gotpm cache clear --forks` removes
+them instead — and with them any `gotpm publish --local` commit not pushed yet.
+A `fork.path` you configured is never touched.
+
 ## `check`
 
 Report whether every package a Typst file imports will resolve when it is

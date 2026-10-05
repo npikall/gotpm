@@ -31,7 +31,7 @@ explicitly still points where they set it.
 - The fork clones live beside the remotes cache, not inside it. `gotpm cache
   clear` does not touch them: a clone holding a `gotpm publish --local` commit
   that has not been pushed yet is not state kept merely to avoid repeating
-  work.
+  work. They are cleared only on request, with `gotpm cache clear --forks`.
 - The clone left at the old fixed location is moved to its derived location on
   the next publish, when its origin is the configured fork. One whose origin is
   a different fork is left alone and reported — that is a user who already hit
