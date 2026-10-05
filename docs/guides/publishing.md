@@ -33,6 +33,8 @@ $ gotpm config set fork.path ~/src/typst-packages
 $ gotpm config list
 ```
 
+Or set both at once in your editor with `gotpm config edit`.
+
 That clone is a **fork clone**: gotpm's staging area, holding no work that does
 not exist elsewhere. Delete it whenever you like; the next publish clones it
 again. It is checked out sparsely, scoped to the package directory being

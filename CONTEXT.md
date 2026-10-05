@@ -113,6 +113,13 @@ State gotpm keeps only to avoid repeating work: the repositories it has cloned
 and the Universe index it has fetched. Deleting it loses nothing. The package
 directory is never cache.
 
+**Config**:
+gotpm's own settings for the user on this machine — for now, which fork to
+publish through and where its fork clone lives. Machine-wide and never
+committed; it belongs to no project, so anything a project decides for itself
+goes in its manifest instead. Not the manifest.
+_Avoid_: settings, preferences
+
 ### Dependencies
 
 **Declared Dependency**:
