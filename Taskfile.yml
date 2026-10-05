@@ -100,6 +100,12 @@ tasks:
     cmds:
       - go run github.com/unclebob/crap4go/cmd/crap4go@latest
 
+  ci:
+    desc: Run Tests and Linter
+    cmds:
+      - task: lint
+      - task: test
+
   build:
     desc: Build the binary
     aliases: [b]
