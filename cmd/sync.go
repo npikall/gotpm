@@ -13,7 +13,8 @@ var syncCmd = &cobra.Command{
 This is what a fresh checkout needs before it compiles.
 
 Every package is installed at the commit gotpm.lock pins, not at whatever
-its tag points at today. Lock entries that nothing in typst.toml requires
+its tag points at today. The fonts the project and its dependencies declare
+are installed into the font directory the same way, at their pinned commits. Lock entries that nothing in typst.toml requires
 any more are dropped.
 
 --frozen fails instead of rewriting gotpm.lock, which is what a CI job
@@ -30,7 +31,7 @@ gotpm sync --frozen
 func init() {
 	rootCmd.AddCommand(syncCmd)
 	syncCmd.Flags().Bool("frozen", false, "Fail instead of updating gotpm.lock.")
-	syncCmd.Flags().BoolP("force", "f", false, "Replace a package installed from a different repository.")
+	syncCmd.Flags().BoolP("force", "f", false, "Replace a package from a different repository or a font family gotpm did not install.")
 }
 
 func SyncRunner(cmd *cobra.Command, _ []string) error {

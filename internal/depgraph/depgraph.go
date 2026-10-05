@@ -71,15 +71,19 @@ type Result struct {
 	// Unresolved holds one entry per declared dependency Walk could not find
 	// a repository for.
 	Unresolved []Unresolved
+	// Fonts holds the font pins the walked packages declare, transitive for
+	// the project, with RequiredBy filled in. Where two packages pin one
+	// family at different commits, the first pin met is kept.
+	Fonts []lockfile.Font
 }
 
 // Walk resolves a repository and everything it depends on.
 func Walk(root resolve.Request, opts Options, logger *log.Logger) (Result, error) {
-	w := &walker{logger: logger, opts: opts, bySourceCommit: make(map[string]int)}
+	w := &walker{logger: logger, opts: opts, bySourceCommit: make(map[string]int), fonts: lockfile.New()}
 	if err := w.visit(node{request: root, direct: true}, nil); err != nil {
 		return Result{}, err
 	}
-	return Result{Entries: w.entries, Unresolved: w.unresolved}, nil
+	return Result{Entries: w.entries, Unresolved: w.unresolved, Fonts: w.fonts.Fonts}, nil
 }
 
 type node struct {
@@ -96,6 +100,7 @@ type walker struct {
 	entries        []lockfile.Entry
 	unresolved     []Unresolved
 	bySourceCommit map[string]int
+	fonts          *lockfile.Lock
 }
 
 func (w *walker) visit(n node, chain []string) error {
@@ -134,7 +139,58 @@ func (w *walker) add(resolved *resolve.Resolved, n node, sourceCommit string, ch
 	w.warnOnCoordinateMismatch(entry, n)
 	w.bySourceCommit[sourceCommit] = len(w.entries)
 	w.entries = append(w.entries, entry)
+	if err := w.collectFonts(resolved, entry.Import); err != nil {
+		return err
+	}
 	return w.visitDependencies(resolved, entry.Import, chain)
+}
+
+// collectFonts records the font pins a package declares, read from the lock it
+// ships. Where two packages pin one family at different commits, the first pin
+// is kept and the other reported.
+func (w *walker) collectFonts(resolved *resolve.Resolved, importing string) error {
+	pins, err := w.declaredFonts(resolved, importing)
+	if err != nil {
+		return err
+	}
+	for _, pin := range pins {
+		if kept, conflict := w.fonts.UpsertFont(pin); conflict {
+			w.logger.Warn("font pinned at two commits, keeping the first",
+				"font", pin.Family, "kept", kept.Hash, "skipped", pin.Hash, "package", importing)
+		}
+	}
+	return nil
+}
+
+// declaredFonts returns the pins of the fonts a package declares, transitive
+// for the project.
+func (w *walker) declaredFonts(resolved *resolve.Resolved, importing string) ([]lockfile.Font, error) {
+	declared := resolved.Manifest.Fonts()
+	if len(declared) == 0 {
+		return nil, nil
+	}
+	lock, err := lockfile.Load(resolved.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("reading the lock of %s: %w", importing, err)
+	}
+	return w.pinnedFonts(lock, declared, importing), nil
+}
+
+// pinnedFonts looks every declared family up in the lock. One the package
+// declares without pinning is skipped with a warning: Typst falls back to
+// another font rather than failing, so it does not stop a walk.
+func (w *walker) pinnedFonts(lock *lockfile.Lock, declared []string, importing string) []lockfile.Font {
+	pins := make([]lockfile.Font, 0, len(declared))
+	for _, family := range declared {
+		pin, ok := lock.GetFont(family)
+		if !ok {
+			w.logger.Warn("font declared but not pinned, skipped", "font", family, "package", importing)
+			continue
+		}
+		pin.Direct, pin.RequiredBy = false, []string{importing}
+		pins = append(pins, pin)
+	}
+	return pins
 }
 
 func (w *walker) visitDependencies(resolved *resolve.Resolved, importing string, chain []string) error {

@@ -95,6 +95,7 @@ func pruneLock(project *deps.Project, remaining []string) ([]lockfile.Entry, err
 		return nil, err
 	}
 	removed := lock.Prune(remaining)
+	lock.PruneFonts(project.Fonts())
 	if err := project.SaveLock(lock); err != nil {
 		return nil, err
 	}

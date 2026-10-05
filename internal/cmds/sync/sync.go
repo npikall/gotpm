@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"charm.land/log/v2"
@@ -25,6 +26,8 @@ var (
 	ErrUnknownSource = errors.New("declared dependency is missing from the lock")
 	// ErrLockOutOfDate is a lock that --frozen forbids rewriting.
 	ErrLockOutOfDate = errors.New("lock file is out of date")
+	// ErrUnpinnedFont is a declared font the lock says nothing about.
+	ErrUnpinnedFont = errors.New("declared font is missing from the lock")
 )
 
 // Options holds the resolved sync flags.
@@ -48,12 +51,22 @@ func Run(opts *Options, logger *log.Logger) error {
 	if err != nil {
 		return err
 	}
-	results, err := installAll(lock, opts.Force, logger)
+	results, fontResults, err := installEverything(lock, opts.Force, logger)
 	if err != nil {
 		return err
 	}
-	report(results, removed)
+	report(results, removed, fontResults)
 	return nil
+}
+
+// installEverything installs every package and then every font the lock pins.
+func installEverything(lock *lockfile.Lock, force bool, logger *log.Logger) ([]deps.Result, deps.FontResults, error) {
+	results, err := installAll(lock, force, logger)
+	if err != nil {
+		return nil, deps.FontResults{}, err
+	}
+	fontResults, err := deps.EnsureFonts(lock.Fonts, force, logger)
+	return results, fontResults, err
 }
 
 // reconcileLock brings the project's lock in line with what its manifest
@@ -67,19 +80,52 @@ func reconcileLock(project *deps.Project, opts *Options) (*lockfile.Lock, []lock
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := checkKnownSources(lock, declared); err != nil {
+	if err := checkPinned(lock, declared, project.Fonts()); err != nil {
 		return nil, nil, err
 	}
-	removed, changed := prune(lock, declared)
+	removed, changed := prune(lock, declared, project.Fonts())
 	return lock, removed, saveLock(project, lock, removed, changed, opts)
 }
 
 // prune drops what nothing declares any more, and reports whether the lock
-// changed, which includes a package moving between direct and indirect.
-func prune(lock *lockfile.Lock, declared []string) ([]lockfile.Entry, bool) {
+// changed, which includes a package or font moving between direct and
+// indirect.
+func prune(lock *lockfile.Lock, declared, declaredFonts []string) ([]lockfile.Entry, bool) {
 	wasDirect := lock.Direct()
+	wasFonts := slices.Clone(lock.Fonts)
 	removed := lock.Prune(declared)
-	return removed, len(removed) > 0 || !slices.Equal(wasDirect, lock.Direct())
+	lock.PruneFonts(declaredFonts)
+	changed := len(removed) > 0 || !slices.Equal(wasDirect, lock.Direct()) ||
+		!slices.EqualFunc(wasFonts, lock.Fonts, sameFontPin)
+	return removed, changed
+}
+
+func sameFontPin(a, b lockfile.Font) bool {
+	return a.Family == b.Family && a.Hash == b.Hash && a.Direct == b.Direct && slices.Equal(a.RequiredBy, b.RequiredBy)
+}
+
+// checkPinned refuses a manifest declaring a package or font the lock does
+// not pin: only the lock knows where it comes from.
+func checkPinned(lock *lockfile.Lock, declared, declaredFonts []string) error {
+	if err := checkKnownSources(lock, declared); err != nil {
+		return err
+	}
+	return checkPinnedFonts(lock, declaredFonts)
+}
+
+func checkPinnedFonts(lock *lockfile.Lock, declared []string) error {
+	var unpinned []string
+	for _, family := range declared {
+		if _, ok := lock.GetFont(family); !ok {
+			unpinned = append(unpinned, strconv.Quote(family))
+		}
+	}
+	if len(unpinned) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: %s"+
+		"\nnote: %s records which commit a font comes from; run 'gotpm font add <name>' to add it properly",
+		ErrUnpinnedFont, strings.Join(unpinned, ", "), lockfile.FileName)
 }
 
 func installAll(lock *lockfile.Lock, force bool, logger *log.Logger) ([]deps.Result, error) {
@@ -138,17 +184,23 @@ func obsolete(removed []lockfile.Entry) string {
 	return " (no longer required: " + strings.Join(importsOf(removed), ", ") + ")"
 }
 
-func report(results []deps.Result, removed []lockfile.Entry) {
+func report(results []deps.Result, removed []lockfile.Entry, fontResults deps.FontResults) {
 	reportDropped(removed)
+	if reportPackages(results)+fontResults.Report() == 0 {
+		ui.Infof("%d packages already up to date", len(results))
+	}
+}
+
+// reportPackages tells what happened to each package, and returns how many
+// changed.
+func reportPackages(results []deps.Result) int {
 	changed := 0
 	for _, result := range results {
 		if reportResult(result) {
 			changed++
 		}
 	}
-	if changed == 0 {
-		ui.Infof("%d packages already up to date", len(results))
-	}
+	return changed
 }
 
 func reportDropped(removed []lockfile.Entry) {
