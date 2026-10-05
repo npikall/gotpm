@@ -82,8 +82,10 @@ installed package.
 
 **Provenance**:
 The record kept inside an installed package of the repository, commit and
-package path it was built from. It is the only thing that decides whether an installed package is
-gotpm's to replace or remove.
+package path it was built from — or inside an installed font family, of the
+font source, location and commit it was fetched from. It is the only thing that
+decides whether an installed package or font family is gotpm's to replace or
+remove.
 _Avoid_: origin, metadata, source info
 
 ### Sources
@@ -109,9 +111,9 @@ local, a clone is local. Never used for "the package I am developing"; that is
 the project.
 
 **Cache**:
-State gotpm keeps only to avoid repeating work: the repositories it has cloned
-and the Universe index it has fetched. Deleting it loses nothing. The package
-directory is never cache.
+State gotpm keeps only to avoid repeating work: the repositories it has cloned,
+the Universe index it has fetched and the list of font families it searches. Deleting it loses nothing. The package
+directory and the font directory are never cache.
 
 **Config**:
 gotpm's own settings for the user on this machine — for now, which fork to
@@ -151,8 +153,9 @@ package path.
 _Avoid_: entry, dependency record
 
 **Prune**:
-Dropping the pins a lock no longer reaches from any declared dependency, so
-removing one dependency also clears the transitive ones only it pulled in. It
+Dropping the pins a lock no longer reaches from any declared dependency or
+declared font, so removing one also clears the transitive pins — packages and
+font families — only it pulled in. It
 happens on its own and never deletes files.
 _Note_: `gotpm remove --prune` means something else — it uninstalls the removed
 packages from the package directory. The two are unrelated and the flag is
@@ -163,6 +166,39 @@ The condition of a pin whose revision no longer points at the commit that was
 pinned. The pin still decides what gets installed; drift is reported, never
 acted on.
 _Avoid_: stale pin, outdated dependency
+
+### Fonts
+
+**Font Family**:
+A typeface as Typst's `font` setting names it — "Open Sans" — together with
+every file of its styles and weights. The unit gotpm installs, declares and
+pins; a single font file is never addressed on its own.
+_Avoid_: font (when the whole family is meant), typeface, font file
+
+**Font Source**:
+Where a font family is obtained from, and what a font pin records it was
+obtained from. Google Fonts is the first; the model allows others.
+_Avoid_: font provider, font registry, font repository
+
+**Font Directory**:
+The machine-wide directory gotpm installs font families into, one directory per
+family, which Typst reads through `$TYPST_FONT_PATHS`. Like the package
+directory it is shared and holds one copy of each family, so two projects
+pinning different commits of a family cannot both be satisfied; the one synced
+last wins.
+_Avoid_: font cache, font store
+
+**Font Pin**:
+One entry of a lock for a font family — the family bound to a font source, a
+location inside it, an exact commit and the files fetched from it. Pruned like
+any pin, but it never drifts: nothing names a font family by a revision that
+could move. A project's own font pin wins over one its dependencies carry.
+_Avoid_: font entry, font lock
+
+**Declared Font**:
+A font family the project's manifest declares and its lock pins. gotpm Fetches
+it, together with the fonts the project's dependencies declare.
+_Avoid_: font dependency, required font
 
 ### Publication
 
@@ -189,7 +225,7 @@ _Avoid_: release, publication, PR
 **Project Command**:
 A command whose subject is the current project: it reads `typst.toml` and
 `gotpm.lock`, and installs or deletes the whole dependency graph they describe.
-`add`, `sync` and `remove`. Because a graph is many packages, a project command
+`add`, `sync`, `remove`, `font add` and `font remove`. Because a graph is many packages, a project command
 always works on the package directory and never takes an install dir. `bump` and
 `locate` read the project too, but change no dependency.
 _Avoid_: dependency command, local command
@@ -197,7 +233,8 @@ _Avoid_: dependency command, local command
 **Standalone Command**:
 A command that needs no project, so the directory it operates on can be named on
 the command line. `install`, `uninstall`, `list`, `check`, `publish`, `init`,
-`update`, `cache`, `config`, `self`. These are the only commands an install dir
+`update`, `cache`, `config`, `self`, `font install`, `font uninstall` and
+`font search`. These are the only commands an install dir
 is offered to, and only for the forms of them that act on one package version —
 `install`'s working-tree form, not `install --remote`.
 _Avoid_: regular command, global command, non-project command
