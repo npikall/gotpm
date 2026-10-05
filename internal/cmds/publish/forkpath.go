@@ -15,10 +15,7 @@ import (
 	"github.com/npikall/gotpm/internal/resolve"
 )
 
-const (
-	forksDirName      = "forks"
-	legacyForkDirName = "fork"
-)
+const legacyForkDirName = "fork"
 
 var (
 	// ErrForkOriginMismatch is returned when the clone found at the fork path
@@ -49,7 +46,7 @@ func ResolveForkPath(logger *log.Logger, cfg *config.Config, forkURL string) (st
 // DefaultForkPath derives the fork clone's location from forkURL — host, owner,
 // then repository — so publishing through two forks uses two clones (ADR 0006).
 func DefaultForkPath(forkURL string) (string, error) {
-	dataDir, err := paths.GotpmDataDir()
+	forksDir, err := paths.GotpmForksDir()
 	if err != nil {
 		return "", err
 	}
@@ -57,7 +54,7 @@ func DefaultForkPath(forkURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("deriving the fork clone path from %q: %w", forkURL, err)
 	}
-	return filepath.Join(append([]string{dataDir, forksDirName}, segments...)...), nil
+	return filepath.Join(append([]string{forksDir}, segments...)...), nil
 }
 
 func canonicalFork(rawURL string) string {

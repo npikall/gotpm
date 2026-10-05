@@ -4,6 +4,7 @@ package cache
 
 import (
 	"fmt"
+	"os"
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/index"
@@ -18,10 +19,17 @@ const bytesPerMB = 1024 * 1024
 type Options struct {
 	// DryRun reports what would be cleared without clearing it.
 	DryRun bool
+	// Forks clears the fork clones instead of the cache.
+	Forks bool
 }
 
-// Clear removes the cloned remote repositories and the package index cache.
+// Clear removes the cloned remote repositories and the package index cache,
+// or, with opts.Forks, the fork clones. A fork clone is not cache (ADR 0006),
+// so the two are never cleared together.
 func Clear(opts *Options, log *log.Logger) error {
+	if opts.Forks {
+		return clearForks(opts, log)
+	}
 	remotesDir, cachePath, err := cachePaths()
 	if err != nil {
 		return err
@@ -56,6 +64,29 @@ func clearAll(size int64, remotesDir, cachePath string) error {
 		return err
 	}
 	ui.Infof("cleared %s \n remotes: %q\n index cache: %q", format(size), remotesDir, cachePath)
+	return nil
+}
+
+// clearForks removes every fork clone kept under gotpm's data directory. A
+// fork.path the user configured is theirs and is left alone.
+func clearForks(opts *Options, log *log.Logger) error {
+	forksDir, err := paths.GotpmForksDir()
+	if err != nil {
+		return err
+	}
+	log.Debug("clearing", "forks", forksDir)
+	size, err := paths.Size(forksDir)
+	if err != nil {
+		return err
+	}
+	if opts.DryRun {
+		ui.Warnf("dry-run, would clear %s \n fork clones: %q", format(size), forksDir)
+		return nil
+	}
+	if err := os.RemoveAll(forksDir); err != nil {
+		return fmt.Errorf("could not remove fork clones %q: %w", forksDir, err)
+	}
+	ui.Infof("cleared %s \n fork clones: %q", format(size), forksDir)
 	return nil
 }
 
