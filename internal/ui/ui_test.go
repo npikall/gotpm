@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,14 @@ func TestPackage(t *testing.T) {
 	for _, ref := range []string{"@preview/my-pkg:0.1.0", "@local/foo:1.2.3", "@preview/bar:*.*.*"} {
 		assert.Contains(t, ui.Package(ref), ref, "Package(%q) must contain the reference", ref)
 	}
+}
+
+func TestCommandStylesAShellPrompt(t *testing.T) {
+	t.Parallel()
+	got := ui.Command("rm -f thumbnail.png")
+
+	assert.Equal(t, "$ rm -f thumbnail.png", ansi.Strip(got))
+	assert.NotEqual(t, ansi.Strip(got), got, "Command must style its output")
 }
 
 func TestWithSpinner_PassesTheResultThrough(t *testing.T) {
