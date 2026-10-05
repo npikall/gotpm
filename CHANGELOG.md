@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-05
+
+### 🚀 Features
+
+- install packages from a package path inside a repository
+- *(hooks)* add publish hooks
+- *(cache)* add clear forks flag
+- *(config)* interactively edit config in the default editor
+
+### 🐛 Bug Fixes
+
+- *(spinner)* make spinner pauseable
+- *(self,publish)* restore spinner lost in rebase; split publish flow
+
+### 📚 Documentation
+
+- *(readme)* replace retired go report card with golangci-lint
+- update context
+- add publish hooks
+- add cache clearing of forks
+- update config related documentation
+
+### 🚜 Refactor
+
+- *(cmd)* deduplicate getting the first argument
+- *(paths)* simplify file helpers and cover them
+- *(remote,resolve,index)* split fetching and url parsing
+- *(manifest,lockfile,typstsrc,config)* split parsing helpers
+- *(store,deps,depgraph)* split install and graph walking
+- *(cmds)* split dependency command runners
+- *(cmds)* split remaining command runners
+- render publish hooks with color
+
+### 🧪 Testing
+
+- install packages from a package path inside a repository
+- writing to stdout/stderr during a spinner works correctly
+- *(hooks)* add publish hooks
+- clearing forks cache
+- confg edit opens config in default editor
+
+### 💼 Other
+
+- *(nix)* add flake output
+- *(task)* use gotestsum to run the tests with better formatted output
+- vendor modules
+- *(task)* add crap analysis
+- *(task)* add ci task
+- fix default branch name
+- add shell interpreter as dependency
+- *(task)* use master instead of main in release commands
+
 ## [0.5.2] - 2026-09-07
 
 ### 🐛 Bug Fixes
@@ -45,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - strip excessive comments
 - *(task)* add release notes dry-run task
 - *(task)* add jj release workflow
+- *(release)* v0.5.2
 
 ## [0.5.1] - 2026-08-25
 
@@ -727,6 +780,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.6.0]: https://github.com/npikall/gotpm/compare/v0.5.2..v0.6.0
 [0.5.2]: https://github.com/npikall/gotpm/compare/v0.5.1..v0.5.2
 [0.5.1]: https://github.com/npikall/gotpm/compare/v0.5.0..v0.5.1
 [0.5.0]: https://github.com/npikall/gotpm/compare/v0.4.0..v0.5.0
