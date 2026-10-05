@@ -25,12 +25,14 @@ func init() {
 
 	cacheClearCmd.Flags().Bool("dry-run", false, "Dry run to see which data will be deleted")
 	cacheClearCmd.Flags().Bool("forks", false, "Clear the fork clones used by publish instead of the cache")
+	cacheClearCmd.Flags().Bool("fonts", false, "Clear the installed fonts instead of the cache")
 }
 
 func CacheClearRunner(cmd *cobra.Command, _ []string) error {
 	opts := &cache.Options{
 		DryRun: Must(cmd.Flags().GetBool("dry-run")),
 		Forks:  Must(cmd.Flags().GetBool("forks")),
+		Fonts:  Must(cmd.Flags().GetBool("fonts")),
 	}
 	return cache.Clear(opts, newLogger(cmd))
 }
