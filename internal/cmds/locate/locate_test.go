@@ -33,6 +33,20 @@ func TestRunUnknownKey(t *testing.T) {
 	}
 }
 
+// Not parallel: t.Setenv cannot be used from a parallel test.
+func TestLookupFontsLivesInDataDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
+	dataDir, err := paths.GotpmDataDir()
+	require.NoError(t, err)
+
+	entry, err := locate.Lookup("fonts")
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dataDir, "fonts"), entry.Path)
+}
+
 var errNoManifest = errors.New("no typst.toml found")
 
 func TestRenderAlignsPathsAndExplainsFailures(t *testing.T) {
