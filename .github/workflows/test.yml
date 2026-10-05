@@ -2,15 +2,15 @@ name: Test
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.base_ref == 'main' }}
+  cancel-in-progress: ${{ github.base_ref == 'master' }}
 
 jobs:
   test:
