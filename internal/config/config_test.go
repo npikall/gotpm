@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -94,4 +95,43 @@ func TestPath_ContainsGoTPM(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "gotpm", filepath.Base(filepath.Dir(path)))
 	assert.Equal(t, "config.toml", filepath.Base(path))
+}
+
+func TestLoad_MalformedFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+	path, err := Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("fork = ["), 0o600))
+
+	_, err = Load()
+
+	require.ErrorContains(t, err, path)
+}
+
+func TestParse(t *testing.T) { //nolint: paralleltest
+	cfg, err := Parse([]byte("[fork]\nurl = \"https://github.com/user/packages\"\n"))
+	require.NoError(t, err)
+	assert.Equal(t, "https://github.com/user/packages", cfg.Fork.URL)
+}
+
+func TestParse_UnknownKey(t *testing.T) { //nolint: paralleltest
+	_, err := Parse([]byte("[fork]\nnope = \"x\"\n"))
+	require.ErrorIs(t, err, ErrUnknownKey)
+	assert.ErrorContains(t, err, "fork.nope")
+}
+
+func TestParse_InvalidTOML(t *testing.T) { //nolint: paralleltest
+	_, err := Parse([]byte("fork = ["))
+	require.Error(t, err)
+}
+
+func TestTemplate_ParsesToEmptyConfig(t *testing.T) { //nolint: paralleltest
+	cfg, err := Parse([]byte(Template))
+	require.NoError(t, err)
+	assert.Equal(t, &Config{}, cfg)
+	for _, entry := range cfg.Entries() {
+		assert.Contains(t, Template, "# "+entry.Key+" = ")
+	}
 }
