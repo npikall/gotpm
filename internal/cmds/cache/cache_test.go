@@ -9,6 +9,7 @@ import (
 	"charm.land/log/v2"
 	cachecmd "github.com/npikall/gotpm/internal/cmds/cache"
 	"github.com/npikall/gotpm/internal/config"
+	"github.com/npikall/gotpm/internal/fonts"
 	"github.com/npikall/gotpm/internal/index"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/remote"
@@ -177,4 +178,50 @@ func TestClear_ForksFailsOnAnUnreadableClone(t *testing.T) { //nolint: parallelt
 	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) }) // so TempDir can clean up
 
 	require.Error(t, cachecmd.Clear(&cachecmd.Options{Forks: true}, discardLogger()))
+}
+
+func seedFonts(t *testing.T) (string, string) {
+	t.Helper()
+	fontsDir, err := paths.GotpmFontsDir()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(fontsDir, "lato"), paths.DirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(fontsDir, "lato", "Lato.ttf"), []byte("font"), paths.FilePerm))
+	fontIndex, err := fonts.IndexPath()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(fontIndex, []byte("{}"), paths.FilePerm))
+	return fontsDir, fontIndex
+}
+
+func TestClear_LeavesFontsAloneButDropsTheFontIndex(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	seedCacheState(t)
+	fontsDir, fontIndex := seedFonts(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{}, discardLogger()))
+
+	assert.DirExists(t, fontsDir, "the font directory is never cache")
+	assert.NoFileExists(t, fontIndex, "the searched family list is cache")
+}
+
+func TestClear_FontsRemovesOnlyTheFontDirectory(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	remotesDir, cachePath, _ := seedCacheState(t)
+	forksDir := seedForkClone(t)
+	fontsDir, _ := seedFonts(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{Fonts: true}, discardLogger()))
+
+	assert.NoDirExists(t, fontsDir)
+	assert.DirExists(t, remotesDir)
+	assert.FileExists(t, cachePath)
+	assert.DirExists(t, forksDir)
+}
+
+func TestClear_FontsDryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	fontsDir, _ := seedFonts(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{Fonts: true, DryRun: true}, discardLogger()))
+
+	assert.DirExists(t, fontsDir)
 }
