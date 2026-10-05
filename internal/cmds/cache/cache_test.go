@@ -109,3 +109,72 @@ func TestClear_FailsOnAnUnreadableCache(t *testing.T) { //nolint: paralleltest
 
 	require.Error(t, cachecmd.Clear(&cachecmd.Options{}, discardLogger()))
 }
+
+func seedForkClone(t *testing.T) string {
+	t.Helper()
+	forksDir, err := paths.GotpmForksDir()
+	require.NoError(t, err)
+	clone := filepath.Join(forksDir, "github.com", "me", "packages")
+	require.NoError(t, os.MkdirAll(clone, paths.DirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(clone, "file.txt"), []byte("data"), paths.FilePerm))
+	return forksDir
+}
+
+func TestClear_LeavesForkClonesAlone(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	seedCacheState(t)
+	forksDir := seedForkClone(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{}, discardLogger()))
+
+	assert.DirExists(t, forksDir, "a plain cache clear must not remove fork clones")
+}
+
+func TestClear_ForksRemovesOnlyForkClones(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	remotesDir, cachePath, configPath := seedCacheState(t)
+	forksDir := seedForkClone(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{Forks: true}, discardLogger()))
+
+	assert.NoDirExists(t, forksDir, "fork clones must be removed")
+	assert.DirExists(t, remotesDir, "--forks must not remove the remotes cache")
+	assert.FileExists(t, cachePath, "--forks must not remove the index cache")
+	assert.FileExists(t, configPath, "--forks must not touch config.toml")
+}
+
+func TestClear_ForksDryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+	forksDir := seedForkClone(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{Forks: true, DryRun: true}, discardLogger()))
+
+	assert.DirExists(t, forksDir, "dry-run must not remove fork clones")
+}
+
+func TestClear_ForksMissingNoOp(t *testing.T) { //nolint: paralleltest
+	isolateCacheDir(t)
+
+	require.NoError(t, cachecmd.Clear(&cachecmd.Options{Forks: true}, discardLogger()))
+}
+
+func TestClear_ForksFailsWithoutADataDirectory(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("APPDATA", "")
+
+	require.Error(t, cachecmd.Clear(&cachecmd.Options{Forks: true}, discardLogger()))
+}
+
+func TestClear_ForksFailsOnAnUnreadableClone(t *testing.T) { //nolint: paralleltest
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	isolateCacheDir(t)
+	forksDir := seedForkClone(t)
+	locked := filepath.Join(forksDir, "locked")
+	require.NoError(t, os.Mkdir(locked, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) }) // so TempDir can clean up
+
+	require.Error(t, cachecmd.Clear(&cachecmd.Options{Forks: true}, discardLogger()))
+}

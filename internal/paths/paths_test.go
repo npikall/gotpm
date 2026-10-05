@@ -328,3 +328,25 @@ func TestConfigDirFailsWithoutAHome(t *testing.T) {
 	_, err = paths.AppConfigDir("gotpm")
 	require.Error(t, err)
 }
+
+func TestGotpmForksDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("APPDATA", filepath.Join(home, "appdata"))
+
+	data, err := paths.GotpmDataDir()
+	require.NoError(t, err)
+	forks, err := paths.GotpmForksDir()
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(data, "forks"), forks)
+}
+
+func TestGotpmForksDirFailsWithoutADataDirectory(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("APPDATA", "")
+
+	_, err := paths.GotpmForksDir()
+	require.Error(t, err)
+}
