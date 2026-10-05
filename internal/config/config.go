@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,6 +19,17 @@ var (
 	ErrUnknownKey       = errors.New("unknown config key")
 	ErrUnsupportedField = errors.New("unsupported field type")
 )
+
+// Template is what a new config file starts as when it is edited by hand:
+// every key, commented out and described.
+const Template = `# gotpm config. Uncomment a key to set it.
+
+# URL of the forked package repository submissions are pushed to.
+# fork.url = "https://github.com/you/packages"
+
+# Local directory the fork gets cloned into.
+# fork.path = "/home/you/typst-packages"
+`
 
 type Config struct {
 	Fork ForkConfig `toml:"fork,omitempty"`
@@ -96,8 +108,37 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	data, err := readIfExists(path)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return cfg, nil
+}
+
+// readIfExists reads the file at path, which reads as empty if there is none.
+func readIfExists(path string) ([]byte, error) {
+	data, err := os.ReadFile(path) //nolint: gosec
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	return data, err //nolint: wrapcheck
+}
+
+// Parse decodes a config file's contents, rejecting any key gotpm does not
+// know, so a typo is reported rather than silently ignored.
+func Parse(data []byte) (*Config, error) {
 	cfg := &Config{}
-	_, _ = toml.DecodeFile(path, cfg)
+	meta, err := toml.Decode(string(data), cfg)
+	if err != nil {
+		return nil, err //nolint: wrapcheck
+	}
+	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+		return nil, fmt.Errorf("%w: %q", ErrUnknownKey, undecoded[0].String())
+	}
 	return cfg, nil
 }
 
