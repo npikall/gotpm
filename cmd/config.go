@@ -13,7 +13,21 @@ var configCmd = &cobra.Command{
 
 Available keys:
 	- fork.path  local directory a forked package repository gets cloned into
-	- fork.url   URL of the forked package repository`,
+	- fork.url   URL of the forked package repository
+
+set and unset rewrite the whole file, so comments added with edit are lost.`,
+}
+
+var configEditCmd = &cobra.Command{
+	Use:   "edit",
+	Short: "Open the config file in your editor",
+	Long: `Open the config file in $VISUAL, or $EDITOR, falling back to vi (notepad on
+Windows). The edit is saved only if it is valid TOML with known keys; a new
+config file starts with every key commented out.`,
+	Example: `gotpm config edit
+EDITOR="code --wait" gotpm config edit`,
+	Args: cobra.NoArgs,
+	RunE: ConfigEditRunner,
 }
 
 var configSetCmd = &cobra.Command{
@@ -57,6 +71,7 @@ func init() {
 	configCmd.AddCommand(configGetCmd)
 	configCmd.AddCommand(configUnsetCmd)
 	configCmd.AddCommand(configListCmd)
+	configCmd.AddCommand(configEditCmd)
 }
 
 func ConfigSetRunner(_ *cobra.Command, args []string) error {
@@ -73,4 +88,8 @@ func ConfigUnsetRunner(_ *cobra.Command, args []string) error {
 
 func ConfigListRunner(_ *cobra.Command, _ []string) error {
 	return config.List()
+}
+
+func ConfigEditRunner(cmd *cobra.Command, _ []string) error {
+	return config.Edit(cmd.Context())
 }
