@@ -350,3 +350,25 @@ func TestGotpmForksDirFailsWithoutADataDirectory(t *testing.T) {
 	_, err := paths.GotpmForksDir()
 	require.Error(t, err)
 }
+
+func TestGotpmFontsDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("APPDATA", filepath.Join(home, "appdata"))
+
+	data, err := paths.GotpmDataDir()
+	require.NoError(t, err)
+	fonts, err := paths.GotpmFontsDir()
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(data, "fonts"), fonts)
+}
+
+func TestGotpmFontsDirFailsWithoutADataDirectory(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("APPDATA", "")
+
+	_, err := paths.GotpmFontsDir()
+	require.Error(t, err)
+}

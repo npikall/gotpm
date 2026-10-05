@@ -151,13 +151,36 @@ func (p *Package) Release(deps ...*Package) *Package {
 // lock. A nil lock ships no gotpm.lock at all, which is what a package whose
 // author forgot to commit one looks like.
 func (p *Package) ReleaseWith(declared []string, lock *lockfile.Lock) *Package {
+	p.t.Helper()
+	return p.ReleaseDeclaring(declared, nil, lock)
+}
+
+// ReleaseFonts commits a release declaring the given font families and
+// pinning them in its lock, the way a template needing a font ships.
+func (p *Package) ReleaseFonts(pins ...lockfile.Font) *Package {
+	p.t.Helper()
+	families := make([]string, 0, len(pins))
+	lock := lockfile.New()
+	for _, pin := range pins {
+		families = append(families, pin.Family)
+		pin.Direct = true
+		lock.UpsertFont(pin)
+	}
+	return p.ReleaseDeclaring(nil, families, lock)
+}
+
+// ReleaseDeclaring commits a release declaring both packages and font
+// families, shipping lock as its gotpm.lock (none when nil).
+func (p *Package) ReleaseDeclaring(declared, families []string, lock *lockfile.Lock) *Package {
 	t := p.t
 	t.Helper()
 
 	p.builds++
 	lib := fmt.Sprintf("#let name = %q\n#let build = %d\n", p.name, p.builds)
 	require.NoError(t, paths.EnsureDir(p.root()))
-	require.NoError(t, paths.WriteFile(filepath.Join(p.root(), manifest.FileName), p.manifest(declared)))
+	file := filepath.Join(p.root(), manifest.FileName)
+	require.NoError(t, paths.WriteFile(file, p.manifest(declared)))
+	require.NoError(t, manifest.SetFonts(file, families))
 	require.NoError(t, paths.WriteFile(filepath.Join(p.root(), "lib.typ"), []byte(lib)))
 	if lock != nil {
 		require.NoError(t, lockfile.Save(p.root(), lock))

@@ -25,6 +25,7 @@ const (
 	toolTable       = "tool"
 	gotpmTable      = "gotpm"
 	dependencies    = "dependencies"
+	fonts           = "fonts"
 	arrayIndent     = "  "
 	arrayDelimiters = 2
 )
@@ -33,6 +34,12 @@ const (
 // are written.
 func (m *Manifest) Dependencies() []string {
 	return m.Tool.Gotpm.Dependencies
+}
+
+// Fonts returns the font families the manifest declares, in the order they
+// are written.
+func (m *Manifest) Fonts() []string {
+	return m.Tool.Gotpm.Fonts
 }
 
 // ParseDependencies turns the declared dependency strings into package
@@ -62,15 +69,26 @@ func ParseDependencies(deps []string) ([]pkg.Ref, error) {
 
 // SetDependencies rewrites the dependency array of [tool.gotpm], leaving every
 // other byte as it was: the TOML encoder discards comments and reorders keys, and
-// typst.toml is written by hand. An empty deps removes the array, section and all.
+// typst.toml is written by hand. An empty deps removes the array, and the section
+// with it when nothing else is left in it.
 func SetDependencies(file string, deps []string) error {
+	return setArray(file, dependencies, deps)
+}
+
+// SetFonts rewrites the font array of [tool.gotpm] the way SetDependencies
+// rewrites the dependency array.
+func SetFonts(file string, families []string) error {
+	return setArray(file, fonts, families)
+}
+
+func setArray(file, key string, values []string) error {
 	content, err := os.ReadFile(file) //nolint: gosec
 	if err != nil {
 		return fmt.Errorf("could not read %q: %w", file, err)
 	}
 
 	lines, newline, trailing := splitLines(string(content))
-	updated, err := setDependencyLines(lines, deps)
+	updated, err := setArrayLines(lines, key, values)
 	if err != nil {
 		return fmt.Errorf("%q: %w", file, err)
 	}
@@ -96,44 +114,46 @@ func joinLines(lines []string, newline string, trailing bool) string {
 	return out
 }
 
-func setDependencyLines(lines, deps []string) ([]string, error) {
+func setArrayLines(lines []string, key string, values []string) ([]string, error) {
 	header := findTable(lines, toolTable, gotpmTable)
 	if header < 0 {
-		return setWithoutSection(lines, deps)
+		return setWithoutSection(lines, key, values)
 	}
-	return setInSection(lines, header, deps), nil
+	return setInSection(lines, header, key, values), nil
 }
 
-// setWithoutSection adds a [tool.gotpm] section for deps, if there are any.
-func setWithoutSection(lines, deps []string) ([]string, error) {
+// setWithoutSection adds a [tool.gotpm] section for values, if there are any.
+func setWithoutSection(lines []string, key string, values []string) ([]string, error) {
 	if err := rejectInlineToolSection(lines); err != nil {
 		return nil, err
 	}
-	if len(deps) == 0 {
+	if len(values) == 0 {
 		return lines, nil
 	}
-	return appendSection(lines, deps), nil
+	return appendSection(lines, key, values), nil
 }
 
-// setInSection writes deps into the [tool.gotpm] section starting at header.
-func setInSection(lines []string, header int, deps []string) []string {
+// setInSection writes the key array into the [tool.gotpm] section starting at
+// header.
+func setInSection(lines []string, header int, key string, values []string) []string {
 	end := tableEnd(lines, header)
-	start, stop, found := findArray(lines, header+1, end)
+	start, stop, found := findArray(lines, key, header+1, end)
 	if !found {
-		return insertArray(lines, header, deps)
+		return insertArray(lines, header, key, values)
 	}
-	if len(deps) == 0 {
+	if len(values) == 0 {
 		return removeArray(lines, header, start, stop, end)
 	}
-	return splice(lines, start, stop+1, renderArray(deps))
+	return splice(lines, start, stop+1, renderArray(key, values))
 }
 
-// insertArray writes deps right below a section header that has no array yet.
-func insertArray(lines []string, header int, deps []string) []string {
-	if len(deps) == 0 {
+// insertArray writes the key array right below a section header that has none
+// yet.
+func insertArray(lines []string, header int, key string, values []string) []string {
+	if len(values) == 0 {
 		return lines
 	}
-	return splice(lines, header+1, header+1, renderArray(deps))
+	return splice(lines, header+1, header+1, renderArray(key, values))
 }
 
 func rejectInlineToolSection(lines []string) error {
@@ -153,7 +173,7 @@ func isInlineGotpmKey(line string) bool {
 	return ok && strings.TrimSpace(key) == gotpmTable
 }
 
-func appendSection(lines, deps []string) []string {
+func appendSection(lines []string, key string, values []string) []string {
 	out := append([]string{}, lines...)
 	for len(out) > 0 && strings.TrimSpace(out[len(out)-1]) == "" {
 		out = out[:len(out)-1]
@@ -162,7 +182,7 @@ func appendSection(lines, deps []string) []string {
 		out = append(out, "")
 	}
 	out = append(out, "["+toolTable+"."+gotpmTable+"]")
-	return append(out, renderArray(deps)...)
+	return append(out, renderArray(key, values)...)
 }
 
 func removeArray(lines []string, header, start, stop, end int) []string {
@@ -183,31 +203,31 @@ func removeArray(lines []string, header, start, stop, end int) []string {
 	return splice(lines, from, end, nil)
 }
 
-func renderArray(deps []string) []string {
-	out := make([]string, 0, len(deps)+arrayDelimiters)
-	out = append(out, dependencies+" = [")
-	for _, dep := range deps {
-		out = append(out, arrayIndent+strconv.Quote(dep)+",")
+func renderArray(key string, values []string) []string {
+	out := make([]string, 0, len(values)+arrayDelimiters)
+	out = append(out, key+" = [")
+	for _, value := range values {
+		out = append(out, arrayIndent+strconv.Quote(value)+",")
 	}
 	return append(out, "]")
 }
 
-func findArray(lines []string, from, to int) (int, int, bool) {
+func findArray(lines []string, key string, from, to int) (int, int, bool) {
 	for i := from; i < to; i++ {
-		if value, ok := dependenciesValue(lines[i]); ok {
+		if value, ok := arrayValue(lines[i], key); ok {
 			return i, arrayEnd(lines, i, to, value), true
 		}
 	}
 	return 0, 0, false
 }
 
-// dependenciesValue returns what follows "dependencies =" on line.
-func dependenciesValue(line string) (string, bool) {
-	key, value, ok := strings.Cut(line, "=")
+// arrayValue returns what follows "<key> =" on line.
+func arrayValue(line, key string) (string, bool) {
+	name, value, ok := strings.Cut(line, "=")
 	if !ok || isComment(line) {
 		return "", false
 	}
-	return value, strings.TrimSpace(key) == dependencies
+	return value, strings.TrimSpace(name) == key
 }
 
 // arrayEnd is the line, at or after start and before to, closing the array

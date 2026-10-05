@@ -61,3 +61,19 @@ func TestProjectBecomesTheWorkingDirectory(t *testing.T) { //nolint: paralleltes
 	assert.Equal(t, "doc", m.Package.Name)
 	assert.DirExists(t, dir)
 }
+
+func TestReleaseFontsDeclaresAndPinsThem(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	testrepo.Isolate(t)
+	pin := lockfile.Font{Family: "Lato", Source: "google-fonts", Hash: "abc"}
+
+	p := testrepo.New(t, "thesis", "1.0.0").ReleaseFonts(pin)
+
+	m, err := manifest.LoadFrom(p.Dir())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Lato"}, m.Fonts())
+	lock, err := lockfile.Load(p.Dir())
+	require.NoError(t, err)
+	got, ok := lock.GetFont("Lato")
+	require.True(t, ok)
+	assert.True(t, got.Direct)
+}
