@@ -42,6 +42,9 @@ type Gotpm struct {
 	// Dependencies lists packages the way they are imported in typst source,
 	// e.g. "@gotpm/cetz:0.3.1".
 	Dependencies []string `toml:"dependencies,omitempty"`
+	// Fonts lists the font families the project needs, by the name Typst's
+	// font setting uses, e.g. "Open Sans".
+	Fonts []string `toml:"fonts,omitempty"`
 	// PrePublishHook lists shell commands publish runs in the package root
 	// before it copies the package, e.g. to generate a thumbnail.
 	PrePublishHook []string `toml:"pre-publish-hook,omitempty"`

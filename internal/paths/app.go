@@ -21,3 +21,13 @@ func GotpmForksDir() (string, error) {
 	}
 	return filepath.Join(dataDir, "forks"), nil
 }
+
+// GotpmFontsDir returns the directory installed fonts are kept under, one
+// directory per font family, without creating it.
+func GotpmFontsDir() (string, error) {
+	dataDir, err := GotpmDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dataDir, "fonts"), nil
+}

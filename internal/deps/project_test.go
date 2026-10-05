@@ -86,3 +86,26 @@ func TestProjectSetDependenciesReportsAMissingFile(t *testing.T) {
 
 	require.Error(t, project.SetDependencies([]string{"github.com/a/cetz"}))
 }
+
+func TestSetFonts_WritesTheManifestAndTheLoadedCopy(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, manifest.FileName), []byte(projectManifest), 0o600))
+	project, err := deps.OpenProjectAt(root)
+	require.NoError(t, err)
+
+	require.NoError(t, project.SetFonts([]string{"Lato"}))
+
+	assert.Equal(t, []string{"Lato"}, project.Fonts())
+	reopened, err := deps.OpenProjectAt(root)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Lato"}, reopened.Fonts())
+}
+
+func TestSetFonts_ReportsAMissingManifest(t *testing.T) {
+	t.Parallel()
+	project := &deps.Project{File: filepath.Join(t.TempDir(), manifest.FileName), Manifest: &manifest.Manifest{}}
+
+	require.Error(t, project.SetFonts([]string{"Lato"}))
+	assert.Empty(t, project.Fonts())
+}

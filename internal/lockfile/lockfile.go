@@ -18,10 +18,14 @@ import (
 	"github.com/npikall/gotpm/internal/paths"
 )
 
-// SchemaVersion is the format version written into new lock files. Load
+// SchemaVersion is the newest format version this gotpm reads and writes. Load
 // refuses anything newer so an older gotpm does not silently misread a lock
 // written by a newer one.
-const SchemaVersion = 1
+const SchemaVersion = 2
+
+// versionWithoutFonts is written for a lock holding no font pins, the lowest
+// version expressing it, so older gotpm can still read it (ADR 0007).
+const versionWithoutFonts = 1
 
 // FileName is the name of the lock file within a project directory.
 const FileName = "gotpm.lock"
@@ -62,6 +66,8 @@ type Entry struct {
 type Lock struct {
 	Version  int     `json:"version"`
 	Packages []Entry `json:"packages"`
+	// Fonts pins the font families the project and its dependencies declare.
+	Fonts []Font `json:"fonts,omitempty"`
 }
 
 // New returns an empty lock in the current format.
@@ -108,7 +114,11 @@ func parse(path string, data []byte) (*Lock, error) {
 // so the file has a stable order and produces readable diffs.
 func Save(projectDir string, l *Lock) error {
 	l.Version = SchemaVersion
+	if len(l.Fonts) == 0 {
+		l.Version = versionWithoutFonts
+	}
 	l.sort()
+	l.sortFonts()
 
 	data, err := json.MarshalIndent(l, "", "  ")
 	if err != nil {

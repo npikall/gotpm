@@ -61,6 +61,22 @@ func (p *Project) SetDependencies(deps []string) error {
 	return nil
 }
 
+// Fonts returns the font families the project declares, in the order they
+// are written in the manifest.
+func (p *Project) Fonts() []string {
+	return p.Manifest.Fonts()
+}
+
+// SetFonts rewrites the declared font list, keeping the rest of the manifest
+// byte for byte as it was.
+func (p *Project) SetFonts(families []string) error {
+	if err := manifest.SetFonts(p.File, families); err != nil {
+		return err
+	}
+	p.Manifest.Tool.Gotpm.Fonts = families
+	return nil
+}
+
 // Lock reads the lock file committed next to the manifest. A project without
 // one yet reads as an empty lock.
 func (p *Project) Lock() (*lockfile.Lock, error) {
