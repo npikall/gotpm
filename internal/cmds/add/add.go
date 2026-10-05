@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/depgraph"
@@ -40,31 +41,33 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
-	entries, results, err := fetch(url, opts, logger)
+	walked, results, err := fetch(url, opts, logger)
 	if err != nil {
 		return err
 	}
-	if err := record(project, entries); err != nil {
+	fontResults, err := record(project, walked, opts.Force, logger)
+	if err != nil {
 		return err
 	}
 	report(results)
+	fontResults.Report()
 	return nil
 }
 
 // fetch resolves url and everything it depends on, and installs it all. The
 // package at url comes first.
-func fetch(url string, opts *Options, logger *log.Logger) ([]lockfile.Entry, []deps.Result, error) {
+func fetch(url string, opts *Options, logger *log.Logger) (depgraph.Result, []deps.Result, error) {
 	walked, err := ui.WithSpinner("resolving "+url, func() (depgraph.Result, error) {
 		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{}, logger)
 	})
 	if err != nil {
-		return nil, nil, err
+		return depgraph.Result{}, nil, err
 	}
 	if err := errorForUnresolved(walked.Unresolved); err != nil {
-		return nil, nil, err
+		return depgraph.Result{}, nil, err
 	}
 	results, err := installAll(walked.Entries, opts.Force, logger)
-	return walked.Entries, results, err
+	return walked, results, err
 }
 
 func installAll(entries []lockfile.Entry, force bool, logger *log.Logger) ([]deps.Result, error) {
@@ -77,12 +80,14 @@ func installAll(entries []lockfile.Entry, force bool, logger *log.Logger) ([]dep
 	})
 }
 
-// record locks every entry and declares the first, the package that was added.
-func record(project *deps.Project, entries []lockfile.Entry) error {
-	if err := updateLock(project, entries); err != nil {
-		return err
+// record locks every entry and font, installs the fonts as they end up
+// pinned, and declares the first entry, the package that was added.
+func record(project *deps.Project, walked depgraph.Result, force bool, logger *log.Logger) (deps.FontResults, error) {
+	fontResults, err := updateLock(project, walked, force, logger)
+	if err != nil {
+		return fontResults, err
 	}
-	return declare(project, entries[0].Import)
+	return fontResults, declare(project, walked.Entries[0].Import)
 }
 
 func errorForUnresolved(unresolved []depgraph.Unresolved) error {
@@ -99,15 +104,36 @@ func errorForUnresolved(unresolved []depgraph.Unresolved) error {
 		ErrUnresolvable, u.Dependency, u.RequiredBy, reason, u.RequiredBy, lockfile.FileName)
 }
 
-func updateLock(project *deps.Project, entries []lockfile.Entry) error {
+func updateLock(project *deps.Project, walked depgraph.Result, force bool, logger *log.Logger) (deps.FontResults, error) {
 	lock, err := project.Lock()
 	if err != nil {
-		return err
+		return deps.FontResults{}, err
 	}
-	for _, entry := range entries {
+	for _, entry := range walked.Entries {
 		lock.Upsert(entry)
 	}
-	return project.SaveLock(lock)
+	fontResults, err := deps.EnsureFonts(pinFonts(lock, walked.Fonts), force, logger)
+	if err != nil {
+		return fontResults, err
+	}
+	return fontResults, project.SaveLock(lock)
+}
+
+// pinFonts records the fonts the added packages declare and returns the pins
+// that ended up in the lock. One the lock pins at another commit already keeps
+// that commit, and the conflict is reported.
+func pinFonts(lock *lockfile.Lock, pins []lockfile.Font) []lockfile.Font {
+	kept := make([]lockfile.Font, 0, len(pins))
+	for _, pin := range pins {
+		recorded, conflict := lock.UpsertFont(pin)
+		if conflict {
+			ui.Warnf("font %q is pinned at %s, %s wants %s; keeping %s",
+				pin.Family, deps.ShortHash(recorded.Hash), strings.Join(pin.RequiredBy, ", "),
+				deps.ShortHash(pin.Hash), deps.ShortHash(recorded.Hash))
+		}
+		kept = append(kept, recorded)
+	}
+	return kept
 }
 
 func declare(project *deps.Project, imp string) error {
