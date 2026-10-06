@@ -8,8 +8,8 @@ A minimal Typst Package Manager written in Go.
 ---
 
 This tool is for developers working on Packages for [Typst]. It will make
-testing your Package easy, as it allows you to install the package locally
-and use it.
+testing your Package easy, as it allows you to install the package locally and
+use it.
 
 - Install Packages into `{data-dir}/typst/packages/`
 - Uninstall Packages
@@ -21,7 +21,7 @@ and use it.
 
 ---
 
-<img class="shadow" src="https://github.com/npikall/gotpm/raw/main/docs/assets/casette.gif">
+<img class="shadow" src="https://github.com/npikall/gotpm/raw/master/docs/assets/casette.gif">
 
 ## Installation
 
@@ -59,13 +59,16 @@ go install github.com/npikall/gotpm@latest
 
 ### Download Binary
 
-Download the Binary from [GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it in your `$PATH`
+Download the Binary from
+[GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it
+in your `$PATH`
 
 ### Verify a Release
 
-Every release's `checksums.txt` is signed keylessly with [cosign](https://docs.sigstore.dev/cosign/installation/),
-tying it to the exact `release.yml` GitHub Actions run that built it. Verify a
-downloaded binary against it:
+Every release's `checksums.txt` is signed keylessly with
+[cosign](https://docs.sigstore.dev/cosign/installation/), tying it to the exact
+`release.yml` GitHub Actions run that built it. Verify a downloaded binary
+against it:
 
 ```bash
 # Download checksums.txt and its signature bundle alongside the binary, then:
@@ -93,57 +96,63 @@ task install # or read the Taskfile.yml to do build and install manually
 
 <!-- --8<-- [start:alternatives] -->
 
-The main alternative Typst package manager is [utpm](https://github.com/typst-community/utpm),
-which targets the same workflow: developing and publishing local Typst packages.
+The main alternative Typst package manager is
+[utpm](https://github.com/typst-community/utpm), which targets the same
+workflow: developing and publishing local Typst packages.
 [typship](https://crates.io/crates/typship) is included for completeness — its
 GitHub repository has been deleted and it hasn't been updated since May 2025,
 but the crate is still live on crates.io. Feature comparison, accurate as of
 August 2026:
 
-| Feature                       | gotpm                               | utpm `v0.3.0`                            | typship `v0.4.2` [^4]                |
-| ----------------------------- | ----------------------------------- | ----------------------------------------- | -------------------------------------- |
-| Language                      | Go                                 | Rust                                     | Rust                                  |
-| Local install                 | ✅ `gotpm install`                  | ✅ `utpm prj link`                         | ✅ `typship install <namespace>`        |
-| Remote install (git)          | ✅ `gotpm install -r`               | ✅ `utpm pkg install`                      | ✅ `typship download <repo>`            |
-| Editable install (symlink)    | ✅ `gotpm install -e`               | ✅ `utpm prj link --no-copy`               | ❌                                      |
-| Uninstall                     | ✅ `gotpm uninstall`                | ✅ `utpm pkg unlink`                       | ❌                                      |
-| List packages                 | ✅ `gotpm list`                     | ✅ `utpm pkg list`                         | ❌                                      |
-| Version bump                  | ✅ `gotpm bump`                     | ✅ `utpm prj bump`                         | ❌                                      |
-| Publish to Typst Universe     | ✅ `gotpm publish`                  | 🚧 planned (`utpm prj publish`)            | ✅ `typship publish`                    |
-| Update deps to latest version | ✅ `gotpm update` [^1]              | ✅ `utpm prj sync` [^2]                    | ❌                                      |
-| External binaries required [^3] | `git` — publish only          | `git` — remote install & publish     | `git` — remote install only            |
+| Feature                         | gotpm                  | utpm `v0.3.0`                    | typship `v0.4.2` [^4]            |
+| ------------------------------- | ---------------------- | -------------------------------- | -------------------------------- |
+| Language                        | Go                     | Rust                             | Rust                             |
+| Local install                   | ✅ `gotpm install`     | ✅ `utpm prj link`               | ✅ `typship install <namespace>` |
+| Remote install (git)            | ✅ `gotpm install -r`  | ✅ `utpm pkg install`            | ✅ `typship download <repo>`     |
+| Editable install (symlink)      | ✅ `gotpm install -e`  | ✅ `utpm prj link --no-copy`     | ❌                               |
+| Uninstall                       | ✅ `gotpm uninstall`   | ✅ `utpm pkg unlink`             | ❌                               |
+| List packages                   | ✅ `gotpm list`        | ✅ `utpm pkg list`               | ❌                               |
+| Version bump                    | ✅ `gotpm bump`        | ✅ `utpm prj bump`               | ❌                               |
+| Publish to Typst Universe       | ✅ `gotpm publish`     | 🚧 planned (`utpm prj publish`)  | ✅ `typship publish`             |
+| Update deps to latest version   | ✅ `gotpm update` [^1] | ✅ `utpm prj sync` [^2]          | ❌                               |
+| External binaries required [^3] | `git` — publish only   | `git` — remote install & publish | `git` — remote install only      |
 
-[^1]: Fetches the Typst Universe version index once, then resolves all
-    import statements in that file concurrently (goroutines) against the
-    in-memory index — one network request regardless of import count.
+[^1]:
+    Fetches the Typst Universe version index once, then resolves all import
+    statements in that file concurrently (goroutines) against the in-memory
+    index — one network request regardless of import count.
 
-[^2]: Despite `async fn` signatures, [`sync.rs`](https://github.com/typst-community/utpm/blob/ccdf834320f56df4aa1277dc931a3d3fd72c4af1/src/commands/sync.rs)
-    files and imports seem to be processed one at a time in plain `for` loops. Each
-    `@preview` import seems to trigger a fresh, uncached HTTP request to the Typst
-    Universe registry, so N imports means N sequential round-trips.
+[^2]:
+    Despite `async fn` signatures,
+    [`sync.rs`](https://github.com/typst-community/utpm/blob/ccdf834320f56df4aa1277dc931a3d3fd72c4af1/src/commands/sync.rs)
+    files and imports seem to be processed one at a time in plain `for` loops.
+    Each `@preview` import seems to trigger a fresh, uncached HTTP request to
+    the Typst Universe registry, so N imports means N sequential round-trips.
 
-[^3]: Only `gotpm publish` shells out to a system `git` binary via
-    [`internal/gitcli`](https://github.com/npikall/gotpm/blob/main/internal/gitcli/gitcli.go),
+[^3]:
+    Only `gotpm publish` shells out to a system `git` binary via
+    [`internal/gitcli`](https://github.com/npikall/gotpm/blob/master/internal/gitcli/gitcli.go),
     needed for sparse checkout and commit signing that the pure-Go `go-git`
-    library can't do. Every other command, including `gotpm install -r`,
-    uses `go-git` and needs no external binary. utpm's `pkg install`
-    (doc-commented "requires git to be installed") and `prj publish` both
-    shell out to a system `git` binary via
+    library can't do. Every other command, including `gotpm install -r`, uses
+    `go-git` and needs no external binary. utpm's `pkg install` (doc-commented
+    "requires git to be installed") and `prj publish` both shell out to a system
+    `git` binary via
     [`utils/git.rs`](https://github.com/typst-community/utpm/blob/main/src/utils/git.rs)
     (`std::process::Command`) for clone/add/commit/push/pull. typship's
     `download` command also shells out to `git clone`/`git checkout`
     (`src/commands/download.rs`); `typship publish` uses the GitHub API
     (`octocrab`) directly and needs no git binary.
 
-[^4]: Last published 2025-05-07 (`v0.4.2`). Its GitHub repository
+[^4]:
+    Last published 2025-05-07 (`v0.4.2`). Its GitHub repository
     (`sjfhsjfh/typship`, linked from the crates.io metadata) now 404s, so the
     source used here comes from the crate tarball on crates.io
     (`typship-0.4.2.crate`) rather than the repo.
 
 gotpm uses flat top-level commands (`gotpm install`, `gotpm uninstall`) that are
 easy to remember. utpm groups commands under `prj`/`pkg` subcommands (e.g.
-`utpm prj bump`, `utpm pkg unlink`), which might add some mental overhead in recalling
-which group a given command lives under.
+`utpm prj bump`, `utpm pkg unlink`), which might add some mental overhead in
+recalling which group a given command lives under.
 
 <!-- --8<-- [end:alternatives] -->
 
@@ -151,29 +160,31 @@ which group a given command lives under.
 
 <!-- --8<-- [start:benchmarks] -->
 
-[`scripts/bench.sh`](https://github.com/npikall/gotpm/blob/main/scripts/bench.sh) uses [hyperfine] to compare gotpm and
-utpm on install, uninstall, list, bump, and update/sync. Requires `hyperfine`,
-`jq`, `git`, `gotpm`, and `utpm` on `$PATH`. Everything runs against sandboxed
-temp directories — it never touches your real Typst package directory.
+[`scripts/bench.sh`](https://github.com/npikall/gotpm/blob/master/scripts/bench.sh)
+uses [hyperfine] to compare gotpm and utpm on install, uninstall, list, bump,
+and update/sync. Requires `hyperfine`, `jq`, `git`, `gotpm`, and `utpm` on
+`$PATH`. Everything runs against sandboxed temp directories — it never touches
+your real Typst package directory.
 
 ```bash
 ./scripts/bench.sh
 ```
 
 <!-- BENCH:RESULTS:START -->
-| Command | gotpm | utpm | Result |
-| --- | --- | --- | --- |
-| Install (local) | 2 ms | 2 ms | gotpm 1.1x faster |
-| Install (remote git) | 632 ms | 710 ms | gotpm 1.1x faster |
-| Uninstall | 2 ms | 2 ms | gotpm 1.1x faster |
-| List | 2 ms | 2 ms | utpm 1.0x faster |
-| Bump (patch) | 2 ms | 7 ms | gotpm 3.7x faster |
-| Update (18 imports) | 166 ms | 6.80 s | gotpm 41.0x faster |
 
-*Benchmarked 2026-08-03 on Linux 6.8.0-136-generic x86_64 with gotpm v0.3.13 and utpm 0.3.0.
-Results vary by machine and network conditions - run `scripts/bench.sh`
-yourself to reproduce. Whichever tool is faster for a given command is
-reported as-is.*
+| Command              | gotpm  | utpm   | Result             |
+| -------------------- | ------ | ------ | ------------------ |
+| Install (local)      | 2 ms   | 2 ms   | gotpm 1.1x faster  |
+| Install (remote git) | 632 ms | 710 ms | gotpm 1.1x faster  |
+| Uninstall            | 2 ms   | 2 ms   | gotpm 1.1x faster  |
+| List                 | 2 ms   | 2 ms   | utpm 1.0x faster   |
+| Bump (patch)         | 2 ms   | 7 ms   | gotpm 3.7x faster  |
+| Update (18 imports)  | 166 ms | 6.80 s | gotpm 41.0x faster |
+
+_Benchmarked 2026-08-03 on Linux 6.8.0-136-generic x86_64 with gotpm v0.3.13 and
+utpm 0.3.0. Results vary by machine and network conditions - run
+`scripts/bench.sh` yourself to reproduce. Whichever tool is faster for a given
+command is reported as-is._
 <!-- BENCH:RESULTS:END -->
 
 [hyperfine]: https://github.com/sharkdp/hyperfine
