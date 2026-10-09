@@ -18,7 +18,6 @@ type Options struct {
 	DryRun   bool
 	ShowCur  bool
 	ShowNext bool
-	Indent   bool
 }
 
 var (
@@ -70,14 +69,14 @@ func bumpProject(project *deps.Project, increment string, opts *Options, log *lo
 		_, _ = lg.Println(newVersion)
 		return nil
 	}
-	return setVersion(project, newVersion, opts.Indent)
+	return setVersion(project, newVersion)
 }
 
-func setVersion(project *deps.Project, newVersion string, indent bool) error {
+func setVersion(project *deps.Project, newVersion string) error {
 	m := project.Manifest
 	oldVersion := m.Package.Version
 	m.Package.Version = newVersion
-	if err := manifest.Update(project.File, m, indent); err != nil {
+	if err := manifest.Update(project.File, m); err != nil {
 		return fmt.Errorf("could not update %q: %w", project.File, err)
 	}
 

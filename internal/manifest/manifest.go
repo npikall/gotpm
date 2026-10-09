@@ -3,15 +3,14 @@
 package manifest
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 	"github.com/npikall/gotpm/internal/paths"
+	tomledit "github.com/npikall/toml-edit"
 )
 
 // FileName is the name of a typst package manifest.
@@ -138,42 +137,43 @@ func LoadFile(path string) (*Manifest, error) {
 	return manifest, nil
 }
 
-func Update(file string, manifest *Manifest, indent bool) error {
+// Update writes the name, version and entrypoint of manifest into file. Only
+// the values that differ change; every other byte stays as the author wrote
+// it.
+func Update(file string, manifest *Manifest) error {
 	content, err := os.ReadFile(file) //nolint: gosec
 	if err != nil {
 		return fmt.Errorf("could not read typst.toml: %w", err)
 	}
 
-	var buf bytes.Buffer
-	if err := writeTOML(&buf, manifest.Package, content, indent); err != nil {
-		return fmt.Errorf("could not update typst.toml: %w", err)
-	}
-
-	if err := paths.WriteFile(file, buf.Bytes()); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeTOML(w io.Writer, p PackageMeta, data []byte, indent bool) error {
-	var m map[string]any
-	if err := toml.Unmarshal(data, &m); err != nil {
+	doc, err := tomledit.Parse(string(content))
+	if err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidManifest, err)
 	}
-	pkg, ok := m["package"].(map[string]any)
-	if !ok {
-		return ErrInvalidManifest
+	if err := setPackage(doc, manifest.Package); err != nil {
+		return fmt.Errorf("could not update typst.toml: %w", err)
 	}
-	pkg["version"] = p.Version
-	pkg["name"] = p.Name
-	pkg["entrypoint"] = p.Entrypoint
+	return paths.WriteFile(file, []byte(doc.String()))
+}
 
-	encoder := toml.NewEncoder(w)
-	if !indent {
-		encoder.Indent = ""
+func setPackage(doc *tomledit.Document, p PackageMeta) error {
+	fields := []struct{ key, value string }{
+		{"name", p.Name},
+		{"version", p.Version},
+		{"entrypoint", p.Entrypoint},
 	}
-	if err := encoder.Encode(m); err != nil {
-		return fmt.Errorf("could not encode manifest: %w", err)
+	for _, field := range fields {
+		path := []string{"package", field.key}
+		current, err := doc.GetString(path...)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		}
+		if current == field.value {
+			continue
+		}
+		if err := doc.Set(path, field.value); err != nil {
+			return fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		}
 	}
 	return nil
 }

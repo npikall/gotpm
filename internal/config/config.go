@@ -8,10 +8,14 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/npikall/gotpm/internal/paths"
+	tomledit "github.com/npikall/toml-edit"
+	"github.com/npikall/toml-edit/eval"
 )
 
 var (
@@ -68,8 +72,11 @@ func (cfg *Config) Get(key string) (string, error) {
 // Entries returns every leaf config value as a dotted key and its current
 // value, in struct-declaration order.
 func (cfg *Config) Entries() []KV {
-	var entries []KV
-	flatten("", reflect.ValueOf(cfg).Elem(), &entries)
+	leaves := cfg.leaves()
+	entries := make([]KV, 0, len(leaves))
+	for _, leaf := range leaves {
+		entries = append(entries, KV{Key: strings.Join(leaf.path, "."), Value: fmt.Sprintf("%v", leaf.value.Interface())})
+	}
 	return entries
 }
 
@@ -78,20 +85,30 @@ type KV struct {
 	Value string
 }
 
-func flatten(prefix string, v reflect.Value, out *[]KV) {
+// leaf is a config value together with the key path it is stored under.
+type leaf struct {
+	path  []string
+	value reflect.Value
+}
+
+// leaves returns every config value in struct-declaration order.
+func (cfg *Config) leaves() []leaf {
+	var out []leaf
+	flatten(nil, reflect.ValueOf(cfg).Elem(), &out)
+	return out
+}
+
+func flatten(prefix []string, v reflect.Value, out *[]leaf) {
 	t := v.Type()
 	for i := range t.NumField() {
 		tag, _, _ := strings.Cut(t.Field(i).Tag.Get("toml"), ",")
-		key := tag
-		if prefix != "" {
-			key = prefix + "." + tag
-		}
+		path := append(slices.Clip(prefix), tag)
 		fv := v.Field(i)
 		if fv.Kind() == reflect.Struct {
-			flatten(key, fv, out)
+			flatten(path, fv, out)
 			continue
 		}
-		*out = append(*out, KV{Key: key, Value: fmt.Sprintf("%v", fv.Interface())})
+		*out = append(*out, leaf{path: path, value: fv})
 	}
 }
 
@@ -142,21 +159,65 @@ func Parse(data []byte) (*Config, error) {
 	return cfg, nil
 }
 
+// Save writes cfg to the config file, editing it in place so the user's
+// comments and layout survive. A value left empty is removed, and a table
+// with it once nothing is left in it.
 func Save(cfg *Config) error {
 	path, err := Path()
 	if err != nil {
 		return err
 	}
+	data, err := readIfExists(path)
+	if err != nil {
+		return err
+	}
+	doc, err := tomledit.Parse(string(data))
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	for _, leaf := range cfg.leaves() {
+		if err := store(doc, leaf); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint: gosec, mnd
 		return err //nolint: wrapcheck
 	}
-	f, err := os.Create(path) //nolint: gosec
-	if err != nil {
-		return err //nolint: wrapcheck
-	}
-	defer f.Close() //nolint: errcheck
+	return paths.WriteFile(path, []byte(doc.String()))
+}
 
-	return toml.NewEncoder(f).Encode(cfg) //nolint: wrapcheck
+// store writes one config value to doc: set when the key holds another value,
+// inserted when it is missing, removed when the value is empty. A value that
+// is already there stays as the user spelled it.
+func store(doc *tomledit.Document, value leaf) error {
+	current, exists := doc.Get(value.path...)
+	switch {
+	case value.value.IsZero() && !exists:
+		return nil
+	case exists && fmt.Sprint(current) == fmt.Sprint(value.value.Interface()):
+		return nil
+	case value.value.IsZero():
+		if err := doc.Delete(value.path...); err != nil {
+			return err //nolint: wrapcheck
+		}
+		return deleteIfEmpty(doc, value.path[:len(value.path)-1])
+	case exists:
+		return doc.Set(value.path, value.value.Interface()) //nolint: wrapcheck
+	default:
+		return doc.Insert(value.path, value.value.Interface()) //nolint: wrapcheck
+	}
+}
+
+// deleteIfEmpty removes the table at path if it holds nothing.
+func deleteIfEmpty(doc *tomledit.Document, path []string) error {
+	if len(path) == 0 {
+		return nil
+	}
+	v, _ := doc.Get(path...)
+	if table, ok := v.(*eval.Table); !ok || len(table.Keys()) > 0 {
+		return nil
+	}
+	return doc.Delete(path...) //nolint: wrapcheck
 }
 
 func fieldByTOMLPath(cfg any, key string) (reflect.Value, error) {

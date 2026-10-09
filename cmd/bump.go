@@ -31,6 +31,7 @@ func init() {
 	bumpCmd.Flags().BoolP("show-current", "c", false, "Show the version of the current package")
 	bumpCmd.Flags().BoolP("show-next", "n", false, "Show the version of the package if it where bumped")
 	bumpCmd.Flags().BoolP("indent", "i", false, "Use Indentation in the typst.toml file.")
+	_ = bumpCmd.Flags().MarkDeprecated("indent", "typst.toml is now edited in place and keeps its own formatting")
 }
 
 func BumpRunner(cmd *cobra.Command, args []string) error {
@@ -38,7 +39,6 @@ func BumpRunner(cmd *cobra.Command, args []string) error {
 		DryRun:   Must(cmd.Flags().GetBool("dry-run")),
 		ShowCur:  Must(cmd.Flags().GetBool("show-current")),
 		ShowNext: Must(cmd.Flags().GetBool("show-next")),
-		Indent:   Must(cmd.Flags().GetBool("indent")),
 	}
 
 	return bump.Run(firstArg(args), opts, newLogger(cmd))
