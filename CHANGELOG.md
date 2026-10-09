@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-09
+
+### 🚀 Features
+
+- *(lockfile)* pin font families, declare fonts in the manifest
+- *(fonts)* fetch font families from google fonts into the font directory
+- *(font)* add the font command
+- *(locate)* add the fonts key
+- *(sync)* pin and sync the fonts dependencies declare
+- *(cache)* clear the font directory with --fonts
+
+### 📚 Documentation
+
+- add fonts management
+- point assets to correct branch
+- update tomledit
+
+### 🚜 Refactor
+
+- edit toml file with npikall/tomledit
+
+### 🧪 Testing
+
+- edit toml file with npikall/tomledit
+
+### 💼 Other
+
+- fix bench script
+- fix homebrew related quarantine run
+- vendor in toml-edit
+
 ## [0.6.0] - 2026-10-05
 
 ### 🚀 Features
@@ -56,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix default branch name
 - add shell interpreter as dependency
 - *(task)* use master instead of main in release commands
+- *(release)* v0.6.0
 
 ## [0.5.2] - 2026-09-07
 
@@ -780,6 +812,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.7.0]: https://github.com/npikall/gotpm/compare/v0.6.0..v0.7.0
 [0.6.0]: https://github.com/npikall/gotpm/compare/v0.5.2..v0.6.0
 [0.5.2]: https://github.com/npikall/gotpm/compare/v0.5.1..v0.5.2
 [0.5.1]: https://github.com/npikall/gotpm/compare/v0.5.0..v0.5.1
