@@ -125,8 +125,8 @@ $ gotpm bump minor --show-next
 0.2.0
 ```
 
-`--dry-run` prints what would change without touching the file, and `--indent`
-keeps indentation in the rewritten `typst.toml`.
+`--dry-run` prints what would change without touching the file. Only the
+version line of `typst.toml` changes; comments and formatting stay as written.
 
 !!! warning "A released version is a promise"
 
