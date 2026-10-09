@@ -251,6 +251,15 @@ github.com/muesli/mango-pflag
 # github.com/muesli/roff v0.1.0
 ## explicit; go 1.17
 github.com/muesli/roff
+# github.com/npikall/toml-edit v0.1.0
+## explicit; go 1.27.0
+github.com/npikall/toml-edit
+github.com/npikall/toml-edit/ast
+github.com/npikall/toml-edit/eval
+github.com/npikall/toml-edit/format
+github.com/npikall/toml-edit/lexer
+github.com/npikall/toml-edit/parser
+github.com/npikall/toml-edit/token
 # github.com/pjbgf/sha1cd v0.6.0
 ## explicit; go 1.22
 github.com/pjbgf/sha1cd

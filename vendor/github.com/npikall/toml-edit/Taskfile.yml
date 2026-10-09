@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  lint:
+    desc: Run golangci-lint
+    aliases: [l]
+    sources:
+      - '**/*.go'
+      - .golangci.yml
+      - go.mod
+    cmds:
+      - golangci-lint run
+
+  lint:fix:
+    desc: Run golangci-lint and fix any issues
+    sources:
+      - '**/*.go'
+      - .golangci.yml
+      - go.mod
+    cmds:
+      - golangci-lint run --fix
+
+  format:
+    desc: Run golangci-lint and format any Go files
+    aliases: [fmt, f]
+    sources:
+      - '**/*.go'
+      - .golangci.yml
+    cmds:
+      - golangci-lint fmt
+
+  tool:gotestsum:
+    desc: Install gotestsum if not already present
+    status:
+      - command -v gotestsum
+    cmds:
+      - go install gotest.tools/gotestsum@latest
+
+  test:
+    desc: Run the test suite
+    aliases: [t]
+    sources:
+      - '**/*.go'
+    deps: [tool:gotestsum]
+    cmds:
+      - gotestsum ./... -- {{.CLI_ARGS}}
+
+  test:cover:
+    desc: Run test suite with code coverage
+    sources:
+      - '**/*.go'
+    cmds:
+      - go test -coverprofile=c.out ./...
+      - go tool cover -html=c.out
+
+  bench:
+    desc: Run the benchmarks
+    aliases: [b]
+    cmds:
+      - go test -run '^$' -bench . -benchmem {{.CLI_ARGS | default "./..."}}
+
+  toml-test:
+    desc: Run the official toml-test runner against the decoder for TOML 1.0 and 1.1
+    vars:
+      BIN: '{{.ROOT_DIR}}/.task/bin'
+    cmds:
+      - go build -o {{.BIN}}/toml-test-decoder ./cmd/toml-test-decoder
+      - GOBIN={{.BIN}} go install github.com/toml-lang/toml-test/v2/cmd/toml-test@v2.2.0
+      - '{{.BIN}}/toml-test test -toml 1.1 -decoder "{{.BIN}}/toml-test-decoder -toml 1.1"'
+      - '{{.BIN}}/toml-test test -toml 1.0 -decoder "{{.BIN}}/toml-test-decoder -toml 1.0"'
+
+  fuzz:
+    desc: Fuzz the lexer (default 30s, override with FUZZTIME)
+    cmds:
+      - go test ./lexer -run '^$' -fuzz FuzzLexer -fuzztime {{.FUZZTIME | default "30s"}}
+
+  fuzz:parser:
+    desc: Fuzz the parser round-trip (default 30s, override with FUZZTIME)
+    cmds:
+      - go test ./parser -run '^$' -fuzz FuzzParse -fuzztime {{.FUZZTIME | default "30s"}}
+
+  fuzz:eval:
+    desc: Fuzz the evaluator for panics (default 30s, override with FUZZTIME)
+    cmds:
+      - go test ./eval -run '^$' -fuzz FuzzEvaluate -fuzztime {{.FUZZTIME | default "30s"}}
+
+  ci:
+    desc: Run the full ci suite
+    cmds:
+      - task: test
+      - task: toml-test
+      - task: lint
