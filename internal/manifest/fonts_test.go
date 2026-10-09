@@ -23,11 +23,11 @@ func TestSetFonts_SitsBesideTheDependencies(t *testing.T) {
 
 	assert.Equal(t, commented+`
 [tool.gotpm]
-fonts = [
-  "Open Sans",
-]
 dependencies = [
   "@gotpm/cetz:0.3.1",
+]
+fonts = [
+  "Open Sans",
 ]
 `, got)
 	m, err := manifest.LoadFile(write(t, got))

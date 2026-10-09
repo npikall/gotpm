@@ -77,6 +77,76 @@ func TestSaveAndLoad(t *testing.T) {
 	assert.Equal(t, cfg, loaded)
 }
 
+func TestSave_EditsTheFileInPlace(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+	path, err := Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`# my settings
+[fork]
+url = "https://github.com/user/packages" # the org fork
+`), 0o600))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.NoError(t, cfg.Set("fork.path", "/tmp/my-fork"))
+	require.NoError(t, Save(cfg))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, `# my settings
+[fork]
+url = "https://github.com/user/packages" # the org fork
+path = "/tmp/my-fork"
+`, string(data))
+
+	require.NoError(t, cfg.Unset("fork.url"))
+	require.NoError(t, Save(cfg))
+
+	data, err = os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, `# my settings
+[fork]
+path = "/tmp/my-fork"
+`, string(data), "an unset key is removed")
+}
+
+func TestSave_LeavesUnchangedValuesAsWritten(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+	path, err := Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("[fork]\nurl = 'https://x' # literal\n"), 0o600))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.NoError(t, cfg.Set("fork.path", "/p"))
+	require.NoError(t, Save(cfg))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "[fork]\nurl = 'https://x' # literal\npath = \"/p\"\n", string(data))
+}
+
+func TestSave_RemovesATableLeftEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+	cfg := &Config{}
+	require.NoError(t, cfg.Set("fork.path", "/tmp/my-fork"))
+	require.NoError(t, Save(cfg))
+
+	require.NoError(t, cfg.Unset("fork.path"))
+	require.NoError(t, Save(cfg))
+
+	path, err := Path()
+	require.NoError(t, err)
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Empty(t, string(data))
+}
+
 func TestLoad_NoFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", "")

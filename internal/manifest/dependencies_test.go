@@ -112,7 +112,7 @@ path = "template"
 `, got)
 }
 
-func TestSetDependencies_ReplacesASingleLineArray(t *testing.T) {
+func TestSetDependencies_KeepsASingleLineArrayOnOneLine(t *testing.T) {
 	t.Parallel()
 
 	got := setDeps(t, `[tool.gotpm]
@@ -120,13 +120,11 @@ dependencies = ["@gotpm/old:0.1.0"]
 `, []string{"@gotpm/cetz:0.3.1"})
 
 	assert.Equal(t, `[tool.gotpm]
-dependencies = [
-  "@gotpm/cetz:0.3.1",
-]
+dependencies = ["@gotpm/cetz:0.3.1"]
 `, got)
 }
 
-func TestSetDependencies_InsertsIntoASectionThatHasOtherKeys(t *testing.T) {
+func TestSetDependencies_AppendsToASectionThatHasOtherKeys(t *testing.T) {
 	t.Parallel()
 
 	got := setDeps(t, `[tool.gotpm]
@@ -134,10 +132,10 @@ something = "else"
 `, []string{"@gotpm/cetz:0.3.1"})
 
 	assert.Equal(t, `[tool.gotpm]
+something = "else"
 dependencies = [
   "@gotpm/cetz:0.3.1",
 ]
-something = "else"
 `, got)
 }
 
@@ -177,14 +175,15 @@ func TestSetDependencies_EmptyKeepsASectionThatStillHasContent(t *testing.T) {
 
 	got := setDeps(t, `[tool.gotpm]
 # keep me
-dependencies = ["@gotpm/cetz:0.3.1"]
 other = 1
+# pinned by hand
+dependencies = ["@gotpm/cetz:0.3.1"]
 `, nil)
 
 	assert.Equal(t, `[tool.gotpm]
 # keep me
 other = 1
-`, got)
+`, got, "the comment above the array goes with it")
 }
 
 func TestSetDependencies_EmptyOnAManifestWithoutTheSectionIsANoOp(t *testing.T) {
@@ -219,16 +218,29 @@ func TestSetDependencies_KeepsWindowsLineEndings(t *testing.T) {
 	assert.Equal(t, "[package]\r\nname = \"foo\"\r\n\r\n[tool.gotpm]\r\ndependencies = [\r\n  \"@gotpm/cetz:0.3.1\",\r\n]\r\n", got)
 }
 
-func TestSetDependencies_RefusesAnInlineToolSection(t *testing.T) {
+func TestSetDependencies_EditsAnInlineToolSection(t *testing.T) {
+	t.Parallel()
+
+	got := setDeps(t, `[tool]
+gotpm = { dependencies = ["@gotpm/cetz:0.3.1"] }
+`, []string{"@gotpm/oxifmt:0.2.1"})
+
+	assert.Equal(t, `[tool]
+gotpm = { dependencies = ["@gotpm/oxifmt:0.2.1"] }
+`, got)
+}
+
+func TestSetFonts_KeepsAnInlineToolSectionOnOneLine(t *testing.T) {
 	t.Parallel()
 
 	path := write(t, `[tool]
 gotpm = { dependencies = ["@gotpm/cetz:0.3.1"] }
 `)
+	require.NoError(t, manifest.SetFonts(path, []string{"Open Sans"}))
 
-	err := manifest.SetDependencies(path, []string{"@gotpm/oxifmt:0.2.1"})
-	require.ErrorIs(t, err, manifest.ErrInlineToolSection,
-		"appending a second [tool.gotpm] would make the document invalid TOML")
+	assert.Equal(t, `[tool]
+gotpm = { dependencies = ["@gotpm/cetz:0.3.1"], fonts = ["Open Sans"] }
+`, read(t, path), "a line break inside an inline table is TOML 1.1 only")
 }
 
 func TestSetDependencies_ProducesTOMLThatParsesBack(t *testing.T) {
@@ -292,11 +304,19 @@ other = 1
 `, got)
 }
 
-func TestSetDependencies_ToleratesAnUnterminatedString(t *testing.T) {
+func TestSetDependencies_RejectsInvalidTOML(t *testing.T) {
 	t.Parallel()
-	got := setDeps(t, "[tool.gotpm]\ndependencies = \"unterminated\n", []string{"@gotpm/b:1.0.0"})
+	for _, content := range []string{
+		"[tool.gotpm]\ndependencies = \"unterminated\n",
+		"x = 1\n[]\n[a..b]\n",
+	} {
+		path := write(t, content)
 
-	assert.Equal(t, "[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
+		err := manifest.SetDependencies(path, []string{"@gotpm/b:1.0.0"})
+
+		require.ErrorIs(t, err, manifest.ErrInvalidManifest)
+		assert.Equal(t, content, read(t, path), "an invalid manifest is not rewritten")
+	}
 }
 
 func TestSetDependencies_SkipsACommentedOutArray(t *testing.T) {
@@ -333,11 +353,4 @@ func TestSetDependencies_FillsAnEmptyFile(t *testing.T) {
 	got := setDeps(t, "", []string{"@gotpm/b:1.0.0"})
 
 	assert.Equal(t, "[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
-}
-
-func TestSetDependencies_MalformedHeadersAreNotTables(t *testing.T) {
-	t.Parallel()
-	got := setDeps(t, "x = 1\n[]\n[a..b]\n", []string{"@gotpm/b:1.0.0"})
-
-	assert.Equal(t, "x = 1\n[]\n[a..b]\n\n[tool.gotpm]\ndependencies = [\n  \"@gotpm/b:1.0.0\",\n]\n", got)
 }

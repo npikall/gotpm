@@ -123,13 +123,48 @@ func TestUpdate(t *testing.T) {
 		require.NoError(t, err)
 		m.Package.Version = "2.0.0"
 		m.Package.Name = "renamed"
-		require.NoError(t, manifest.Update(file, m, false))
+		require.NoError(t, manifest.Update(file, m))
 
 		got, err := manifest.LoadFile(file)
 		require.NoError(t, err)
 		assert.Equal(t, "2.0.0", got.Package.Version)
 		assert.Equal(t, "renamed", got.Package.Name)
 		assert.Equal(t, "lib.typ", got.Package.Entrypoint)
+	})
+	t.Run("changes only the values that differ", func(t *testing.T) {
+		t.Parallel()
+		const before = `# my package
+[package]
+entrypoint = 'lib.typ' # kept as written
+name = "my-pkg"
+version   = "0.1.0"
+
+[tool.gotpm]
+dependencies = [
+  "@gotpm/a:1.0.0",
+]
+`
+		dir := writeManifest(t, before)
+		file := filepath.Join(dir, "typst.toml")
+
+		m, err := manifest.LoadFile(file)
+		require.NoError(t, err)
+		m.Package.Version = "0.2.0"
+		require.NoError(t, manifest.Update(file, m))
+
+		data, err := os.ReadFile(file)
+		require.NoError(t, err)
+		assert.Equal(t, `# my package
+[package]
+entrypoint = 'lib.typ' # kept as written
+name = "my-pkg"
+version   = "0.2.0"
+
+[tool.gotpm]
+dependencies = [
+  "@gotpm/a:1.0.0",
+]
+`, string(data))
 	})
 	t.Run("keeps unrelated sections untouched", func(t *testing.T) {
 		t.Parallel()
@@ -139,7 +174,7 @@ func TestUpdate(t *testing.T) {
 		m, err := manifest.LoadFile(file)
 		require.NoError(t, err)
 		m.Package.Version = "9.9.9"
-		require.NoError(t, manifest.Update(file, m, false))
+		require.NoError(t, manifest.Update(file, m))
 
 		data, err := os.ReadFile(file)
 		require.NoError(t, err)
@@ -157,12 +192,12 @@ func TestUpdate(t *testing.T) {
 		file := filepath.Join(dir, "typst.toml")
 		require.NoError(t, paths.WriteFile(file, []byte("[other]\nkey = \"val\"\n")))
 
-		err := manifest.Update(file, &manifest.Manifest{}, false)
+		err := manifest.Update(file, &manifest.Manifest{})
 		assert.ErrorIs(t, err, manifest.ErrInvalidManifest)
 	})
 	t.Run("unreadable file is reported", func(t *testing.T) {
 		t.Parallel()
-		err := manifest.Update(filepath.Join(t.TempDir(), "missing.toml"), &manifest.Manifest{}, false)
+		err := manifest.Update(filepath.Join(t.TempDir(), "missing.toml"), &manifest.Manifest{})
 		require.Error(t, err)
 	})
 }
