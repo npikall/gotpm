@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/transport"
+	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/testrepo"
@@ -76,4 +79,28 @@ func TestReleaseFontsDeclaresAndPinsThem(t *testing.T) { //nolint: paralleltest 
 	got, ok := lock.GetFont("Lato")
 	require.True(t, ok)
 	assert.True(t, got.Direct)
+}
+
+func TestPrivateRefusesAnAnonymousClone(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	testrepo.Isolate(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+
+	_, err := git.PlainClone(t.TempDir(), &git.CloneOptions{URL: pkg.URL()})
+
+	require.ErrorIs(t, err, transport.ErrAuthenticationRequired)
+}
+
+func TestPrivateServesTheRepositoryToItsReader(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+	testrepo.Isolate(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+	auth := &githttp.BasicAuth{Username: "reader", Password: "secret"}
+
+	repo, err := git.PlainClone(t.TempDir(), &git.CloneOptions{
+		URL: pkg.URL(), ClientOptions: []client.Option{client.WithHTTPAuth(auth)},
+	})
+
+	require.NoError(t, err)
+	head, err := repo.Head()
+	require.NoError(t, err)
+	assert.Equal(t, pkg.Hash(), head.Hash().String())
 }

@@ -141,3 +141,69 @@ func TestEnsureClone_ReportsAFailedClone(t *testing.T) { //nolint: paralleltest
 	_, err := remote.EnsureClone(missing, missing, false)
 	require.Error(t, err)
 }
+
+func TestEnsureClone_ReachesAPrivateRepositoryWithTheUsersCredentials(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+
+	clone, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
+
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = clone.Repo.Close() })
+	assert.True(t, clone.Cloned)
+	assert.True(t, clone.Private, "it took credentials to reach")
+}
+
+func TestEnsureClone_FetchesACachedPrivateRepositoryWithTheUsersCredentials(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+	first, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
+	require.NoError(t, err)
+	require.NoError(t, first.Repo.Close())
+	pkg.Release()
+
+	second, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
+
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = second.Repo.Close() })
+	assert.False(t, second.Cloned)
+	assert.True(t, second.Private, "a cached clone is still known to be private")
+	_, err = second.Repo.CommitObject(plumbing.NewHash(pkg.Hash()))
+	require.NoError(t, err, "the cached clone was fetched with the credentials")
+}
+
+func TestEnsureClone_PrivateRepositoryWithoutCredentialsIsNotFound(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+
+	_, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
+
+	require.ErrorIs(t, err, remote.ErrRepositoryNotFound)
+}
+
+func TestEnsureClone_AnonymousLeavesTheUsersCredentialsAlone(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+
+	_, err := remote.EnsureClone(pkg.URL(), pkg.URL(), true)
+
+	require.ErrorIs(t, err, remote.ErrRepositoryNotFound)
+}
+
+func TestEnsureClone_AnonymousUsesACachedPrivateCloneAsItIs(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+	first, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
+	require.NoError(t, err)
+	require.NoError(t, first.Repo.Close())
+
+	second, err := remote.EnsureClone(pkg.URL(), pkg.URL(), true)
+
+	require.NoError(t, err, "a fetch that fails leaves the cached clone usable")
+	t.Cleanup(func() { _ = second.Repo.Close() })
+	assert.False(t, second.Private, "without credentials, nothing says it is private")
+}
