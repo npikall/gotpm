@@ -89,7 +89,7 @@ Manage the repositories gotpm has cloned and the Universe index it has fetched.
 The cache exists only to avoid repeating work. Deleting it loses nothing; the
 [package directory](concepts.md#the-package-directory) is never cache.
 
-The fork clones `publish` stages submissions in are not cache either, and a
+The fork clones in which `publish` stages submissions are not cache either, and a
 plain `gotpm cache clear` leaves them alone. `gotpm cache clear --forks` removes
 them instead — and with them any `gotpm publish --local` commit not pushed yet.
 A `fork.path` you configured is never touched.
@@ -163,7 +163,7 @@ fonts = [
 Its pin in `gotpm.lock` names the commit of the Google Fonts repository and the
 SHA-256 of every file, so `gotpm sync` installs exactly the files that were
 added, wherever it runs. A lock holding font pins is format version 2, which
-gotpm older than font support refuses to read
+versions of gotpm older than font support refuse to read
 ([ADR 0007](adr/0007-font-pins-raise-the-lock-schema-version.md)); a lock
 without them stays version 1.
 
@@ -171,7 +171,7 @@ Names match the way the repository lays out its directories, ignoring case,
 spaces and punctuation: `"Open Sans"`, `"open sans"` and `opensans` are one
 family.
 
-The font directory is shared by every project on your machine, and holds one
+The font directory is shared by every project on your machine and holds one
 copy of each family. Two projects pinning different commits of a family cannot
 both be satisfied: the last `sync` wins and says what it replaced. A family
 directory gotpm did not create — one without a `.gotpm.json` — is never

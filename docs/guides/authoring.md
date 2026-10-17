@@ -78,7 +78,7 @@ It installs the repository's own dependencies too, the same way `add` does —
 a dependency that ships no `gotpm.lock` at all is skipped with a warning
 rather than failing the install, since nothing is being locked for anyone else
 to trust. But nothing is declared and nothing reproduces on another machine —
-reach for it to try a package out, and for [`gotpm add`](dependencies.md) when
+use it to try a package out, and use [`gotpm add`](dependencies.md) when
 the project should depend on it.
 
 A private repository is cloned with the git credentials you already have for
@@ -93,9 +93,9 @@ info: installed @private/secret-pkg:0.1.0 from github.com/me/secret-pkg
 ```
 
 A repository written without a scheme, like `github.com/me/secret-pkg`, is
-cloned over https, so only an https credential helper is asked. If your access
-to the host goes through ssh — `gh` set to the ssh protocol, say — write the
-repository in ssh form so ssh-agent is used instead:
+cloned over https, so only an https credential helper is asked. If you access
+the host over ssh (for example, with `gh` set to the ssh protocol), write the
+repository in ssh form so that ssh-agent is used instead:
 
 ```console
 $ gotpm install -r git@github.com:me/secret-pkg
@@ -115,7 +115,7 @@ pin the current `HEAD` regardless of releases.
 $ gotpm install -n preview
 ```
 
-Useful for testing what a Universe release will behave like locally, before
+Useful for testing locally how a Universe release will behave, before
 `gotpm publish` opens the pull request that puts it there for real. Be aware
 that this shadows the real Universe package of the same coordinate for every
 project on your machine, so clean it up afterwards.
@@ -154,7 +154,7 @@ version line of `typst.toml` changes; comments and formatting stay as written.
 
 !!! warning "A released version is a promise"
 
-    One coordinate names one content, for good. Once a version is published,
+    One coordinate names the same content, for good. Once a version is published,
     changing what it contains breaks every document that pinned it. Bump
     instead.
 

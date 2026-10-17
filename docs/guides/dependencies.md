@@ -235,8 +235,8 @@ projects import. `--force` overrides that, deliberately.
 
 If a repository you are adding declares gotpm dependencies but did not commit
 its `gotpm.lock`, gotpm has no way to learn where those dependencies live, and
-the add fails. That is a bug in the package you are adding — the fix is upstream
-committing its lock.
+the add fails. That is a bug in the package you are adding — the fix is for upstream
+to commit its lock.
 
 ## Checking that imports will resolve
 

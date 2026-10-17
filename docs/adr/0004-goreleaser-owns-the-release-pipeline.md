@@ -1,7 +1,7 @@
 # GoReleaser owns the release pipeline
 
 The build-and-publish half of releasing gotpm — cross-compiling binaries,
-checksuming them, writing the GitHub release, pushing the Homebrew formula —
+checksumming them, writing the GitHub release, pushing the Homebrew formula —
 was a hand-rolled OS/arch matrix plus a few shell steps in
 `.github/workflows/release.yml`. We replaced that half with GoReleaser (OSS,
 no paid features). `task release:next` (git-cliff changelog + commit + `git
