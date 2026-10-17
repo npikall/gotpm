@@ -49,7 +49,7 @@ func TestOpenProjectAt_ReportsAnUnreadableManifest(t *testing.T) {
 	assert.NotContains(t, err.Error(), "gotpm init")
 }
 
-func TestOpenProjectReadsTheWorkingDirectory(t *testing.T) { //nolint: paralleltest // t.Chdir
+func TestOpenProjectReadsTheWorkingDirectory(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, manifest.FileName), []byte(projectManifest), 0o600))
 	t.Chdir(root)

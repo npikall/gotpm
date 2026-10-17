@@ -181,7 +181,7 @@ func TestRun_HonoursAnExplicitRevision(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, wanted, entry.Hash)
 }
 
-func TestRun_WithoutAProject(t *testing.T) { //nolint: paralleltest
+func TestRun_WithoutAProject(t *testing.T) {
 	testrepo.Isolate(t)
 	t.Chdir(t.TempDir())
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()

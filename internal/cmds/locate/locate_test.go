@@ -88,7 +88,7 @@ func TestRunListsProjectPathsInsideAProject(t *testing.T) { //nolint: parallelte
 	require.NoError(t, locate.Run("", logger.Setup(0)))
 }
 
-func TestRunListsMachinePathsOutsideAProject(t *testing.T) { //nolint: paralleltest // t.Chdir
+func TestRunListsMachinePathsOutsideAProject(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	require.NoError(t, locate.Run("", logger.Setup(0)))
@@ -100,7 +100,7 @@ func TestRunProjectKeyInsideAProject(t *testing.T) { //nolint: paralleltest // t
 	require.NoError(t, locate.Run("lock", logger.Setup(0)))
 }
 
-func TestRunProjectKeyOutsideAProject(t *testing.T) { //nolint: paralleltest // t.Chdir
+func TestRunProjectKeyOutsideAProject(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	require.Error(t, locate.Run("lock", logger.Setup(0)))

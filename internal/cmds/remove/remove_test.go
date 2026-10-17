@@ -175,7 +175,7 @@ func TestRun_KeepsADirectDependencySomethingElseNeeds(t *testing.T) { //nolint: 
 	assert.True(t, ok, "user still requires it")
 }
 
-func TestRun_OutsideAProject(t *testing.T) { //nolint: paralleltest
+func TestRun_OutsideAProject(t *testing.T) {
 	testrepo.Isolate(t)
 	t.Chdir(t.TempDir())
 

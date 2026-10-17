@@ -178,7 +178,7 @@ func TestRun_FrozenAcceptsALockThatAgreesWithTheManifest(t *testing.T) { //nolin
 		"--frozen forbids writing the lock, not installing from it")
 }
 
-func TestRun_WithoutAProject(t *testing.T) { //nolint: paralleltest
+func TestRun_WithoutAProject(t *testing.T) {
 	testrepo.Isolate(t)
 	t.Chdir(t.TempDir())
 

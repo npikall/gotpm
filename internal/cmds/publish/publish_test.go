@@ -111,7 +111,7 @@ func TestRunWithoutForkURL(t *testing.T) { //nolint: paralleltest // Isolate use
 	require.ErrorIs(t, err, publish.ErrMissingForkURL)
 }
 
-func TestRunOutsideAPackage(t *testing.T) { //nolint: paralleltest // Isolate uses t.Setenv
+func TestRunOutsideAPackage(t *testing.T) {
 	isolatePublish(t)
 	t.Chdir(t.TempDir())
 

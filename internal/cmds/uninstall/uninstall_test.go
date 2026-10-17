@@ -84,7 +84,7 @@ func TestRun_AllWithAVersionStaysScopedToIt(t *testing.T) { //nolint: parallelte
 	assert.DirExists(t, filepath.Join(root, "local", "my-pkg", "0.2.0"))
 }
 
-func TestRun_UsesTheManifestWithoutAName(t *testing.T) { //nolint: paralleltest
+func TestRun_UsesTheManifestWithoutAName(t *testing.T) {
 	root := installed(t, "0.1.0")
 
 	pkgDir := t.TempDir()
