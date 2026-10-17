@@ -51,7 +51,7 @@ is the answer to it.
 !!! note "A version is a promise"
 
     The version in the manifest is what decides a package's version — not the
-    git tag it was released under. One coordinate names one content, for good.
+    git tag it was released under. One coordinate names the same content, for good.
     Publishing different content under a version already released is an
     authoring error, and not one gotpm tries to resolve for you.
 
@@ -222,7 +222,7 @@ resolve. `gotpm check` is the command that reports whether they do.
 
 gotpm keeps two things purely to avoid repeating work: the repositories it has
 cloned, and the Typst Universe version index it has fetched. That is the whole
-of the **cache**, `gotpm cache clear` empties it, and deleting it loses nothing.
+of the **cache**: `gotpm cache clear` empties it, and deleting it loses nothing.
 
 The package directory is never cache.
 

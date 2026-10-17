@@ -7,8 +7,8 @@ A minimal Typst Package Manager written in Go.
 
 ---
 
-This tool is for developers working on Packages for [Typst]. It will make
-testing your Package easy, as it allows you to install the package locally and
+This tool is for developers working on packages for [Typst]. It will make
+testing your package easy, as it allows you to install the package locally and
 use it.
 
 - Install Packages into `{data-dir}/typst/packages/`, from a local directory
@@ -62,9 +62,9 @@ go install github.com/npikall/gotpm@latest
 
 ### Download Binary
 
-Download the Binary from
+Download the binary from
 [GitHub Releases](https://github.com/npikall/gotpm/releases/latest) and place it
-in your `$PATH`
+in your `$PATH`.
 
 ### Build from Source
 

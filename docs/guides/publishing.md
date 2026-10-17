@@ -94,7 +94,7 @@ clone before anything becomes public.
 
 Publishing the same version again — because a reviewer asked for a change —
 checks out the existing branch and commits on top of it, so the open pull
-request updates rather than a second one appearing. For a fix-up run the commit
+request is updated instead of a second one being opened. For a fix-up run, the commit
 message is taken from your package repository's own `HEAD` commit, so the reason
 for the change carries over instead of a second identical `release:` line.
 
@@ -107,13 +107,13 @@ $ gotpm publish -m "fix: entrypoint path in the manifest"
 !!! warning "Bump instead of re-releasing"
 
     Fix-ups are for a submission that has not been merged yet. Once a version is
-    in the Universe, its content is fixed: one coordinate names one content, for
+    in the Universe, its content is fixed: one coordinate names the same content, for
     good. Publish a fix as a new version.
 
 ### Generated files
 
-Some files belong in the submission but not in your repository — a
-`thumbnail.png` rendered from Typst source, say. Hooks in the manifest generate
+Some files belong in the submission but not in your repository, such as a
+`thumbnail.png` rendered from Typst source. Hooks in the manifest generate
 them for the publish and clean them up after it:
 
 ```toml

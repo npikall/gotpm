@@ -54,7 +54,7 @@ Then check the binary against the now-trusted checksum:
 sha256sum -c checksums.txt --ignore-missing
 ```
 
-On a macOS without `sha256sum`,
+On macOS without `sha256sum`,
 `shasum -a 256 -c checksums.txt --ignore-missing` does the same. Either prints
 `<binary>: OK`.
 

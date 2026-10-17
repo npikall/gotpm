@@ -25,7 +25,7 @@ later change may move decoding over too.
 ## Consequences
 
 - Every TOML file gotpm writes is parsed twice — BurntSushi to read it, tomledit
-  to edit it. A file one accepts and the other rejects (TOML 1.1 syntax, say)
+  to edit it. A file one accepts and the other rejects (such as TOML 1.1 syntax)
   fails as an invalid manifest or config rather than being rewritten.
 - `bump` sets only the keys whose value changed, so a version bump is a one-line
   diff; `--indent` controls nothing any more and is kept hidden as a no-op.
