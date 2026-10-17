@@ -191,7 +191,7 @@ func TestRemove_KeepsAPinADependencyStillRequires(t *testing.T) { //nolint: para
 	assert.Empty(t, declaredFonts(t, project))
 }
 
-func TestCommandsOutsideAProjectFail(t *testing.T) { //nolint: paralleltest
+func TestCommandsOutsideAProjectFail(t *testing.T) {
 	testrepo.Isolate(t)
 	t.Chdir(t.TempDir())
 

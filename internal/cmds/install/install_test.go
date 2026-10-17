@@ -62,7 +62,7 @@ func TestRun_CopiesThePackage(t *testing.T) {
 	assert.Equal(t, "v1", string(content))
 }
 
-func TestRun_UsesTheWorkingDirectoryWithoutAPath(t *testing.T) { //nolint: paralleltest
+func TestRun_UsesTheWorkingDirectoryWithoutAPath(t *testing.T) {
 	src := sourcePackage(t, "cwd")
 	t.Chdir(src)
 	opts, dest := destination(t)
@@ -252,7 +252,7 @@ func TestRun_PathErrors(t *testing.T) {
 	})
 }
 
-func TestRun_ResolvesARelativePath(t *testing.T) { //nolint: paralleltest
+func TestRun_ResolvesARelativePath(t *testing.T) {
 	src := sourcePackage(t, "content")
 	t.Chdir(filepath.Dir(src))
 	opts, dest := destination(t)

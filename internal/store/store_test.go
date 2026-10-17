@@ -99,7 +99,7 @@ func TestLink(t *testing.T) {
 	assert.Equal(t, "content", string(content), "source contents must be reachable through the link")
 }
 
-func TestLink_RelativeSourceIsResolved(t *testing.T) { //nolint: paralleltest
+func TestLink_RelativeSourceIsResolved(t *testing.T) {
 	src := sourcePackage(t, "content")
 	t.Chdir(src)
 

@@ -33,20 +33,20 @@ version = "1.2.3"
 entrypoint = "lib.typ"
 `
 
-func TestRun_MissingArgument(t *testing.T) { //nolint: paralleltest
+func TestRun_MissingArgument(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	err := bump.Run("", &bump.Options{}, discardLogger())
 	assert.ErrorIs(t, err, bump.ErrMissingArgument)
 }
 
-func TestRun_NoManifest(t *testing.T) { //nolint: paralleltest
+func TestRun_NoManifest(t *testing.T) {
 	t.Chdir(t.TempDir())
 	err := bump.Run("patch", &bump.Options{}, discardLogger())
 	assert.ErrorIs(t, err, manifest.ErrManifestNotFound)
 }
 
-func TestRun_ShowCurrent(t *testing.T) { //nolint: paralleltest
+func TestRun_ShowCurrent(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	err := bump.Run("", &bump.Options{ShowCur: true}, discardLogger())
@@ -56,7 +56,7 @@ func TestRun_ShowCurrent(t *testing.T) { //nolint: paralleltest
 	assert.Contains(t, string(content), "1.2.3")
 }
 
-func TestRun_Patch(t *testing.T) { //nolint: paralleltest
+func TestRun_Patch(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, bump.Run("patch", &bump.Options{}, discardLogger()))
@@ -66,7 +66,7 @@ func TestRun_Patch(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, "1.2.4", m.Package.Version)
 }
 
-func TestRun_Minor(t *testing.T) { //nolint: paralleltest
+func TestRun_Minor(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, bump.Run("minor", &bump.Options{}, discardLogger()))
@@ -76,7 +76,7 @@ func TestRun_Minor(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, "1.3.0", m.Package.Version)
 }
 
-func TestRun_Major(t *testing.T) { //nolint: paralleltest
+func TestRun_Major(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, bump.Run("major", &bump.Options{}, discardLogger()))
@@ -86,7 +86,7 @@ func TestRun_Major(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, "2.0.0", m.Package.Version)
 }
 
-func TestRun_ExactVersion(t *testing.T) { //nolint: paralleltest
+func TestRun_ExactVersion(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, bump.Run("9.8.7", &bump.Options{}, discardLogger()))
@@ -96,14 +96,14 @@ func TestRun_ExactVersion(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, "9.8.7", m.Package.Version)
 }
 
-func TestRun_InvalidIncrement(t *testing.T) { //nolint: paralleltest
+func TestRun_InvalidIncrement(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	err := bump.Run("bogus", &bump.Options{}, discardLogger())
 	assert.ErrorIs(t, err, semver.ErrInvalidIncrement)
 }
 
-func TestRun_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
+func TestRun_DryRun_DoesNotWriteFile(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, bump.Run("patch", &bump.Options{DryRun: true}, discardLogger()))
@@ -114,7 +114,7 @@ func TestRun_DryRun_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
 	assert.Equal(t, "1.2.3", m.Package.Version)
 }
 
-func TestRun_ShowNext_DoesNotWriteFile(t *testing.T) { //nolint: paralleltest
+func TestRun_ShowNext_DoesNotWriteFile(t *testing.T) {
 	dir := writeManifest(t)
 	t.Chdir(dir)
 	require.NoError(t, bump.Run("patch", &bump.Options{ShowNext: true}, discardLogger()))

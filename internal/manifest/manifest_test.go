@@ -202,7 +202,7 @@ dependencies = [
 	})
 }
 
-func TestLoadReadsTheWorkingDirectory(t *testing.T) { //nolint: paralleltest // t.Chdir
+func TestLoadReadsTheWorkingDirectory(t *testing.T) {
 	t.Chdir(writeManifest(t, validManifestTOML))
 
 	m, err := manifest.Load()
