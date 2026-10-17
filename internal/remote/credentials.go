@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
@@ -19,20 +20,32 @@ import (
 // 'gh auth'. gotpm stores none of its own. Prompting is disabled, so a user
 // without credentials for the host gets nothing rather than a question.
 func credentialsFor(cloneURL string) (*githttp.BasicAuth, bool) {
-	u, err := url.Parse(cloneURL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
+	if !isHTTP(cloneURL) {
 		return nil, false
 	}
+	out, err := credentialFill(cloneURL)
+	if err != nil {
+		return nil, false
+	}
+	return parseCredentials(out)
+}
 
+func isHTTP(cloneURL string) bool {
+	u, err := url.Parse(cloneURL)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http")
+}
+
+// credentialFill runs 'git credential fill' for a url and returns its answer.
+func credentialFill(cloneURL string) (*bytes.Buffer, error) {
 	cmd := exec.CommandContext(context.Background(), "git", "credential", "fill")
 	cmd.Stdin = strings.NewReader("url=" + cloneURL + "\n\n")
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=", "SSH_ASKPASS=")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
-		return nil, false
+		return nil, fmt.Errorf("git credential fill: %w", err)
 	}
-	return parseCredentials(&out)
+	return &out, nil
 }
 
 func parseCredentials(out *bytes.Buffer) (*githttp.BasicAuth, bool) {

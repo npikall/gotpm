@@ -57,6 +57,10 @@ gotpm install path/to/package -n preview
 
 func init() {
 	rootCmd.AddCommand(installCmd)
+	addInstallFlags(installCmd)
+}
+
+func addInstallFlags(installCmd *cobra.Command) {
 	installCmd.Flags().StringP("namespace", "n", paths.DefaultNamespace, "The namespace in which the package should be available.")
 	installCmd.Flags().BoolP("editable", "e", false, "Create a symlink to the source directory instead of copying files.")
 	installCmd.Flags().BoolP("force", "f", false, "Overwrite an already-installed package.")
@@ -66,6 +70,12 @@ func init() {
 }
 
 func InstallRunner(cmd *cobra.Command, args []string) error {
+	return install.Run(firstArg(args), installOptions(cmd), newLogger(cmd))
+}
+
+// installOptions reads the install flags. Without -n/--namespace, a package
+// from a private repository goes under @private rather than the default.
+func installOptions(cmd *cobra.Command) *install.Options {
 	opts := &install.Options{
 		Force:      Must(cmd.Flags().GetBool("force")),
 		Editable:   Must(cmd.Flags().GetBool("editable")),
@@ -77,6 +87,5 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 	if !cmd.Flags().Changed("namespace") {
 		opts.PrivateNamespace = paths.PrivateNamespace
 	}
-
-	return install.Run(firstArg(args), opts, newLogger(cmd))
+	return opts
 }

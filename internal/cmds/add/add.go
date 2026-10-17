@@ -123,17 +123,23 @@ func updateLock(project *deps.Project, walked depgraph.Result, force bool, logge
 	if err != nil {
 		return deps.FontResults{}, err
 	}
+	lockAll(lock, walked)
+	fontResults, err := deps.EnsureFonts(pinFonts(lock, walked.Fonts), force, logger)
+	if err != nil {
+		return fontResults, err
+	}
+	return fontResults, project.SaveLock(lock)
+}
+
+// lockAll pins every package the walk found, and the unreachable ones its
+// dependants pin.
+func lockAll(lock *lockfile.Lock, walked depgraph.Result) {
 	for _, entry := range walked.Entries {
 		lock.Upsert(entry)
 	}
 	for _, pin := range unreachablePins(walked.Unresolved) {
 		lock.Upsert(pin)
 	}
-	fontResults, err := deps.EnsureFonts(pinFonts(lock, walked.Fonts), force, logger)
-	if err != nil {
-		return fontResults, err
-	}
-	return fontResults, project.SaveLock(lock)
 }
 
 // pinFonts records the fonts the added packages declare and returns the pins
