@@ -81,6 +81,21 @@ to trust. But nothing is declared and nothing reproduces on another machine —
 reach for it to try a package out, and for [`gotpm add`](dependencies.md) when
 the project should depend on it.
 
+A private repository is cloned with the git credentials you already have for
+its host — your credential helper for https, ssh-agent for ssh; gotpm stores
+none of its own. The package lands under `@private` unless you pass
+`-n`/`--namespace`, while what it depends on is still installed under
+`@gotpm`, where its source imports it from:
+
+```console
+$ gotpm install -r github.com/me/secret-pkg
+info: installed @private/secret-pkg:0.1.0 from github.com/me/secret-pkg
+```
+
+A dependency whose repository cannot be cloned — it is gone, or it is private
+and you have no access — is skipped, and a warning at the end names it and the
+package that will not compile without it.
+
 Without `-t`/`--rev`, the newest release tag is used, or the current `HEAD`
 when the repository has none — the same default `add` uses. Pass `-t HEAD` to
 pin the current `HEAD` regardless of releases.

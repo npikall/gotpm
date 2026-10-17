@@ -77,8 +77,12 @@ _Avoid_: package directory, store
 The first segment of a package ref. It scopes where the Typst compiler resolves
 an import from, and nothing more — `@preview` is the Typst Universe, `@local`
 is Typst's own convention for hand-installed packages, `@gotpm` is what a
-dependency of a project is imported under. It says nothing about who owns an
-installed package.
+dependency of a project is imported under, `@private` is where
+`install --remote` puts a package fetched from a private repository unless told
+otherwise. It says nothing about who owns an installed package — and
+`@private` says nothing about the package either: only the package named on
+the command line goes there, while what it depends on is still imported under
+`@gotpm`.
 
 **Provenance**:
 The record kept inside an installed package of the repository, commit and
@@ -96,6 +100,22 @@ author pushes to and receives pull requests against, and it is the only kind of
 source a dependency may be added from, always pinned to an exact commit. One
 repository may hold several packages, each at its own package path.
 _Avoid_: remote, source, origin
+
+**Private Repository**:
+A repository gotpm cannot clone without credentials but can with them. It is
+found out by trying, never declared, so privacy belongs to the person cloning,
+not to the repository's pins: the same repository is private to one user and
+unreachable to another. gotpm presents the user's own git credentials and keeps
+none of its own.
+_Avoid_: private package, authenticated repository
+
+**Unreachable Pin**:
+A pin whose repository cannot be cloned — it does not exist, or it is private
+and the user has no credentials for it. The host answers both the same way, so
+gotpm never claims to know which. Fetching past one is reported and the pin
+skipped, never fatal; the pin itself stays in the lock, because it is right —
+only this user cannot reach it.
+_Avoid_: missing dependency, private pin
 
 **Package Path**:
 Where a package's root sits inside its repository — the directory holding its
