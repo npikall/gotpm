@@ -116,10 +116,22 @@ func EnsureClone(canonicalURL, cloneURL string, anonymous bool) (*Clone, error) 
 		return nil, err
 	}
 
+	var clone *Clone
 	if paths.IsDir(repoDir) {
-		return openCached(repoDir, cloneURL, anonymous)
+		clone, err = openCached(repoDir, cloneURL, anonymous)
+	} else {
+		clone, err = cloneFresh(repoDir, cloneURL, anonymous)
 	}
-	return cloneFresh(repoDir, cloneURL, anonymous)
+	if err != nil {
+		return nil, err
+	}
+	// Over ssh the user's credentials are presented from the start, so the
+	// clone never shows whether they were needed. The repository's https
+	// address, asked anonymously, does.
+	if !anonymous && !clone.Private && carriesOwnCredentials(cloneURL) {
+		clone.Private = refusesAnonymous("https://" + canonicalURL)
+	}
+	return clone, nil
 }
 
 // openCached opens a cached clone and fetches what changed since.

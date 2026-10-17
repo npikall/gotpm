@@ -11,8 +11,11 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing/transport"
 	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
+	"github.com/go-git/go-git/v6/storage/memory"
 )
 
 // credentialsFor asks git for the credentials the user keeps for an http(s)
@@ -67,4 +70,27 @@ func parseCredentials(out *bytes.Buffer) (*githttp.BasicAuth, bool) {
 // one for a private repository.
 func needsCredentials(err error) bool {
 	return errors.Is(err, transport.ErrAuthenticationRequired) || errors.Is(err, transport.ErrRepositoryNotFound)
+}
+
+// carriesOwnCredentials reports whether a clone url goes over a transport that
+// authenticates by itself — ssh, through ssh-agent — so reaching it says
+// nothing about whether an anonymous user could.
+func carriesOwnCredentials(cloneURL string) bool {
+	if strings.HasPrefix(cloneURL, "ssh://") {
+		return true
+	}
+	if strings.Contains(cloneURL, "://") {
+		return false
+	}
+	// scp-like "[user@]host:path"; a one-letter host is a Windows drive.
+	host, _, found := strings.Cut(cloneURL, ":")
+	return found && len(host) > 1 && !strings.ContainsAny(host, `/\`)
+}
+
+// refusesAnonymous reports whether a repository refuses to list its refs to
+// anyone who presents no credentials.
+func refusesAnonymous(repoURL string) bool {
+	probe := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{Name: "probe", URLs: []string{repoURL}})
+	_, err := probe.List(&git.ListOptions{})
+	return needsCredentials(err)
 }
