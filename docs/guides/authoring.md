@@ -92,6 +92,15 @@ $ gotpm install -r github.com/me/secret-pkg
 info: installed @private/secret-pkg:0.1.0 from github.com/me/secret-pkg
 ```
 
+A repository written without a scheme, like `github.com/me/secret-pkg`, is
+cloned over https, so only an https credential helper is asked. If your access
+to the host goes through ssh — `gh` set to the ssh protocol, say — write the
+repository in ssh form so ssh-agent is used instead:
+
+```console
+$ gotpm install -r git@github.com:me/secret-pkg
+```
+
 A dependency whose repository cannot be cloned — it is gone, or it is private
 and you have no access — is skipped, and a warning at the end names it and the
 package that will not compile without it.

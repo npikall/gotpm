@@ -154,7 +154,8 @@ func resolveRemote(s store.Store, opts *Options, log *log.Logger) (depgraph.Resu
 	})
 	if errors.Is(err, remote.ErrRepositoryNotFound) {
 		return depgraph.Result{}, nil, fmt.Errorf("%w"+
-			"\nnote: if the repository is private, set up git credentials for its host and run again", err)
+			"\nnote: if the repository is private, set up git credentials for its host and run again"+
+			"\nnote: a repository without a scheme is cloned over https; for ssh credentials write it as git@host:user/repo", err)
 	}
 	if err != nil {
 		return depgraph.Result{}, nil, err
