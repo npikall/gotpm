@@ -16,6 +16,7 @@ import (
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/ui"
@@ -23,12 +24,15 @@ import (
 
 // Options holds the resolved install flags.
 type Options struct {
-	Force      bool
-	Editable   bool
-	Namespace  string
-	Remote     string
-	InstallDir string
-	Revision   string
+	Force     bool
+	Editable  bool
+	Namespace string
+	// PrivateNamespace, when set, is the namespace a remote package goes
+	// under instead of Namespace if its repository is private.
+	PrivateNamespace string
+	Remote           string
+	InstallDir       string
+	Revision         string
 }
 
 var (
@@ -134,7 +138,7 @@ func runRemote(opts *Options, log *log.Logger) error {
 	}
 
 	report(results)
-	reportWarnings(warnings)
+	reportWarnings(warnings, walked.Entries[0].Import)
 	return nil
 }
 
@@ -144,10 +148,14 @@ func resolveRemote(s store.Store, opts *Options, log *log.Logger) (depgraph.Resu
 	walked, err := ui.WithSpinner("resolving "+opts.Remote, func() (depgraph.Result, error) {
 		return depgraph.Walk(
 			resolve.Request{URL: opts.Remote, Revision: opts.Revision},
-			depgraph.Options{RootNamespace: opts.Namespace},
+			depgraph.Options{RootNamespace: opts.Namespace, PrivateRootNamespace: opts.PrivateNamespace},
 			log,
 		)
 	})
+	if errors.Is(err, remote.ErrRepositoryNotFound) {
+		return depgraph.Result{}, nil, fmt.Errorf("%w"+
+			"\nnote: if the repository is private, set up git credentials for its host and run again", err)
+	}
 	if err != nil {
 		return depgraph.Result{}, nil, err
 	}
@@ -211,10 +219,16 @@ func via(entry lockfile.Entry) string {
 	return entry.RequiredBy[0]
 }
 
-func reportWarnings(warnings []depgraph.Unresolved) {
+func reportWarnings(warnings []depgraph.Unresolved, root string) {
+	var unreachable []lockfile.Entry
 	for _, u := range warnings {
+		if u.Reason == depgraph.Unreachable {
+			unreachable = append(unreachable, u.Pin)
+			continue
+		}
 		ui.Warnf("%s declares %s but ships no %s; not installed", u.RequiredByURL, u.Dependency, lockfile.FileName)
 	}
+	ui.Notes("", deps.UnreachableWarning(unreachable, root))
 }
 
 func linkAndReport(s store.Store, ref pkg.Ref, src string) error {

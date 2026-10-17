@@ -9,6 +9,9 @@ const (
 	typstPackagesRelPath = "typst/packages"
 
 	DefaultNamespace = "local"
+	// PrivateNamespace is where install --remote puts a package from a private
+	// repository unless a namespace is given.
+	PrivateNamespace = "private"
 
 	// InstallDirEnvVar is the environment variable that overrides the package directory.
 	InstallDirEnvVar = "GOTPM_INSTALL_DIR"

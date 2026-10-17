@@ -37,6 +37,9 @@ const (
 type Request struct {
 	URL      string
 	Revision string
+	// Anonymous clones without the user's credentials, so a private
+	// repository is as unreachable as a missing one.
+	Anonymous bool
 }
 
 // Resolved is a repository checked out at a known commit, with the manifest of
@@ -51,6 +54,9 @@ type Resolved struct {
 	// the directory at the package path, holding the manifest and the lock.
 	Dir      string
 	Manifest *manifest.Manifest
+	// Private reports whether the repository took the user's credentials to
+	// reach.
+	Private bool
 }
 
 // Ref returns the package reference this resolves to in a namespace. The
@@ -67,7 +73,7 @@ func Resolve(req Request, logger *log.Logger) (*Resolved, error) {
 		return nil, err
 	}
 
-	clone, err := remote.EnsureClone(src.Canonical, src.CloneURL)
+	clone, err := remote.EnsureClone(src.Canonical, src.CloneURL, req.Anonymous)
 	if err != nil {
 		return nil, fmt.Errorf("%w%s", err, packagePathHint(src))
 	}
@@ -91,7 +97,9 @@ func resolveIn(clone *remote.Clone, src Source, requested string, logger *log.Lo
 	}
 	warnOnVersionMismatch(m, revision, src, logger)
 
-	return &Resolved{Source: src, Revision: revision, Hash: hash, Dir: packageDir, Manifest: m}, nil
+	return &Resolved{
+		Source: src, Revision: revision, Hash: hash, Dir: packageDir, Manifest: m, Private: clone.Private,
+	}, nil
 }
 
 // checkout picks the revision to use and checks out the commit it names,

@@ -183,14 +183,20 @@ func cutSCPLike(raw string) (string, string, bool) {
 	return before, after, true
 }
 
-// splitSCPLike cuts "host:path" at its colon, refusing urls and anything with
-// a second colon.
+// splitSCPLike cuts "host:path" at its colon, refusing urls, anything with a
+// second colon, and "host:port/path" — the canonical form of a url with a
+// port, which gotpm writes into locks itself.
 func splitSCPLike(raw string) (string, string, bool) {
 	if hasScheme(raw) {
 		return "", "", false
 	}
 	before, after, found := strings.Cut(raw, ":")
-	return before, after, found && after != "" && !strings.Contains(after, ":")
+	return before, after, found && after != "" && !strings.Contains(after, ":") && !startsWithPort(after)
+}
+
+func startsWithPort(path string) bool {
+	port, _, found := strings.Cut(path, "/")
+	return found && port != "" && strings.Trim(port, "0123456789") == ""
 }
 
 func isSCPLike(raw string) bool {

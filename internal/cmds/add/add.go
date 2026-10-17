@@ -13,6 +13,7 @@ import (
 	"github.com/npikall/gotpm/internal/depgraph"
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/lockfile"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/ui"
 )
@@ -50,16 +51,25 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 		return err
 	}
 	report(results)
+	ui.Notes("", deps.UnreachableWarning(unreachablePins(walked.Unresolved), "the project"))
 	fontResults.Report()
 	return nil
 }
 
 // fetch resolves url and everything it depends on, and installs it all. The
-// package at url comes first.
+// package at url comes first. Private repositories are not supported yet, so
+// every clone is made without the user's credentials.
 func fetch(url string, opts *Options, logger *log.Logger) (depgraph.Result, []deps.Result, error) {
 	walked, err := ui.WithSpinner("resolving "+url, func() (depgraph.Result, error) {
-		return depgraph.Walk(resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{}, logger)
+		return depgraph.Walk(
+			resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{Anonymous: true}, logger,
+		)
 	})
+	if errors.Is(err, remote.ErrRepositoryNotFound) {
+		return depgraph.Result{}, nil, fmt.Errorf("%w"+
+			"\nnote: if the repository is private: 'gotpm add' does not support private repositories yet;"+
+			" 'gotpm install -r %s' installs it without adding it to the project", err, url)
+	}
 	if err != nil {
 		return depgraph.Result{}, nil, err
 	}
@@ -75,6 +85,7 @@ func installAll(entries []lockfile.Entry, force bool, logger *log.Logger) ([]dep
 	if err != nil {
 		return nil, err
 	}
+	installer.Anonymous = true
 	return ui.WithSpinner("installing", func() ([]deps.Result, error) {
 		return installer.EnsureAll(entries)
 	})
@@ -90,11 +101,14 @@ func record(project *deps.Project, walked depgraph.Result, force bool, logger *l
 	return fontResults, declare(project, walked.Entries[0].Import)
 }
 
+// errorForUnresolved refuses the first dependency whose dependant does not
+// say where it lives. An unreachable one is not refused: its pin is known.
 func errorForUnresolved(unresolved []depgraph.Unresolved) error {
-	if len(unresolved) == 0 {
+	i := slices.IndexFunc(unresolved, func(u depgraph.Unresolved) bool { return u.Reason != depgraph.Unreachable })
+	if i < 0 {
 		return nil
 	}
-	u := unresolved[0]
+	u := unresolved[i]
 	reason := "it ships no " + lockfile.FileName
 	if u.Reason == depgraph.IncompleteLock {
 		reason = "its " + lockfile.FileName + " has no entry for it"
@@ -111,6 +125,9 @@ func updateLock(project *deps.Project, walked depgraph.Result, force bool, logge
 	}
 	for _, entry := range walked.Entries {
 		lock.Upsert(entry)
+	}
+	for _, pin := range unreachablePins(walked.Unresolved) {
+		lock.Upsert(pin)
 	}
 	fontResults, err := deps.EnsureFonts(pinFonts(lock, walked.Fonts), force, logger)
 	if err != nil {
@@ -134,6 +151,19 @@ func pinFonts(lock *lockfile.Lock, pins []lockfile.Font) []lockfile.Font {
 		kept = append(kept, recorded)
 	}
 	return kept
+}
+
+// unreachablePins are the pins of the dependencies that could not be cloned.
+// They are locked all the same: the pin is right, only this user cannot reach
+// it.
+func unreachablePins(unresolved []depgraph.Unresolved) []lockfile.Entry {
+	var pins []lockfile.Entry
+	for _, u := range unresolved {
+		if u.Reason == depgraph.Unreachable {
+			pins = append(pins, u.Pin)
+		}
+	}
+	return pins
 }
 
 func declare(project *deps.Project, imp string) error {

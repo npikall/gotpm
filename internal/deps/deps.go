@@ -14,6 +14,7 @@ package deps
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/go-git/go-git/v6"
@@ -36,6 +37,9 @@ const (
 	Installed
 	// Replaced means something else was there and was overwritten.
 	Replaced
+	// Unreachable means the pinned repository could not be cloned, so nothing
+	// was installed. The pin is kept; only this user cannot reach it.
+	Unreachable
 )
 
 // Result reports what happened to one package.
@@ -104,6 +108,8 @@ type Installer struct {
 	// Force overwrites a package installed from another repository instead of
 	// refusing to touch it.
 	Force bool
+	// Anonymous clones without the user's credentials.
+	Anonymous bool
 }
 
 // OpenInstaller returns an installer writing into the package directory every
@@ -117,7 +123,9 @@ func OpenInstaller(force bool, logger *log.Logger) (Installer, error) {
 }
 
 // EnsureAll makes the store hold every package version a set of entries pins, in
-// the order they are given. It stops at the first entry it cannot install and
+// the order they are given. An entry whose repository cannot be cloned is
+// reported as Unreachable and skipped. It stops at the first entry it cannot
+// install otherwise and
 // reports nothing about the ones before it; running again resumes from there.
 func (i Installer) EnsureAll(entries []lockfile.Entry) ([]Result, error) {
 	results := make([]Result, 0, len(entries))
@@ -157,6 +165,10 @@ func (i Installer) replace(ref pkg.Ref, entry lockfile.Entry, present state, pro
 		return Result{}, err
 	}
 	moved, err := i.install(ref, entry)
+	if errors.Is(err, remote.ErrRepositoryNotFound) {
+		i.Logger.Warn("dependency not found or not accessible, skipped", "dependency", ref, "url", entry.URL)
+		return Result{Ref: ref, Entry: entry, Outcome: Unreachable}, nil
+	}
 	if err != nil {
 		return Result{}, err
 	}
@@ -232,7 +244,7 @@ func (i Installer) install(ref pkg.Ref, entry lockfile.Entry) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	clone, err := remote.EnsureClone(src.Canonical, src.CloneURL)
+	clone, err := remote.EnsureClone(src.Canonical, src.CloneURL, i.Anonymous)
 	if err != nil {
 		return "", fmt.Errorf("could not fetch %s: %w", entry.URL, err)
 	}
@@ -277,4 +289,31 @@ func conflictError(ref pkg.Ref, entry lockfile.Entry, prov store.Provenance) err
 	return fmt.Errorf("%w: %s is installed from %s, this project wants it from %s"+
 		"\nnote: pass --force to replace it, which changes what every project on this machine imports",
 		ErrSourceConflict, ref, from, entry.URL)
+}
+
+// UnreachableWarning summarises the pins skipped because their repository
+// could not be cloned, and says what will not compile without them. It is the
+// empty string when nothing was skipped. The host answers a missing repository
+// and a private one alike, so it claims neither.
+func UnreachableWarning(pins []lockfile.Entry, incomplete string) string {
+	if len(pins) == 0 {
+		return ""
+	}
+	lines := make([]string, 0, len(pins))
+	for _, pin := range pins {
+		lines = append(lines, fmt.Sprintf("\n  %s from %s, required by %s",
+			pin.Import, pin.URL, strings.Join(pin.RequiredBy, ", ")))
+	}
+	return fmt.Sprintf("%d %s not found or not accessible, not installed:%s"+
+		"\nnote: %s will not compile until %s installed"+
+		"\nnote: if a repository is private, set up git credentials for its host and run again",
+		len(pins), plural(len(pins), "dependency", "dependencies"), strings.Join(lines, ""),
+		incomplete, plural(len(pins), "it is", "they are"))
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/resolve"
 )
 
@@ -39,6 +40,10 @@ const (
 	// IncompleteLock means the dependant ships a gotpm.lock, but it has no
 	// entry for this declared dependency — a defect in the dependant.
 	IncompleteLock
+	// Unreachable means the dependant's lock pins the dependency, but its
+	// repository cannot be cloned: it does not exist, or it is private and
+	// the user has no credentials for it. The host answers both the same way.
+	Unreachable
 )
 
 // Unresolved is one declared dependency Walk could not find a repository for.
@@ -52,6 +57,9 @@ type Unresolved struct {
 	// RequiredByURL is RequiredBy's repository, with its package path.
 	RequiredByURL string
 	Reason        Reason
+	// Pin is the dependant's lock entry for an Unreachable dependency, with
+	// RequiredBy filled in. The pin is right; only this user cannot reach it.
+	Pin lockfile.Entry
 }
 
 // Options configures a Walk.
@@ -60,6 +68,12 @@ type Options struct {
 	// Transitive dependencies always resolve under manifest.Namespace. Empty keeps
 	// manifest.Namespace for the root too.
 	RootNamespace string
+	// PrivateRootNamespace, when set, replaces RootNamespace for a root
+	// package whose repository is private.
+	PrivateRootNamespace string
+	// Anonymous clones every repository without the user's credentials, so a
+	// private dependency is unreachable and the root fails to resolve.
+	Anonymous bool
 }
 
 // Result is the outcome of a Walk.
@@ -87,6 +101,8 @@ func Walk(root resolve.Request, opts Options, logger *log.Logger) (Result, error
 }
 
 type node struct {
+	// pin is the lock entry a dependency was found under, empty for the root.
+	pin        lockfile.Entry
 	request    resolve.Request
 	revision   string
 	declaredAs string
@@ -109,7 +125,13 @@ func (w *walker) visit(n node, chain []string) error {
 			ErrTooDeep, maxDepth, strings.Join(w.importsOf(chain), " -> "))
 	}
 
-	resolved, err := resolve.Resolve(n.request, w.logger)
+	request := n.request
+	request.Anonymous = w.opts.Anonymous
+	resolved, err := resolve.Resolve(request, w.logger)
+	if n.requiredBy != "" && errors.Is(err, remote.ErrRepositoryNotFound) {
+		w.skipUnreachable(n)
+		return nil
+	}
 	if err != nil {
 		return w.wrapResolveError(n, err)
 	}
@@ -120,6 +142,21 @@ func (w *walker) visit(n node, chain []string) error {
 		return nil
 	}
 	return w.add(resolved, n, sourceCommit, append(slices.Clip(chain), sourceCommit))
+}
+
+// skipUnreachable records a dependency whose repository cannot be cloned, and
+// walks on without it.
+func (w *walker) skipUnreachable(n node) {
+	w.logger.Warn("dependency not found or not accessible, skipped",
+		"dependency", n.declaredAs, "url", n.pin.URL, "required-by", n.requiredBy)
+	pin := n.pin
+	pin.Direct, pin.RequiredBy = false, []string{n.requiredBy}
+	w.unresolved = append(w.unresolved, Unresolved{
+		Dependency: n.declaredAs,
+		RequiredBy: n.requiredBy,
+		Reason:     Unreachable,
+		Pin:        pin,
+	})
 }
 
 // revisit records another route to the i-th entry, which is not walked again.
@@ -227,7 +264,7 @@ func (w *walker) record(i int, n node) {
 }
 
 func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry, error) {
-	ref, err := resolved.Ref(namespaceFor(n, opts))
+	ref, err := resolved.Ref(namespaceFor(n, resolved.Private, opts))
 	if err != nil {
 		return lockfile.Entry{}, fmt.Errorf("%s: %w", resolved.Source, err)
 	}
@@ -251,8 +288,12 @@ func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry,
 }
 
 // namespaceFor is the namespace a package is installed under: the requested
-// one for the package asked for, and gotpm's own for its dependencies.
-func namespaceFor(n node, opts Options) string {
+// one for the package asked for, and gotpm's own for its dependencies, which
+// are imported under it whether they are private or not.
+func namespaceFor(n node, private bool, opts Options) string {
+	if n.direct && private && opts.PrivateRootNamespace != "" {
+		return opts.PrivateRootNamespace
+	}
 	if n.direct && opts.RootNamespace != "" {
 		return opts.RootNamespace
 	}
@@ -294,6 +335,7 @@ func lockedDependencies(
 			continue
 		}
 		children = append(children, node{
+			pin:        entry,
 			request:    resolve.Request{URL: entry.URL, Revision: pin(entry)},
 			revision:   entry.Revision,
 			declaredAs: ref.String(),

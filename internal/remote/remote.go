@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/client"
 	"github.com/go-git/go-git/v6/plumbing/transport"
 )
 
@@ -48,12 +49,13 @@ func CloneRepo(remote, dest, rev string) error {
 // CloneWithoutCheckout clones a repository with all of its tags but leaves the
 // worktree empty, so the caller can look at what was fetched before deciding
 // which revision it wants. The caller owns the repository and must close it.
-func CloneWithoutCheckout(remote, dest string) (*git.Repository, error) {
+func CloneWithoutCheckout(remote, dest string, opts ...client.Option) (*git.Repository, error) {
 	repo, err := git.PlainClone(dest, &git.CloneOptions{
-		URL:        remote,
-		Progress:   io.Discard,
-		Tags:       git.AllTags,
-		NoCheckout: true,
+		URL:           remote,
+		ClientOptions: opts,
+		Progress:      io.Discard,
+		Tags:          git.AllTags,
+		NoCheckout:    true,
 	})
 	// Hosts such as GitHub and GitLab answer a missing repository with 401, so
 	// it is indistinguishable from a private one.
