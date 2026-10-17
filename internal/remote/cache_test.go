@@ -207,3 +207,38 @@ func TestEnsureClone_AnonymousUsesACachedPrivateCloneAsItIs(t *testing.T) { //no
 	t.Cleanup(func() { _ = second.Repo.Close() })
 	assert.False(t, second.Private, "without credentials, nothing says it is private")
 }
+
+func TestRefusesAnonymous_APrivateRepositoryEvenWhenTheUserHasCredentials(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	pkg := testrepo.New(t, "secret", "0.1.0").Private().Release()
+
+	assert.True(t, remote.RefusesAnonymous(pkg.URL()))
+}
+
+func TestRefusesAnonymous_NotAPublicRepository(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	pkg := testrepo.New(t, "open", "0.1.0").Release()
+
+	assert.False(t, remote.RefusesAnonymous(pkg.URL()))
+}
+
+func TestCarriesOwnCredentials(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		url  string
+		want bool
+	}{
+		{"git@github.com:a/cetz.git", true},
+		{"github.com:a/cetz", true},
+		{"ssh://git@github.com/a/cetz", true},
+		{"https://github.com/a/cetz", false},
+		{"http://example.com/a/cetz", false},
+		{"file:///tmp/a/cetz", false},
+		{"/tmp/a/cetz", false},
+		{`C:\a\cetz`, false},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, remote.CarriesOwnCredentials(c.url), c.url)
+	}
+}
