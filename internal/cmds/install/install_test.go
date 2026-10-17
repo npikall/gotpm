@@ -382,3 +382,61 @@ func TestRun_Remote_AllowsASinglePackageInAFlatStore(t *testing.T) { //nolint: p
 
 	assert.FileExists(t, filepath.Join(opts.InstallDir, "lib.typ"))
 }
+
+// privateOptions are the options "gotpm install -r" runs with when -n is not
+// given: a package from a private repository goes under @private.
+func privateOptions(url string) *install.Options {
+	opts := remoteOptions(url)
+	opts.PrivateNamespace = paths.PrivateNamespace
+	return opts
+}
+
+func TestRun_Remote_InstallsAPrivateRootUnderPrivate(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	root := testrepo.New(t, "root", "1.0.0").Private().Release()
+
+	require.NoError(t, install.Run("", privateOptions(root.URL()), discardLogger()))
+
+	assert.FileExists(t, filepath.Join(packages, paths.PrivateNamespace, "root", "1.0.0", "lib.typ"))
+}
+
+func TestRun_Remote_AGivenNamespaceWinsOverPrivate(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	root := testrepo.New(t, "root", "1.0.0").Private().Release()
+	opts := remoteOptions(root.URL())
+	opts.Namespace = "preview"
+
+	require.NoError(t, install.Run("", opts, discardLogger()))
+
+	assert.FileExists(t, filepath.Join(packages, "preview", "root", "1.0.0", "lib.typ"))
+}
+
+func TestRun_Remote_InstallsAPrivateDependencyUnderGotpm(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+
+	require.NoError(t, install.Run("", privateOptions(root.URL()), discardLogger()))
+
+	assert.FileExists(t, filepath.Join(packages, paths.DefaultNamespace, "root", "1.0.0", "lib.typ"),
+		"a public root stays in the default namespace")
+	assert.FileExists(t, filepath.Join(packages, manifest.Namespace, "leaf", "1.0.0", "lib.typ"),
+		"its source imports the dependency from @gotpm, private or not")
+}
+
+func TestRun_Remote_SkipsAnUnreachableDependency(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
+	sibling := testrepo.New(t, "sibling", "1.0.0").Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf, sibling)
+
+	err := install.Run("", privateOptions(root.URL()), discardLogger())
+
+	require.NoError(t, err, "a dependency this user cannot clone is a warning, not a fatal error")
+	assert.FileExists(t, filepath.Join(packages, paths.DefaultNamespace, "root", "1.0.0", "lib.typ"))
+	assert.FileExists(t, filepath.Join(packages, manifest.Namespace, "sibling", "1.0.0", "lib.typ"))
+	assert.NoDirExists(t, filepath.Join(packages, manifest.Namespace, "leaf", "1.0.0"))
+}

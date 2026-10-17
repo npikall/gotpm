@@ -3,6 +3,7 @@ package deps_test
 import (
 	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"charm.land/log/v2"
@@ -168,16 +169,31 @@ func TestEnsureAll_InstallsEveryEntryInOrder(t *testing.T) { //nolint: parallelt
 func TestEnsureAll_StopsAtTheFirstEntryItCannotInstall(t *testing.T) { //nolint: paralleltest
 	testrepo.Isolate(t)
 	cetz := testrepo.New(t, "cetz", "0.3.1").Release()
-	missing := lockfile.Entry{
-		Import: "@gotpm/gone:0.1.0", Namespace: "gotpm", Name: "gone", Version: "0.1.0",
-		URL: "file://" + filepath.Join(t.TempDir(), "no-such-repository"), Hash: cetz.Hash(),
-	}
+	broken := testrepo.New(t, "broken", "0.1.0").Release().LockEntry()
+	broken.Hash = strings.Repeat("0", 40)
 	after := testrepo.New(t, "fletcher", "0.5.0").Release()
 
-	results, err := installer(t).EnsureAll([]lockfile.Entry{cetz.LockEntry(), missing, after.LockEntry()})
+	results, err := installer(t).EnsureAll([]lockfile.Entry{cetz.LockEntry(), broken, after.LockEntry()})
 
 	require.Error(t, err)
 	assert.Nil(t, results, "a half-installed set is not reported on")
+}
+
+func TestEnsureAll_SkipsAnEntryWhoseRepositoryIsUnreachable(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	missing := lockfile.Entry{
+		Import: "@gotpm/gone:0.1.0", Namespace: "gotpm", Name: "gone", Version: "0.1.0",
+		URL: "file://" + filepath.Join(t.TempDir(), "no-such-repository"), Hash: strings.Repeat("0", 40),
+	}
+	after := testrepo.New(t, "fletcher", "0.5.0").Release()
+
+	results, err := installer(t).EnsureAll([]lockfile.Entry{missing, after.LockEntry()})
+
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, deps.Unreachable, results[0].Outcome)
+	assert.Equal(t, deps.Installed, results[1].Outcome, "the entries after it are still installed")
+	assert.NoDirExists(t, filepath.Join(packages, "gotpm", "gone", "0.1.0"))
 }
 
 func TestOpenInstaller_WritesIntoThePackageDirectory(t *testing.T) {

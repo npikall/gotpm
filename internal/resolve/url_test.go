@@ -25,6 +25,8 @@ func TestNormalize(t *testing.T) {
 		{"scp style ssh", "git@github.com:a/cetz.git", "github.com/a/cetz", "git@github.com:a/cetz.git"},
 		{"ssh url", "ssh://git@github.com/a/cetz", "github.com/a/cetz", "ssh://git@github.com/a/cetz"},
 		{"gitlab subgroup", "gitlab.com/g/sub/cetz", "gitlab.com/g/sub/cetz", "https://gitlab.com/g/sub/cetz"},
+		{"url with a port", "https://git.example.com:8443/a/cetz", "git.example.com:8443/a/cetz", "https://git.example.com:8443/a/cetz"},
+		{"canonical form with a port", "git.example.com:8443/a/cetz", "git.example.com:8443/a/cetz", "https://git.example.com:8443/a/cetz"},
 		{"surrounding space", "  github.com/a/cetz  ", "github.com/a/cetz", "https://github.com/a/cetz"},
 	}
 	for _, tt := range tests {

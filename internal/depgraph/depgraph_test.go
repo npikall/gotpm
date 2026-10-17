@@ -10,6 +10,7 @@ import (
 	"github.com/npikall/gotpm/internal/depgraph"
 	"github.com/npikall/gotpm/internal/lockfile"
 	"github.com/npikall/gotpm/internal/manifest"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
@@ -195,7 +196,7 @@ func TestWalk_RejectsAGraphThatIsTooDeep(t *testing.T) { //nolint: paralleltest
 	assert.Contains(t, err.Error(), "@gotpm/p32:1.0.0", "the error names the chain that got too long")
 }
 
-func TestWalk_ReportsWhatPulledInAnUnreachableDependency(t *testing.T) { //nolint: paralleltest
+func TestWalk_ReportsAnUnreachablePin(t *testing.T) { //nolint: paralleltest
 	testrepo.Isolate(t)
 	gone := testrepo.New(t, "gone", "1.0.0").Release()
 	lock := lockfile.New()
@@ -205,11 +206,27 @@ func TestWalk_ReportsWhatPulledInAnUnreachableDependency(t *testing.T) { //nolin
 	middle := testrepo.New(t, "middle", "1.0.0").ReleaseWith([]string{gone.Import()}, lock)
 	root := testrepo.New(t, "root", "1.0.0").Release(middle)
 
-	_, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
+	result, err := depgraph.Walk(resolve.Request{URL: root.URL()}, depgraph.Options{}, discardLogger())
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), gone.Import())
-	assert.Contains(t, err.Error(), middle.Import(), "a failed clone must say why gotpm went there")
+	require.NoError(t, err, "a pin this user cannot clone is reported, not fatal to the walk")
+	assert.Equal(t, []string{root.Import(), middle.Import()}, imports(result.Entries))
+	require.Len(t, result.Unresolved, 1)
+	u := result.Unresolved[0]
+	assert.Equal(t, depgraph.Unreachable, u.Reason)
+	assert.Equal(t, gone.Import(), u.Dependency)
+	assert.Equal(t, middle.Import(), u.RequiredBy, "a skipped pin must say why gotpm went there")
+	assert.Equal(t, entry.URL, u.Pin.URL, "the pin is kept, so a project can still lock it")
+	assert.Equal(t, entry.Hash, u.Pin.Hash)
+	assert.Equal(t, []string{middle.Import()}, u.Pin.RequiredBy)
+}
+
+func TestWalk_FailsWhenTheRootIsUnreachable(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	missing := "file://" + filepath.Join(t.TempDir(), "deleted")
+
+	_, err := depgraph.Walk(resolve.Request{URL: missing}, depgraph.Options{}, discardLogger())
+
+	require.ErrorIs(t, err, remote.ErrRepositoryNotFound, "with nothing installed, there is nothing to skip to")
 }
 
 func TestWalk_RecordsThePackagePath(t *testing.T) { //nolint: paralleltest

@@ -100,7 +100,7 @@ func TestEnsureClone_ClonesThenReusesTheCache(t *testing.T) { //nolint: parallel
 	isolateDataDir(t)
 	pkg := testrepo.New(t, "cetz", "0.4.0").Release()
 
-	first, err := remote.EnsureClone(pkg.URL(), pkg.URL())
+	first, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = first.Repo.Close() })
 	assert.True(t, first.Cloned)
@@ -108,7 +108,7 @@ func TestEnsureClone_ClonesThenReusesTheCache(t *testing.T) { //nolint: parallel
 	require.NoError(t, err, "tags come along with the clone")
 
 	pkg.Release()
-	second, err := remote.EnsureClone(pkg.URL(), pkg.URL())
+	second, err := remote.EnsureClone(pkg.URL(), pkg.URL(), false)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = second.Repo.Close() })
 	assert.False(t, second.Cloned, "an existing clone is reused")
@@ -120,7 +120,7 @@ func TestEnsureClone_ClonesThenReusesTheCache(t *testing.T) { //nolint: parallel
 func TestEnsureClone_RejectsAnEmptyURL(t *testing.T) { //nolint: paralleltest
 	isolateDataDir(t)
 
-	_, err := remote.EnsureClone("", "")
+	_, err := remote.EnsureClone("", "", false)
 	require.ErrorIs(t, err, remote.ErrInvalidCacheKey)
 }
 
@@ -130,7 +130,7 @@ func TestEnsureClone_ReportsABrokenCacheEntry(t *testing.T) { //nolint: parallel
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(dir, 0o750))
 
-	_, err = remote.EnsureClone("github.com/a/cetz", "https://github.com/a/cetz")
+	_, err = remote.EnsureClone("github.com/a/cetz", "https://github.com/a/cetz", false)
 	require.ErrorContains(t, err, "opening cached clone")
 }
 
@@ -138,6 +138,6 @@ func TestEnsureClone_ReportsAFailedClone(t *testing.T) { //nolint: paralleltest
 	isolateDataDir(t)
 	missing := "file://" + filepath.Join(t.TempDir(), "missing")
 
-	_, err := remote.EnsureClone(missing, missing)
+	_, err := remote.EnsureClone(missing, missing, false)
 	require.Error(t, err)
 }

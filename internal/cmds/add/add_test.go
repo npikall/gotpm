@@ -13,6 +13,7 @@ import (
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkg"
+	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
@@ -249,4 +250,36 @@ func TestRun_RefusesAPackageWhoseLockMissesADependency(t *testing.T) { //nolint:
 
 	require.ErrorIs(t, err, add.ErrUnresolvable)
 	assert.Contains(t, err.Error(), "has no entry for it")
+}
+
+func TestRun_RefusesAPrivateRepository(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	project := testrepo.Project(t, "my-doc")
+	dep := testrepo.New(t, "secret", "1.0.0").Private().Release()
+
+	err := add.Run(dep.URL(), &add.Options{}, discardLogger())
+
+	require.ErrorIs(t, err, remote.ErrRepositoryNotFound, "add clones without credentials, even when the user has them")
+	assert.Contains(t, err.Error(), "install -r", "the error points at what does support private repositories")
+	assert.Empty(t, declared(t, project), "nothing is recorded")
+}
+
+func TestRun_LocksAnUnreachableDependencyWithoutInstallingIt(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	project := testrepo.Project(t, "my-doc")
+	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
+	dep := testrepo.New(t, "cetz", "0.3.1").Release(leaf)
+
+	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()),
+		"a dependency this user cannot clone is a warning, not a fatal error")
+
+	assert.True(t, installed(t, packages, "cetz", "0.3.1"))
+	assert.False(t, installed(t, packages, "leaf", "1.0.0"))
+	assert.Equal(t, []string{dep.Import()}, declared(t, project))
+	pin, ok := lockOf(t, project).Get(leaf.Import())
+	require.True(t, ok, "the pin is right, only this user cannot reach it")
+	assert.Equal(t, leaf.Hash(), pin.Hash)
+	assert.Equal(t, []string{dep.Import()}, pin.RequiredBy)
+	assert.False(t, pin.Direct)
 }

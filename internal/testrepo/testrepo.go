@@ -68,6 +68,9 @@ type Package struct {
 	tagged bool
 	hash   string
 	builds int
+	// served is the http address of a private package, empty for one reached
+	// over file://.
+	served string
 }
 
 // New creates an empty repository for a package. Nothing is committed until
@@ -114,6 +117,9 @@ func (p *Package) Dir() string { return p.dir }
 
 // URL is the address the package is reachable at, with its package path.
 func (p *Package) URL() string {
+	if p.served != "" {
+		return resolve.JoinPath(p.served, p.path)
+	}
 	return resolve.JoinPath("file://"+p.dir, p.path)
 }
 
