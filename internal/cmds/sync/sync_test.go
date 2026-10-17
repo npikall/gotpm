@@ -207,3 +207,35 @@ func TestRun_InstallsIntoThePackageDirectoryDespiteAnInstallDirOverride(t *testi
 	require.NoError(t, err)
 	assert.Empty(t, entries, "the install dir is not sync's destination")
 }
+
+// addWithPrivateLeaf adds a public package whose lock pins a private one the
+// user cannot reach yet, then empties the store the way a fresh checkout is.
+func addWithPrivateLeaf(t *testing.T) string {
+	t.Helper()
+	packages := testrepo.Isolate(t)
+	testrepo.Project(t, "my-doc")
+	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
+	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
+	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	emptyStore(t, packages)
+	return packages
+}
+
+func TestRun_SkipsAnUnreachablePin(t *testing.T) { //nolint: paralleltest
+	packages := addWithPrivateLeaf(t)
+
+	require.NoError(t, sync.Run(&sync.Options{}, discardLogger()),
+		"a pin this user cannot clone is a warning, not a fatal error")
+
+	assert.True(t, installed(t, packages, "root", "1.0.0"))
+	assert.False(t, installed(t, packages, "leaf", "1.0.0"))
+}
+
+func TestRun_InstallsAPrivatePinWithTheUsersCredentials(t *testing.T) { //nolint: paralleltest
+	packages := addWithPrivateLeaf(t)
+	testrepo.GrantAccess(t)
+
+	require.NoError(t, sync.Run(&sync.Options{}, discardLogger()))
+
+	assert.True(t, installed(t, packages, "leaf", "1.0.0"), "a private pin is just a pin")
+}
