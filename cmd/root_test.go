@@ -61,3 +61,27 @@ func TestExecuteRunsTheRootCommand(t *testing.T) { //nolint: paralleltest // roo
 
 	Execute()
 }
+
+func TestInstallSendsAPrivatePackageToPrivateByDefault(t *testing.T) {
+	t.Parallel()
+	cmd := &cobra.Command{}
+	addInstallFlags(cmd)
+	require.NoError(t, cmd.ParseFlags([]string{"-r", "github.com/me/secret"}))
+
+	opts := installOptions(cmd)
+
+	require.Equal(t, paths.DefaultNamespace, opts.Namespace, "a public package keeps the default")
+	require.Equal(t, paths.PrivateNamespace, opts.PrivateNamespace)
+}
+
+func TestInstallKeepsAGivenNamespaceForAPrivatePackage(t *testing.T) {
+	t.Parallel()
+	cmd := &cobra.Command{}
+	addInstallFlags(cmd)
+	require.NoError(t, cmd.ParseFlags([]string{"-r", "github.com/me/secret", "-n", "preview"}))
+
+	opts := installOptions(cmd)
+
+	require.Equal(t, "preview", opts.Namespace)
+	require.Empty(t, opts.PrivateNamespace, "-n wins over @private")
+}

@@ -276,3 +276,28 @@ func TestWalk_SiblingsAtTheSameCommitAreNotMerged(t *testing.T) { //nolint: para
 	assert.Equal(t, common.URL(), entryFor(t, entries, common.Import()).URL)
 	assert.Equal(t, extra.URL(), entryFor(t, entries, extra.Import()).URL)
 }
+
+func TestWalk_RecordsAPrivateRootUnderThePrivateNamespace(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	testrepo.GrantAccess(t)
+	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
+	root := testrepo.New(t, "root", "1.0.0").Private().Release(leaf)
+	opts := depgraph.Options{RootNamespace: "local", PrivateRootNamespace: "private"}
+
+	result, err := depgraph.Walk(resolve.Request{URL: root.URL()}, opts, discardLogger())
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"@private/root:1.0.0", leaf.Import()}, imports(result.Entries),
+		"only the root moves; a private dependency is still imported under @gotpm")
+}
+
+func TestWalk_RecordsAPublicRootUnderTheRootNamespace(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	root := testrepo.New(t, "root", "1.0.0").Release()
+	opts := depgraph.Options{RootNamespace: "local", PrivateRootNamespace: "private"}
+
+	result, err := depgraph.Walk(resolve.Request{URL: root.URL()}, opts, discardLogger())
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"@local/root:1.0.0"}, imports(result.Entries))
+}

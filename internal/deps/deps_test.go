@@ -294,3 +294,34 @@ func TestEnsure_RefusesAPackagePathLeavingTheRepository(t *testing.T) { //nolint
 
 	require.ErrorIs(t, err, resolve.ErrInvalidRepoURL, "a lock is read from disk and may name any path")
 }
+
+func TestUnreachableWarning_IsEmptyWhenNothingWasSkipped(t *testing.T) {
+	t.Parallel()
+	assert.Empty(t, deps.UnreachableWarning(nil, "the project"))
+}
+
+func TestUnreachableWarning_NamesEachPinAndWhatWillNotCompile(t *testing.T) {
+	t.Parallel()
+	pins := []lockfile.Entry{
+		{Import: "@gotpm/q:1.0.0", URL: "github.com/x/q", RequiredBy: []string{"@gotpm/p:1.0.0"}},
+		{Import: "@gotpm/r:2.0.0", URL: "github.com/x/r", RequiredBy: []string{"@gotpm/p:1.0.0", "@gotpm/s:0.1.0"}},
+	}
+
+	got := deps.UnreachableWarning(pins, "@local/p:1.0.0")
+
+	assert.Equal(t, "2 dependencies not found or not accessible, not installed:"+
+		"\n  @gotpm/q:1.0.0 from github.com/x/q, required by @gotpm/p:1.0.0"+
+		"\n  @gotpm/r:2.0.0 from github.com/x/r, required by @gotpm/p:1.0.0, @gotpm/s:0.1.0"+
+		"\nnote: @local/p:1.0.0 will not compile until they are installed"+
+		"\nnote: if a repository is private, set up git credentials for its host and run again", got)
+}
+
+func TestUnreachableWarning_SpeaksOfASinglePinInTheSingular(t *testing.T) {
+	t.Parallel()
+	pins := []lockfile.Entry{{Import: "@gotpm/q:1.0.0", URL: "github.com/x/q", RequiredBy: []string{"@gotpm/p:1.0.0"}}}
+
+	got := deps.UnreachableWarning(pins, "the project")
+
+	assert.Contains(t, got, "1 dependency not found")
+	assert.Contains(t, got, "the project will not compile until it is installed")
+}
