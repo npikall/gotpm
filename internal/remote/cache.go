@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/client"
 	"github.com/npikall/gotpm/internal/paths"
 )
 
@@ -99,12 +100,17 @@ type Clone struct {
 	// Cloned reports whether the repository was fetched from scratch rather
 	// than found in the cache.
 	Cloned bool
+	// Private reports whether reaching the repository took the user's
+	// credentials. A cached clone that could not be fetched at all is not.
+	Private bool
 }
 
 // EnsureClone returns the cached clone of a repository, cloning it from cloneURL
 // when it is not there yet and fetching updates when it is. Nothing is checked
-// out. The caller owns the returned repository and must close it.
-func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
+// out. A repository that cannot be reached without credentials is reached with
+// the user's own, unless anonymous is set. The caller owns the returned
+// repository and must close it.
+func EnsureClone(canonicalURL, cloneURL string, anonymous bool) (*Clone, error) {
 	repoDir, err := CachePath(canonicalURL)
 	if err != nil {
 		return nil, err
@@ -115,19 +121,45 @@ func EnsureClone(canonicalURL, cloneURL string) (*Clone, error) {
 		if err != nil {
 			return nil, fmt.Errorf("opening cached clone %q: %w", repoDir, err)
 		}
-		fetchBestEffort(repo)
-		return &Clone{Dir: repoDir, Repo: repo}, nil
+		private := fetchBestEffort(repo, cloneURL, anonymous)
+		return &Clone{Dir: repoDir, Repo: repo, Private: private}, nil
 	}
 
 	repo, err := CloneWithoutCheckout(cloneURL, repoDir)
+	if err == nil {
+		return &Clone{Dir: repoDir, Repo: repo, Cloned: true}, nil
+	}
+	if anonymous || !errors.Is(err, ErrRepositoryNotFound) {
+		return nil, err
+	}
+	auth, ok := credentialsFor(cloneURL)
+	if !ok {
+		return nil, err
+	}
+	if err := os.RemoveAll(repoDir); err != nil {
+		return nil, fmt.Errorf("clearing failed clone %q: %w", repoDir, err)
+	}
+	repo, err = CloneWithoutCheckout(cloneURL, repoDir, client.WithHTTPAuth(auth))
 	if err != nil {
 		return nil, err
 	}
-	return &Clone{Dir: repoDir, Repo: repo, Cloned: true}, nil
+	return &Clone{Dir: repoDir, Repo: repo, Cloned: true, Private: true}, nil
 }
 
-func fetchBestEffort(repo *git.Repository) {
-	_ = repo.Fetch(&git.FetchOptions{Tags: git.AllTags})
+// fetchBestEffort updates a cached clone, with the user's credentials when it
+// cannot be reached without them, and reports whether that was needed. A
+// failure is ignored: the cached clone is used as it is.
+func fetchBestEffort(repo *git.Repository, cloneURL string, anonymous bool) bool {
+	err := repo.Fetch(&git.FetchOptions{Tags: git.AllTags})
+	if anonymous || !needsCredentials(err) {
+		return false
+	}
+	auth, ok := credentialsFor(cloneURL)
+	if !ok {
+		return false
+	}
+	err = repo.Fetch(&git.FetchOptions{Tags: git.AllTags, ClientOptions: []client.Option{client.WithHTTPAuth(auth)}})
+	return err == nil || errors.Is(err, git.NoErrAlreadyUpToDate)
 }
 
 // ClearCache removes every cloned remote repository.

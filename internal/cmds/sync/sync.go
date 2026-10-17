@@ -186,6 +186,7 @@ func obsolete(removed []lockfile.Entry) string {
 
 func report(results []deps.Result, removed []lockfile.Entry, fontResults deps.FontResults) {
 	reportDropped(removed)
+	ui.Notes("", deps.UnreachableWarning(unreachable(results), "the project"))
 	if reportPackages(results)+fontResults.Report() == 0 {
 		ui.Infof("%d packages already up to date", len(results))
 	}
@@ -211,12 +212,25 @@ func reportDropped(removed []lockfile.Entry) {
 
 // reportResult tells what happened to one package, and whether it changed.
 func reportResult(result deps.Result) bool {
+	if result.Outcome == deps.Unreachable {
+		return false
+	}
 	changed := result.Outcome != deps.UpToDate
 	if changed {
 		ui.Infof("installed %s", ui.Package(result.Ref.String()))
 	}
 	ui.Notes(result.ReplacedNotice(), result.DriftWarning())
 	return changed
+}
+
+func unreachable(results []deps.Result) []lockfile.Entry {
+	var pins []lockfile.Entry
+	for _, result := range results {
+		if result.Outcome == deps.Unreachable {
+			pins = append(pins, result.Entry)
+		}
+	}
+	return pins
 }
 
 func importsOf(entries []lockfile.Entry) []string {

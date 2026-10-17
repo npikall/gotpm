@@ -35,6 +35,13 @@ newest release tag is used, or the current HEAD when the repository has none;
 pass -t HEAD explicitly to keep pinning HEAD regardless of releases. A package
 that does not sit at the root of its repository is named by its package path,
 separated from the repository by '//'.
+
+A private repository is cloned with the git credentials already set up for its
+host — a credential helper for https, ssh-agent for ssh — and gotpm stores none
+of its own. A package from a private repository goes under @private unless
+-n/--namespace is given; what it depends on is still imported under @gotpm. A
+dependency whose repository cannot be cloned, because it is missing or private
+to someone else, is skipped with a warning.
 `,
 	Example: `gotpm install
 gotpm install . -e
@@ -66,6 +73,9 @@ func InstallRunner(cmd *cobra.Command, args []string) error {
 		Remote:     Must(cmd.Flags().GetString("remote")),
 		InstallDir: Must(cmd.Flags().GetString(paths.InstallDirFlag)),
 		Revision:   Must(cmd.Flags().GetString("rev")),
+	}
+	if !cmd.Flags().Changed("namespace") {
+		opts.PrivateNamespace = paths.PrivateNamespace
 	}
 
 	return install.Run(firstArg(args), opts, newLogger(cmd))
