@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-10-17
+
+### 🚀 Features
+
+- install packages from private repositories (#76)
+
+### 🐛 Bug Fixes
+
+- detect private repositories cloned over ssh
+
+### 📚 Documentation
+
+- clean up readme and move verification into docs
+- update benchmark results
+- update context and adr
+- explain ssh form needed for ssh credentials on private repos
+- fix gramar and spelling
+
+### 🚜 Refactor
+
+- *(test)* lower crap of private-repo code paths
+- lower crap of private-repo code paths
+
+### 🧪 Testing
+
+- install packages from private repositories (#76)
+
+### ◀️ Revert
+
+- *(lint)* remove unused nolint directives
+
+### 💼 Other
+
+- *(brew)* clear quarantine on staged dir, not missing file
+- bump go version
+- update dependencies and vendor
+
 ## [0.7.0] - 2026-10-09
 
 ### 🚀 Features
@@ -35,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix bench script
 - fix homebrew related quarantine run
 - vendor in toml-edit
+- *(release)* v0.7.0
 
 ## [0.6.0] - 2026-10-05
 
@@ -812,6 +850,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.8.0]: https://github.com/npikall/gotpm/compare/v0.7.0..v0.8.0
 [0.7.0]: https://github.com/npikall/gotpm/compare/v0.6.0..v0.7.0
 [0.6.0]: https://github.com/npikall/gotpm/compare/v0.5.2..v0.6.0
 [0.5.2]: https://github.com/npikall/gotpm/compare/v0.5.1..v0.5.2
