@@ -106,7 +106,10 @@ A repository gotpm cannot clone without credentials but can with them. It is
 found out by trying, never declared, so privacy belongs to the person cloning,
 not to the repository's pins: the same repository is private to one user and
 unreachable to another. gotpm presents the user's own git credentials and keeps
-none of its own.
+none of its own. Which credentials depends on how the user wrote the
+repository: without a scheme (`github.com/user/repo`) it is cloned over https
+and only a credential helper is asked; in ssh form (`git@github.com:user/repo`)
+it is cloned over ssh with ssh-agent. gotpm never switches transport itself.
 _Avoid_: private package, authenticated repository
 
 **Unreachable Pin**:

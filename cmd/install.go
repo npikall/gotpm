@@ -38,7 +38,9 @@ separated from the repository by '//'.
 
 A private repository is cloned with the git credentials already set up for its
 host — a credential helper for https, ssh-agent for ssh — and gotpm stores none
-of its own. A package from a private repository goes under @private unless
+of its own. A repository written without a scheme, such as github.com/user/repo,
+is cloned over https; to use ssh credentials, write it in ssh form, such as
+git@github.com:user/repo. A package from a private repository goes under @private unless
 -n/--namespace is given; what it depends on is still imported under @gotpm. A
 dependency whose repository cannot be cloned, because it is missing or private
 to someone else, is skipped with a warning.
