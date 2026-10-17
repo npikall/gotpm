@@ -117,14 +117,23 @@ func EnsureClone(canonicalURL, cloneURL string, anonymous bool) (*Clone, error) 
 	}
 
 	if paths.IsDir(repoDir) {
-		repo, err := git.PlainOpen(repoDir)
-		if err != nil {
-			return nil, fmt.Errorf("opening cached clone %q: %w", repoDir, err)
-		}
-		private := fetchBestEffort(repo, cloneURL, anonymous)
-		return &Clone{Dir: repoDir, Repo: repo, Private: private}, nil
+		return openCached(repoDir, cloneURL, anonymous)
 	}
+	return cloneFresh(repoDir, cloneURL, anonymous)
+}
 
+// openCached opens a cached clone and fetches what changed since.
+func openCached(repoDir, cloneURL string, anonymous bool) (*Clone, error) {
+	repo, err := git.PlainOpen(repoDir)
+	if err != nil {
+		return nil, fmt.Errorf("opening cached clone %q: %w", repoDir, err)
+	}
+	private := fetchBestEffort(repo, cloneURL, anonymous)
+	return &Clone{Dir: repoDir, Repo: repo, Private: private}, nil
+}
+
+// cloneFresh clones a repository into the cache, anonymously first.
+func cloneFresh(repoDir, cloneURL string, anonymous bool) (*Clone, error) {
 	repo, err := CloneWithoutCheckout(cloneURL, repoDir)
 	if err == nil {
 		return &Clone{Dir: repoDir, Repo: repo, Cloned: true}, nil
@@ -132,14 +141,20 @@ func EnsureClone(canonicalURL, cloneURL string, anonymous bool) (*Clone, error) 
 	if anonymous || !errors.Is(err, ErrRepositoryNotFound) {
 		return nil, err
 	}
+	return cloneWithCredentials(repoDir, cloneURL, err)
+}
+
+// cloneWithCredentials retries a clone that failed anonymously with the user's
+// credentials. Without any, the anonymous failure stands.
+func cloneWithCredentials(repoDir, cloneURL string, anonymousErr error) (*Clone, error) {
 	auth, ok := credentialsFor(cloneURL)
 	if !ok {
-		return nil, err
+		return nil, anonymousErr
 	}
 	if err := os.RemoveAll(repoDir); err != nil {
 		return nil, fmt.Errorf("clearing failed clone %q: %w", repoDir, err)
 	}
-	repo, err = CloneWithoutCheckout(cloneURL, repoDir, client.WithHTTPAuth(auth))
+	repo, err := CloneWithoutCheckout(cloneURL, repoDir, client.WithHTTPAuth(auth))
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +173,10 @@ func fetchBestEffort(repo *git.Repository, cloneURL string, anonymous bool) bool
 	if !ok {
 		return false
 	}
+	// Getting past the host's refusal is what makes it private, even when
+	// some ref could not be updated after all.
 	err = repo.Fetch(&git.FetchOptions{Tags: git.AllTags, ClientOptions: []client.Option{client.WithHTTPAuth(auth)}})
-	return err == nil || errors.Is(err, git.NoErrAlreadyUpToDate)
+	return !needsCredentials(err)
 }
 
 // ClearCache removes every cloned remote repository.

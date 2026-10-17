@@ -125,15 +125,9 @@ func (w *walker) visit(n node, chain []string) error {
 			ErrTooDeep, maxDepth, strings.Join(w.importsOf(chain), " -> "))
 	}
 
-	request := n.request
-	request.Anonymous = w.opts.Anonymous
-	resolved, err := resolve.Resolve(request, w.logger)
-	if n.requiredBy != "" && errors.Is(err, remote.ErrRepositoryNotFound) {
-		w.skipUnreachable(n)
-		return nil
-	}
-	if err != nil {
-		return w.wrapResolveError(n, err)
+	resolved, reached, err := w.resolve(n)
+	if err != nil || !reached {
+		return err
 	}
 	sourceCommit := resolved.Source.String() + "@" + resolved.Hash
 
@@ -142,6 +136,22 @@ func (w *walker) visit(n node, chain []string) error {
 		return nil
 	}
 	return w.add(resolved, n, sourceCommit, append(slices.Clip(chain), sourceCommit))
+}
+
+// resolve fetches the package a node names. A dependency whose repository
+// cannot be cloned is recorded as unreachable instead, and not reached.
+func (w *walker) resolve(n node) (*resolve.Resolved, bool, error) {
+	request := n.request
+	request.Anonymous = w.opts.Anonymous
+	resolved, err := resolve.Resolve(request, w.logger)
+	if n.requiredBy != "" && errors.Is(err, remote.ErrRepositoryNotFound) {
+		w.skipUnreachable(n)
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, w.wrapResolveError(n, err)
+	}
+	return resolved, true, nil
 }
 
 // skipUnreachable records a dependency whose repository cannot be cloned, and
@@ -291,13 +301,13 @@ func newEntry(resolved *resolve.Resolved, n node, opts Options) (lockfile.Entry,
 // one for the package asked for, and gotpm's own for its dependencies, which
 // are imported under it whether they are private or not.
 func namespaceFor(n node, private bool, opts Options) string {
-	if n.direct && private && opts.PrivateRootNamespace != "" {
+	if !n.direct {
+		return manifest.Namespace
+	}
+	if private && opts.PrivateRootNamespace != "" {
 		return opts.PrivateRootNamespace
 	}
-	if n.direct && opts.RootNamespace != "" {
-		return opts.RootNamespace
-	}
-	return manifest.Namespace
+	return cmp.Or(opts.RootNamespace, manifest.Namespace)
 }
 
 func dependenciesOf(resolved *resolve.Resolved, importing string) ([]node, []Unresolved, error) {
