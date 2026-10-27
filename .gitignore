@@ -12,3 +12,7 @@ scripts/bench-results/
 docs/includes/cli/
 dist-extra/
 **/coverage.out
+
+# local planning: specs and tickets
+specs/
+.scratch/
