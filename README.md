@@ -133,16 +133,16 @@ your real Typst package directory.
 
 | Command              | gotpm  | utpm   | Result             |
 | -------------------- | ------ | ------ | ------------------ |
-| Install (local)      | 4 ms   | 5 ms   | gotpm 1.1x faster  |
-| Install (remote git) | 994 ms | 876 ms | utpm 1.1x faster   |
-| Uninstall            | 5 ms   | 4 ms   | utpm 1.0x faster   |
-| List                 | 5 ms   | 5 ms   | gotpm 1.1x faster  |
-| Bump (patch)         | 5 ms   | 8 ms   | gotpm 1.7x faster  |
-| Update (18 imports)  | 230 ms | 5.92 s | gotpm 25.8x faster |
+| Install (local)      | 5 ms   | 4 ms   | utpm 1,3x faster   |
+| Install (remote git) | 1,14 s | 1,03 s | utpm 1,1x faster   |
+| Uninstall            | 4 ms   | 3 ms   | utpm 1,4x faster   |
+| List                 | 5 ms   | 4 ms   | utpm 1,2x faster   |
+| Bump (patch)         | 4 ms   | 7 ms   | gotpm 1,5x faster  |
+| Update (18 imports)  | 343 ms | 5,74 s | gotpm 16,7x faster |
 
-*Benchmarked 2026-10-14 on Darwin 25.6.0 arm64 with gotpm
+*Benchmarked 2026-10-27 on Darwin 25.6.0 arm64 with gotpm
 
-v0.7.0 and utpm 0.3.0. Results vary by machine and network conditions - run
+v0.8.0 and utpm 0.4.1. Results vary by machine and network conditions - run
 `scripts/bench.sh` yourself to reproduce. Whichever tool is faster for a given
 command is reported as-is.*
 <!-- BENCH:RESULTS:END -->
