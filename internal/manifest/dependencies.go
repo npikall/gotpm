@@ -22,6 +22,7 @@ const (
 	gotpmTable   = "gotpm"
 	dependencies = "dependencies"
 	fonts        = "fonts"
+	compilerPin  = "compiler-pin"
 )
 
 // Dependencies returns the packages the manifest declares, in the order they
