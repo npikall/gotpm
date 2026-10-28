@@ -73,7 +73,7 @@ func TestRun_OutsideAProjectLaunchesTheNewestInstalledStableCompiler(t *testing.
 	before := len(srv.Requests())
 	launches := record(t)
 
-	require.NoError(t, run.Run(context.Background(), []string{"compile", "notes.typ"}, discardLogger()))
+	require.NoError(t, run.Run(context.Background(), []string{"compile", "notes.typ"}, io.Discard, discardLogger()))
 
 	require.Len(t, *launches, 1)
 	assert.Equal(t, binary(t, "0.13.1"), (*launches)[0].Binary,
@@ -91,7 +91,7 @@ func TestRun_OutsideAProjectInstallsTheLatestStableReleaseWhenNoneIsInstalled(t 
 	srv.Publish("0.15.0-rc.1", compilertest.Prerelease())
 	launches := record(t)
 
-	require.NoError(t, run.Run(context.Background(), []string{"compile", "notes.typ"}, discardLogger()))
+	require.NoError(t, run.Run(context.Background(), []string{"compile", "notes.typ"}, io.Discard, discardLogger()))
 
 	require.Len(t, *launches, 1)
 	assert.Equal(t, binary(t, "0.14.0"), (*launches)[0].Binary)
@@ -111,7 +111,7 @@ func TestRun_HandsEveryArgumentAndTheEnvironmentToTheCompiler(t *testing.T) {
 	launches := record(t)
 	args := []string{"compile", "--help", "-v", "--", "my notes.typ"}
 
-	require.NoError(t, run.Run(context.Background(), args, discardLogger()))
+	require.NoError(t, run.Run(context.Background(), args, io.Discard, discardLogger()))
 
 	require.Len(t, *launches, 1)
 	assert.Equal(t, args, (*launches)[0].Args)
@@ -128,7 +128,7 @@ func TestRun_NeverUsesATypstOnThePath(t *testing.T) {
 	srv.Publish("0.14.0")
 	launches := record(t)
 
-	require.NoError(t, run.Run(context.Background(), []string{"--version"}, discardLogger()))
+	require.NoError(t, run.Run(context.Background(), []string{"--version"}, io.Discard, discardLogger()))
 
 	require.Len(t, *launches, 1)
 	assert.Equal(t, binary(t, "0.14.0"), (*launches)[0].Binary)
@@ -142,7 +142,7 @@ func TestRun_ReturnsWhatTheLauncherReturns(t *testing.T) { //nolint: paralleltes
 	failed := assert.AnError
 	t.Cleanup(run.UseLauncher(func(run.Launch) error { return failed }))
 
-	require.ErrorIs(t, run.Run(context.Background(), nil, discardLogger()), failed)
+	require.ErrorIs(t, run.Run(context.Background(), nil, io.Discard, discardLogger()), failed)
 }
 
 func TestRun_FailsWhenNoStableReleaseIsPublished(t *testing.T) { //nolint: paralleltest
@@ -152,7 +152,7 @@ func TestRun_FailsWhenNoStableReleaseIsPublished(t *testing.T) { //nolint: paral
 	srv.Publish("0.15.0-rc.1", compilertest.Prerelease())
 	launches := record(t)
 
-	require.ErrorIs(t, run.Run(context.Background(), nil, discardLogger()), compilers.ErrNoRelease)
+	require.ErrorIs(t, run.Run(context.Background(), nil, io.Discard, discardLogger()), compilers.ErrNoRelease)
 	assert.Empty(t, *launches)
 }
 
