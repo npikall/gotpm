@@ -2,12 +2,15 @@ package locate_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/npikall/gotpm/internal/cmds/locate"
+	"github.com/npikall/gotpm/internal/compilers"
+	"github.com/npikall/gotpm/internal/compilers/compilertest"
 	"github.com/npikall/gotpm/internal/logger"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/stretchr/testify/assert"
@@ -45,6 +48,26 @@ func TestLookupFontsLivesInDataDir(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(dataDir, "fonts"), entry.Path)
+}
+
+// Not parallel: t.Setenv cannot be used from a parallel test.
+func TestLookupCompilersIsWhereInstallsLand(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
+	srv := compilertest.New(t)
+	srv.Publish("0.13.1")
+	dir, err := compilers.OpenDir()
+	require.NoError(t, err)
+	_, err = dir.Ensure(context.Background(), srv.Source(), "0.13.1")
+	require.NoError(t, err)
+	binary, err := dir.Binary("0.13.1")
+	require.NoError(t, err)
+
+	entry, err := locate.Lookup("compilers")
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(entry.Path, "0.13.1"), filepath.Dir(binary))
 }
 
 var errNoManifest = errors.New("no typst.toml found")
