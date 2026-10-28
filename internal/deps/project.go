@@ -77,6 +77,28 @@ func (p *Project) SetFonts(families []string) error {
 	return nil
 }
 
+// CompilerFloor is the lowest compiler the project compiles with, or "" when
+// it states no compiler requirement.
+func (p *Project) CompilerFloor() string {
+	return p.Manifest.Package.Compiler
+}
+
+// CompilerPin is the exact compiler the project is compiled with, or "" when
+// it pins none.
+func (p *Project) CompilerPin() string {
+	return p.Manifest.CompilerPin()
+}
+
+// SetCompilerPin writes version as the project's compiler pin, keeping the
+// rest of the manifest byte for byte as it was.
+func (p *Project) SetCompilerPin(version string) error {
+	if err := manifest.SetCompilerPin(p.File, version); err != nil {
+		return err
+	}
+	p.Manifest.Tool.Gotpm.CompilerPin = version
+	return nil
+}
+
 // Lock reads the lock file committed next to the manifest. A project without
 // one yet reads as an empty lock.
 func (p *Project) Lock() (*lockfile.Lock, error) {

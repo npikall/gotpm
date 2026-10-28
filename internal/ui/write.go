@@ -28,9 +28,14 @@ func Printf(format string, a ...any) {
 }
 
 func Infof(format string, a ...any) {
+	Finfof(stdout, format, a...)
+}
+
+// Finfof writes an info line to w.
+func Finfof(w io.Writer, format string, a ...any) {
 	prefix := Green.Render("info")
 	text := Normal.Render(fmt.Sprintf(format, a...))
-	_, _ = fmt.Fprintf(stdout, "%s: %s\n", prefix, text)
+	_, _ = fmt.Fprintf(w, "%s: %s\n", prefix, text)
 }
 
 func Warnf(format string, a ...any) {

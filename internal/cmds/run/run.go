@@ -6,11 +6,14 @@ package run
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"sync"
 
 	"charm.land/log/v2"
 	"github.com/npikall/gotpm/internal/compilers"
+	"github.com/npikall/gotpm/internal/deps"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/ui"
 )
 
@@ -47,50 +50,87 @@ func UseLauncher(l Launcher) func() {
 	}
 }
 
-// Run launches the compiler with args: the newest installed stable compiler,
-// or the latest stable release, installed first, when none is installed.
-func Run(ctx context.Context, args []string, logger *log.Logger) error {
+// Run launches the compiler with args. Inside a project it is the project's
+// compiler pin, chosen and written to the manifest when the project pins none
+// or its pin is below the project's compiler requirement; that is announced
+// on out. Outside a project it is the newest installed stable compiler, or the
+// latest stable release when none is installed. A missing compiler is
+// installed first.
+func Run(ctx context.Context, args []string, out io.Writer, logger *log.Logger) error {
 	dir, err := compilers.OpenDir()
 	if err != nil {
 		return err
 	}
-	version, err := choose(ctx, dir, logger)
+	project, err := openProject()
 	if err != nil {
 		return err
 	}
-	if err := ensure(ctx, dir, version, logger); err != nil {
-		return err
+	var floor, pinned string
+	if project != nil {
+		floor, pinned = project.CompilerFloor(), project.CompilerPin()
 	}
-	binary, err := dir.Binary(version)
+	selection, err := choose(ctx, dir, floor, pinned, logger)
 	if err != nil {
 		return err
 	}
-	logger.Debug("launching compiler", "version", version, "binary", binary, "args", args)
+	if err := ensure(ctx, dir, selection.Version, logger); err != nil {
+		return err
+	}
+	if project != nil && selection.NewPin {
+		if err := project.SetCompilerPin(selection.Version); err != nil {
+			return err
+		}
+		announcePin(out, project.File, floor, pinned, selection.Version)
+	}
+	binary, err := dir.Binary(selection.Version)
+	if err != nil {
+		return err
+	}
+	logger.Debug("launching compiler", "version", selection.Version, "binary", binary, "args", args)
 	launcherMu.RLock()
 	l := launcher
 	launcherMu.RUnlock()
 	return l(Launch{Binary: binary, Args: args, Env: os.Environ()})
 }
 
-// choose picks the newest installed stable compiler, asking the release source
-// only when none is installed.
-func choose(ctx context.Context, dir compilers.Dir, logger *log.Logger) (string, error) {
+// openProject finds the project the working directory belongs to, or nil
+// outside any project.
+func openProject() (*deps.Project, error) {
+	project, err := deps.OpenProject()
+	if errors.Is(err, manifest.ErrManifestNotFound) {
+		return nil, nil //nolint: nilnil // no project is not an error for run
+	}
+	return project, err
+}
+
+// choose selects the compiler for a floor and pin, both "" outside a project,
+// asking the release source only when no installed compiler will do.
+func choose(ctx context.Context, dir compilers.Dir, floor, pinned string, logger *log.Logger) (compilers.Selection, error) {
 	installed, err := dir.Installed()
 	if err != nil {
-		return "", err
+		return compilers.Selection{}, err
 	}
-	if newest := compilers.NewestStable(installed); newest != "" {
-		logger.Debug("using the newest installed compiler", "version", newest)
-		return newest, nil
+	releases := func() ([]compilers.Release, error) {
+		return ui.WithSpinner(" looking up compiler releases", func() ([]compilers.Release, error) {
+			return compilers.Stable(ctx, compilers.Default())
+		})
 	}
-	latest, err := ui.WithSpinner(" looking up the latest compiler", func() (compilers.Release, error) {
-		return compilers.Latest(ctx, compilers.Default())
-	})
-	if err != nil {
-		return "", err
+	selection, err := compilers.Select(floor, pinned, installed, releases)
+	if err == nil {
+		logger.Debug("chose compiler", "version", selection.Version, "floor", floor, "pin", pinned)
 	}
-	logger.Debug("no compiler installed, using the latest release", "version", latest.Version)
-	return latest.Version, nil
+	return selection, err
+}
+
+// announcePin says in one line that version was pinned in file, replacing
+// previous, if any, for being below floor.
+func announcePin(out io.Writer, file, floor, previous, version string) {
+	if previous == "" {
+		ui.Finfof(out, "pinned compiler %s in %s", version, file)
+		return
+	}
+	ui.Finfof(out, "raised the compiler pin from %s to %s in %s: %s is below the compiler requirement %s",
+		previous, version, file, previous, floor)
 }
 
 // ensure installs version when it is missing, showing progress only then.
