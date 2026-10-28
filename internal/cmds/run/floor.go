@@ -15,12 +15,12 @@ import (
 	"github.com/npikall/gotpm/internal/ui"
 )
 
-// projectFloor is the project's floor: the highest of its own compiler requirement
-// and those of its declared dependencies, read from their manifests in the
-// package directory. A dependency's compiler pin means nothing to the project
-// and is never read. Run never Syncs, so a declared dependency that is not
-// installed contributes nothing; that is noted on out.
-func projectFloor(project *deps.Project, out io.Writer, logger *log.Logger) (compilers.Requirement, error) {
+// ProjectFloor is the project's floor: the highest of its own compiler
+// requirement and those of its declared dependencies, read from their
+// manifests in the package directory. A dependency's compiler pin means
+// nothing to the project and is never read. Nothing is Synced, so a declared
+// dependency that is not installed contributes nothing; that is noted on out.
+func ProjectFloor(project *deps.Project, out io.Writer, logger *log.Logger) (compilers.Requirement, error) {
 	requirements := []compilers.Requirement{{Version: project.CompilerRequirement()}}
 	declared := project.Dependencies()
 	if len(declared) == 0 {

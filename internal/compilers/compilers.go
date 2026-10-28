@@ -23,6 +23,7 @@ import (
 var (
 	ErrInvalidVersion      = errors.New("invalid compiler version")
 	ErrNoRelease           = errors.New("no such compiler release")
+	ErrBelowFloor          = errors.New("compiler is below the floor")
 	ErrUnsupportedPlatform = errors.New("typst ships no compiler for this platform")
 	ErrChecksum            = errors.New("compiler archive does not match its digest")
 	ErrUnknownDigest       = errors.New("compiler archive has a digest of unknown kind")

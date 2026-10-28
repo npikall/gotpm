@@ -74,3 +74,15 @@ func validUnlessEmpty(version string) error {
 	}
 	return validVersion(version)
 }
+
+// CheckPin checks that version, named to be pinned, satisfies floor. Any
+// valid version may be named, pre-releases included.
+func CheckPin(version string, floor Requirement) error {
+	if err := validVersion(version); err != nil {
+		return err
+	}
+	if !satisfies(version, floor.Version) {
+		return fmt.Errorf("%w: %s is below %s", ErrBelowFloor, version, floor)
+	}
+	return nil
+}

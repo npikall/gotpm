@@ -1,8 +1,9 @@
-// Package compiler implements the compiler command: it shows and deletes the
-// compilers in the compiler directory.
+// Package compiler implements the compiler command: it moves the project's
+// compiler pin, and shows and deletes the compilers in the compiler directory.
 package compiler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,11 +11,73 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
+	"github.com/npikall/gotpm/internal/cmds/run"
 	"github.com/npikall/gotpm/internal/compilers"
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/ui"
 )
+
+// Pin writes version as the compiler pin of the project the working directory
+// belongs to, or the latest stable release when version is "", and reports
+// the move on out. A pre-release is pinned only when named. A version below
+// the project's floor, the highest compiler requirement of the project and
+// its installed declared dependencies, is refused. The pinned compiler is
+// installed when missing, before the manifest is written, so a version with
+// no release leaves the manifest as it was.
+func Pin(ctx context.Context, version string, out io.Writer, logger *log.Logger) error {
+	project, err := deps.OpenProject()
+	if err != nil {
+		return err
+	}
+	dir, err := compilers.OpenDir()
+	if err != nil {
+		return err
+	}
+	floor, err := run.ProjectFloor(project, out, logger)
+	if err != nil {
+		return err
+	}
+	if version == "" {
+		if version, err = latest(ctx); err != nil {
+			return err
+		}
+	}
+	if err := compilers.CheckPin(version, floor); err != nil {
+		return err
+	}
+	if err := run.Ensure(ctx, dir, version, out, logger); err != nil {
+		return err
+	}
+	return movePin(project, version, out)
+}
+
+// movePin writes version as the project's compiler pin and reports the move
+// from the previous one, if any, on out.
+func movePin(project *deps.Project, version string, out io.Writer) error {
+	previous := project.CompilerPin()
+	if previous == version {
+		ui.Finfof(out, "compiler %s is already pinned in %s", version, project.File)
+		return nil
+	}
+	if err := project.SetCompilerPin(version); err != nil {
+		return err
+	}
+	if previous == "" {
+		ui.Finfof(out, "pinned compiler %s in %s", version, project.File)
+	} else {
+		ui.Finfof(out, "moved the compiler pin from %s to %s in %s", previous, version, project.File)
+	}
+	return nil
+}
+
+// latest is the version of the latest stable release.
+func latest(ctx context.Context) (string, error) {
+	release, err := ui.WithSpinner(" looking up the latest compiler release", func() (compilers.Release, error) {
+		return compilers.Latest(ctx, compilers.Default())
+	})
+	return release.Version, err
+}
 
 // List prints the installed compilers to out in version order, marking the
 // newest stable one and, inside a project, its compiler pin, installed or not.

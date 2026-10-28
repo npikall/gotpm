@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +16,8 @@ import (
 	"github.com/npikall/gotpm/internal/compilers/compilertest"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
+	"github.com/npikall/gotpm/internal/pkg"
+	"github.com/npikall/gotpm/internal/store"
 	"github.com/npikall/gotpm/internal/testrepo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,19 +53,39 @@ func outside(t *testing.T) {
 // project the working directory.
 func project(t *testing.T, pin string) {
 	t.Helper()
+	projectWith(t, "", pin)
+}
+
+// projectWith writes a manifest with the compiler requirement requirement,
+// pinning pin, either "" to
+// leave the key out, and declaring declared, and makes a subdirectory of the
+// project the working directory. It returns the manifest's path.
+func projectWith(t *testing.T, requirement, pin string, declared ...string) string {
+	t.Helper()
 	root := t.TempDir()
-	content := `[package]
+	var content strings.Builder
+	content.WriteString(`# my project
+[package]
 name = "notes"
 version = "0.1.0"
 entrypoint = "main.typ"
-
-[tool.gotpm]
-compiler-pin = "` + pin + `"
-`
-	require.NoError(t, paths.WriteFile(filepath.Join(root, manifest.FileName), []byte(content)))
+`)
+	if requirement != "" {
+		content.WriteString(`compiler = "` + requirement + `"` + "\n")
+	}
+	content.WriteString("\n[tool.gotpm]\n")
+	if pin != "" {
+		content.WriteString("# chosen by hand\ncompiler-pin = \"" + pin + "\"\n")
+	}
+	if len(declared) > 0 {
+		content.WriteString("dependencies = [\"" + strings.Join(declared, `", "`) + "\"]\n")
+	}
+	file := filepath.Join(root, manifest.FileName)
+	require.NoError(t, paths.WriteFile(file, []byte(content.String())))
 	sub := filepath.Join(root, "chapters")
 	require.NoError(t, paths.EnsureDir(sub))
 	t.Chdir(sub)
+	return file
 }
 
 func list(t *testing.T) []string {
@@ -162,4 +185,207 @@ func TestUninstall_OfThePinnedCompilerIsUndoneByTheNextRun(t *testing.T) { //nol
 
 	_, err = compilerDir(t).Binary("0.13.1")
 	assert.NoError(t, err, "run installs the pinned compiler again")
+}
+
+func readFile(t *testing.T, file string) string {
+	t.Helper()
+	data, err := os.ReadFile(file)
+	require.NoError(t, err)
+	return string(data)
+}
+
+func pinOf(t *testing.T, file string) string {
+	t.Helper()
+	m, err := manifest.LoadFile(file)
+	require.NoError(t, err)
+	return m.CompilerPin()
+}
+
+func pin(t *testing.T, version string) (string, error) {
+	t.Helper()
+	var out bytes.Buffer
+	err := compiler.Pin(context.Background(), version, &out, discardLogger())
+	return out.String(), err
+}
+
+// installedPackage releases p and installs it into the package directory, the
+// way a Sync would have left it, and returns its package ref.
+func installedPackage(t *testing.T, p *testrepo.Package) string {
+	t.Helper()
+	p.Release()
+	ref, err := pkg.ParseImport(p.Import())
+	require.NoError(t, err)
+	s, err := store.OpenPackageDir()
+	require.NoError(t, err)
+	require.NoError(t, s.Install(ref, p.Dir()))
+	return p.Import()
+}
+
+func TestPin_WritesTheVersionInPlaceAndReportsOldAndNew(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "0.12.0", "0.13.1")
+	before := readFile(t, file)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.15.1")
+
+	out, err := pin(t, "0.15.1")
+
+	require.NoError(t, err)
+	assert.Equal(t, strings.Replace(before, `"0.13.1"`, `"0.15.1"`, 1), readFile(t, file),
+		"only the pin changes, comments and layout kept")
+	assert.Equal(t, 1, strings.Count(out, "\n"), "reported in one line")
+	assert.Contains(t, out, "0.13.1")
+	assert.Contains(t, out, "0.15.1")
+}
+
+func TestPin_WritesAPinIntoAProjectThatHasNone(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "", "")
+	srv := compilertest.Serve(t)
+	srv.Publish("0.15.1")
+
+	out, err := pin(t, "0.15.1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "0.15.1", pinOf(t, file))
+	assert.Contains(t, out, "0.15.1")
+}
+
+func TestPin_InstallsThePinnedCompilerWhenMissing(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	projectWith(t, "", "")
+	srv := compilertest.Serve(t)
+	srv.Publish("0.15.1")
+
+	_, err := pin(t, "0.15.1")
+
+	require.NoError(t, err)
+	_, err = compilerDir(t).Binary("0.15.1")
+	assert.NoError(t, err)
+}
+
+func TestPin_WithoutAVersionPinsTheLatestStableRelease(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "0.12.0", "0.13.1")
+	srv := compilertest.Serve(t)
+	srv.Publish("0.13.1")
+	srv.Publish("0.15.1")
+	srv.Publish("0.14.0")
+	srv.Publish("0.16.0-rc.1", compilertest.Prerelease())
+
+	_, err := pin(t, "")
+
+	require.NoError(t, err)
+	assert.Equal(t, "0.15.1", pinOf(t, file))
+	_, err = compilerDir(t).Binary("0.15.1")
+	assert.NoError(t, err)
+}
+
+func TestPin_PinsAPreReleaseNamedExactly(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "0.12.0", "0.13.1")
+	srv := compilertest.Serve(t)
+	srv.Publish("0.16.0-rc.1", compilertest.Prerelease())
+
+	_, err := pin(t, "0.16.0-rc.1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "0.16.0-rc.1", pinOf(t, file))
+}
+
+func TestPin_RefusesAVersionBelowTheProjectsFloor(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "0.14.0", "0.14.0")
+	before := readFile(t, file)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.13.1")
+
+	_, err := pin(t, "0.13.1")
+
+	require.ErrorIs(t, err, compilers.ErrBelowFloor)
+	assert.Contains(t, err.Error(), "0.13.1")
+	assert.Contains(t, err.Error(), "the compiler requirement 0.14.0")
+	assert.Equal(t, before, readFile(t, file))
+	_, err = compilerDir(t).Binary("0.13.1")
+	assert.ErrorIs(t, err, compilers.ErrNotInstalled, "nothing installed")
+}
+
+func TestPin_RefusesAVersionBelowADeclaredDependencysRequirement(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	dep := installedPackage(t, testrepo.New(t, "dep", "1.0.0").RequireCompiler("0.15.0"))
+	file := projectWith(t, "0.12.0", "0.15.1", dep)
+	before := readFile(t, file)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.14.0")
+
+	_, err := pin(t, "0.14.0")
+
+	require.ErrorIs(t, err, compilers.ErrBelowFloor)
+	assert.Contains(t, err.Error(), "0.15.0")
+	assert.Contains(t, err.Error(), dep, "names where the floor comes from")
+	assert.Equal(t, before, readFile(t, file))
+}
+
+func TestPin_RefusesALatestReleaseBelowTheFloor(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "0.16.0", "")
+	before := readFile(t, file)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.15.1")
+
+	_, err := pin(t, "")
+
+	require.ErrorIs(t, err, compilers.ErrBelowFloor)
+	assert.Equal(t, before, readFile(t, file))
+}
+
+func TestPin_FailsForAVersionWithNoRelease(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "0.12.0", "0.13.1")
+	before := readFile(t, file)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.13.1")
+
+	_, err := pin(t, "0.99.0")
+
+	require.ErrorIs(t, err, compilers.ErrNoRelease)
+	assert.Equal(t, before, readFile(t, file))
+}
+
+func TestPin_FailsForAnInvalidVersion(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "", "0.13.1")
+	before := readFile(t, file)
+	compilertest.Serve(t)
+
+	_, err := pin(t, "latest")
+
+	require.ErrorIs(t, err, compilers.ErrInvalidVersion)
+	assert.Equal(t, before, readFile(t, file))
+}
+
+func TestPin_OutsideAProjectFails(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	outside(t)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.15.1")
+
+	_, err := pin(t, "0.15.1")
+
+	require.ErrorIs(t, err, manifest.ErrManifestNotFound)
+	assert.Empty(t, srv.Requests(), "the network is not touched")
+}
+
+func TestPin_OfTheCurrentPinLeavesTheManifestAsItWas(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	file := projectWith(t, "", "0.15.1")
+	before := readFile(t, file)
+	srv := compilertest.Serve(t)
+	srv.Publish("0.15.1")
+
+	out, err := pin(t, "0.15.1")
+
+	require.NoError(t, err)
+	assert.Equal(t, before, readFile(t, file))
+	assert.Contains(t, out, "already pinned")
 }
