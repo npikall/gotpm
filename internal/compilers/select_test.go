@@ -158,3 +158,42 @@ func TestSelect_RejectsAnInvalidFloorOrPin(t *testing.T) {
 	_, err = compilers.Select("0.12.0", "latest", nil, none)
 	require.ErrorIs(t, err, compilers.ErrInvalidVersion)
 }
+
+func TestCheckPin(t *testing.T) {
+	t.Parallel()
+	dep := compilers.Requirement{Version: "0.14.0", Of: "@gotpm/dep:1.0.0"}
+	tests := []struct {
+		name    string
+		version string
+		floor   compilers.Requirement
+		wantErr error
+	}{
+		{name: "no floor takes any version", version: "0.11.0"},
+		{name: "the floor itself", version: "0.14.0", floor: dep},
+		{name: "above the floor", version: "0.15.1", floor: dep},
+		{name: "a pre-release above the floor", version: "0.15.0-rc.1", floor: dep},
+		{name: "below the floor", version: "0.13.1", floor: dep, wantErr: compilers.ErrBelowFloor},
+		{name: "the pre-release leading up to the floor", version: "0.14.0-rc.1", floor: dep, wantErr: compilers.ErrBelowFloor},
+		{name: "an invalid version", version: "latest", wantErr: compilers.ErrInvalidVersion},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := compilers.CheckPin(tt.version, tt.floor)
+			if tt.wantErr == nil {
+				assert.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Contains(t, err.Error(), tt.version)
+		})
+	}
+}
+
+func TestCheckPin_NamesTheFloorAndWhereItComesFrom(t *testing.T) {
+	t.Parallel()
+	err := compilers.CheckPin("0.13.1", compilers.Requirement{Version: "0.14.0", Of: "@gotpm/dep:1.0.0"})
+
+	require.ErrorIs(t, err, compilers.ErrBelowFloor)
+	assert.Contains(t, err.Error(), "the compiler requirement 0.14.0 of @gotpm/dep:1.0.0")
+}

@@ -10,9 +10,24 @@ import (
 var compilerCmd = &cobra.Command{
 	Use:   "compiler",
 	Short: "Manage the compilers gotpm runs.",
-	Long: `See and delete the compilers in gotpm's compiler directory, the ones
-'gotpm run' runs, one directory per version. Like the font directory, it is
-not cache: 'gotpm cache clear' leaves it alone.`,
+	Long: `Move the project's compiler pin, and see and delete the compilers in
+gotpm's compiler directory, the ones 'gotpm run' runs, one directory per
+version. Like the font directory, it is not cache: 'gotpm cache clear' leaves
+it alone.`,
+}
+
+var compilerPinCmd = &cobra.Command{
+	Use:   "pin [version]",
+	Short: "Pin the compiler the project is compiled with.",
+	Long: `Write the compiler pin into the project's typst.toml, and install that
+compiler when it is missing. Without a version the latest stable release is
+pinned; a pre-release is pinned only when named. A version below the project's
+floor, the highest compiler requirement of the project and its installed
+declared dependencies, is refused.`,
+	Example: `gotpm compiler pin 0.15.1
+gotpm compiler pin`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: CompilerPinRunner,
 }
 
 var compilerListCmd = &cobra.Command{
@@ -38,7 +53,11 @@ it: the next 'gotpm run' in that project installs it again.`,
 
 func init() {
 	rootCmd.AddCommand(compilerCmd)
-	compilerCmd.AddCommand(compilerListCmd, compilerUninstallCmd)
+	compilerCmd.AddCommand(compilerPinCmd, compilerListCmd, compilerUninstallCmd)
+}
+
+func CompilerPinRunner(cmd *cobra.Command, args []string) error {
+	return compiler.Pin(cmd.Context(), firstArg(args), ui.Stdout(), newLogger(cmd))
 }
 
 func CompilerListRunner(cmd *cobra.Command, _ []string) error {

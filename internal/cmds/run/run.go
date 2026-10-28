@@ -72,7 +72,7 @@ func Run(ctx context.Context, compiler string, args []string, out io.Writer, log
 		if version, err = projectCompiler(ctx, dir, out, logger); err != nil {
 			return err
 		}
-	} else if err := ensure(ctx, dir, version, out, logger); err != nil {
+	} else if err := Ensure(ctx, dir, version, out, logger); err != nil {
 		return err
 	}
 	binary, err := dir.Binary(version)
@@ -106,7 +106,7 @@ func projectCompiler(ctx context.Context, dir compilers.Dir, out io.Writer, logg
 	if err != nil {
 		return "", err
 	}
-	if err := ensure(ctx, dir, selection.Version, out, logger); err != nil {
+	if err := Ensure(ctx, dir, selection.Version, out, logger); err != nil {
 		return "", err
 	}
 	if project != nil && selection.NewPin {
@@ -134,7 +134,7 @@ func floorAndPin(project *deps.Project, out io.Writer, logger *log.Logger) (comp
 	if project == nil {
 		return compilers.Requirement{}, "", nil
 	}
-	required, err := projectFloor(project, out, logger)
+	required, err := ProjectFloor(project, out, logger)
 	return required, project.CompilerPin(), err
 }
 
@@ -168,9 +168,9 @@ func announcePin(out io.Writer, file string, floor compilers.Requirement, previo
 		previous, version, file, previous, floor)
 }
 
-// ensure installs version when it is missing, showing progress only then,
+// Ensure installs version when it is missing, showing progress only then,
 // and warns on out when its archive could not be verified.
-func ensure(ctx context.Context, dir compilers.Dir, version string, out io.Writer, logger *log.Logger) error {
+func Ensure(ctx context.Context, dir compilers.Dir, version string, out io.Writer, logger *log.Logger) error {
 	if _, err := dir.Binary(version); !errors.Is(err, compilers.ErrNotInstalled) {
 		return err
 	}
