@@ -301,6 +301,46 @@ func TestBinary_FailsForAVersionNotInstalled(t *testing.T) {
 	require.ErrorIs(t, err, compilers.ErrNotInstalled)
 }
 
+func TestUninstall_RemovesOnlyThatVersion(t *testing.T) {
+	t.Parallel()
+	srv := compilertest.New(t)
+	srv.Publish("0.13.1")
+	srv.Publish("0.14.0")
+	dir := newDir(t)
+	for _, v := range []string{"0.13.1", "0.14.0"} {
+		_, err := dir.Ensure(context.Background(), srv.Source(), v)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, dir.Uninstall("0.13.1"))
+
+	assert.NoDirExists(t, dir.Path("0.13.1"))
+	versions, err := dir.Installed()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"0.14.0"}, versions)
+}
+
+func TestUninstall_FailsNamingAVersionNotInstalled(t *testing.T) {
+	t.Parallel()
+	err := newDir(t).Uninstall("0.13.1")
+
+	require.ErrorIs(t, err, compilers.ErrNotInstalled)
+	assert.Contains(t, err.Error(), "0.13.1")
+}
+
+func TestUninstall_RefusesAnInvalidVersion(t *testing.T) {
+	t.Parallel()
+	dir := newDir(t)
+	require.NoError(t, os.MkdirAll(dir.Root, 0o750))
+	keep := filepath.Join(filepath.Dir(dir.Root), "keep")
+	require.NoError(t, os.MkdirAll(keep, 0o750))
+
+	err := dir.Uninstall("../keep")
+
+	require.ErrorIs(t, err, compilers.ErrInvalidVersion)
+	assert.DirExists(t, keep)
+}
+
 //nolint:paralleltest // Isolate sets the process environment
 func TestOpenDir_LivesBesideTheFontDirectory(t *testing.T) {
 	data := filepath.Dir(testrepo.Isolate(t))

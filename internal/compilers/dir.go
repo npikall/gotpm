@@ -78,8 +78,17 @@ func (d Dir) Installed() ([]string, error) {
 			versions = append(versions, entry.Name())
 		}
 	}
-	slices.SortFunc(versions, compareVersions)
+	slices.SortFunc(versions, CompareVersions)
 	return versions, nil
+}
+
+// Uninstall deletes an installed compiler. Projects pinning it are none of
+// its business: the next run installs it again.
+func (d Dir) Uninstall(version string) error {
+	if _, err := d.Binary(version); err != nil {
+		return err
+	}
+	return paths.Remove(d.Path(version))
 }
 
 // Result is what Ensure did.
