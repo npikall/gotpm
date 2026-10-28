@@ -16,7 +16,9 @@ var runCmd = &cobra.Command{
 would be run: 'gotpm run compile main.typ', 'gotpm run watch main.typ'.
 
 The compiler comes from gotpm's compiler directory, installed first when
-missing. A typst on $PATH is never used.
+missing. A typst on $PATH is never used. gotpm's font directory is appended
+to $TYPST_FONT_PATHS, after any paths of your own, so installed font families
+are found. Nothing is synced: no package or font family is fetched.
 
 Inside a project, the compiler pin in typst.toml decides the compiler. When
 the project pins none, or its pin is below the project's floor — the highest

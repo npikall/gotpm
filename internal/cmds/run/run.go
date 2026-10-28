@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"sync"
 
 	"charm.land/log/v2"
@@ -60,6 +59,9 @@ func UseLauncher(l Launcher) func() {
 //
 // A compiler named other than "" is run instead, whatever the project says,
 // pre-release or not; nothing is written then.
+//
+// The compiler sees gotpm's environment with the font directory appended to
+// TYPST_FONT_PATHS.
 func Run(ctx context.Context, compiler string, args []string, out io.Writer, logger *log.Logger) error {
 	dir, err := compilers.OpenDir()
 	if err != nil {
@@ -77,11 +79,15 @@ func Run(ctx context.Context, compiler string, args []string, out io.Writer, log
 	if err != nil {
 		return err
 	}
+	env, err := environment()
+	if err != nil {
+		return err
+	}
 	logger.Debug("launching compiler", "version", version, "binary", binary, "args", args)
 	launcherMu.RLock()
 	l := launcher
 	launcherMu.RUnlock()
-	return l(Launch{Binary: binary, Args: args, Env: os.Environ()})
+	return l(Launch{Binary: binary, Args: args, Env: env})
 }
 
 // projectCompiler chooses and installs the compiler for the project the
