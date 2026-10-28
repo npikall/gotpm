@@ -35,7 +35,7 @@ func Floor(requirements []Requirement) (Requirement, error) {
 			}
 			return Requirement{}, fmt.Errorf("compiler requirement: %w", err)
 		}
-		if floor.Version == "" || compareVersions(requirement.Version, floor.Version) > 0 {
+		if floor.Version == "" || CompareVersions(requirement.Version, floor.Version) > 0 {
 			floor = requirement
 		}
 	}

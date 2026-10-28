@@ -83,6 +83,10 @@ linters:
         linters:
           - revive
         text: '^exported:'
+      # Subcommands share names, "list" under several parents.
+      - path: 'cmd/'
+        linters:
+          - goconst
       - path: '(.+)_test\.go'
         linters:
           - revive

@@ -53,7 +53,7 @@ func Select(floor, pin string, installed []string, releases func() ([]Release, e
 // satisfies reports whether version is at least floor; every version
 // satisfies no floor.
 func satisfies(version, floor string) bool {
-	return floor == "" || compareVersions(version, floor) >= 0
+	return floor == "" || CompareVersions(version, floor) >= 0
 }
 
 // newestSatisfying is the newest stable version satisfying floor, or "".

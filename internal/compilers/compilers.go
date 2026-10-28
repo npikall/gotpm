@@ -94,7 +94,7 @@ func Stable(ctx context.Context, src Source) ([]Release, error) {
 	stable := slices.DeleteFunc(slices.Clone(releases), func(r Release) bool {
 		return r.Prerelease || !isStable(r.Version)
 	})
-	slices.SortFunc(stable, func(a, b Release) int { return compareVersions(b.Version, a.Version) })
+	slices.SortFunc(stable, func(a, b Release) int { return CompareVersions(b.Version, a.Version) })
 	return stable, nil
 }
 
@@ -115,7 +115,7 @@ func Latest(ctx context.Context, src Source) (Release, error) {
 func NewestStable(versions []string) string {
 	newest := ""
 	for _, version := range versions {
-		if isStable(version) && (newest == "" || compareVersions(version, newest) > 0) {
+		if isStable(version) && (newest == "" || CompareVersions(version, newest) > 0) {
 			newest = version
 		}
 	}
@@ -138,9 +138,9 @@ func validVersion(version string) error {
 	return nil
 }
 
-// compareVersions orders two valid versions; a pre-release sorts before the
+// CompareVersions orders two valid versions; a pre-release sorts before the
 // release it leads up to.
-func compareVersions(a, b string) int {
+func CompareVersions(a, b string) int {
 	coreA, preA, _ := strings.Cut(a, "-")
 	coreB, preB, _ := strings.Cut(b, "-")
 	if c := slices.Compare(numbers(coreA), numbers(coreB)); c != 0 {

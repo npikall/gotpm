@@ -19,6 +19,11 @@ func Stderr() io.Writer {
 	return Pausing(colorprofile.NewWriter(os.Stderr, os.Environ()))
 }
 
+// Stdout returns the stdout the printers write to.
+func Stdout() io.Writer {
+	return stdout
+}
+
 func Print(v ...any) {
 	_, _ = fmt.Fprint(stdout, v...)
 }
