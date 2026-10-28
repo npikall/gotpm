@@ -91,7 +91,7 @@ func Stable(ctx context.Context, src Source) ([]Release, error) {
 		return nil, err
 	}
 	stable := slices.DeleteFunc(slices.Clone(releases), func(r Release) bool {
-		return r.Prerelease || strings.Contains(r.Version, "-") || validVersion(r.Version) != nil
+		return r.Prerelease || !isStable(r.Version)
 	})
 	slices.SortFunc(stable, func(a, b Release) int { return compareVersions(b.Version, a.Version) })
 	return stable, nil
@@ -107,6 +107,23 @@ func Latest(ctx context.Context, src Source) (Release, error) {
 		return Release{}, fmt.Errorf("%w: no stable release published", ErrNoRelease)
 	}
 	return stable[0], nil
+}
+
+// NewestStable is the newest of versions that is not a pre-release, or ""
+// when there is none.
+func NewestStable(versions []string) string {
+	newest := ""
+	for _, version := range versions {
+		if isStable(version) && (newest == "" || compareVersions(version, newest) > 0) {
+			newest = version
+		}
+	}
+	return newest
+}
+
+// isStable reports whether version is valid and carries no pre-release tag.
+func isStable(version string) bool {
+	return validVersion(version) == nil && !strings.Contains(version, "-")
 }
 
 // versionPattern matches a compiler version, "0.13.1" or "0.14.0-rc.1". It
