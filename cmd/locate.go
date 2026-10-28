@@ -35,7 +35,8 @@ cd "$(gotpm locate packages)"
 # List the installed compilers
 ls "$(gotpm locate compilers)"
 
-# Let typst find the fonts gotpm installs, e.g. in ~/.bashrc
+# Let a plain typst find the fonts gotpm installs, e.g. in ~/.bashrc
+# ('gotpm run' needs no setup)
 export TYPST_FONT_PATHS="$(gotpm locate fonts)"`,
 	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: locate.Keys(),

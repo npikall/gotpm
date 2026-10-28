@@ -18,6 +18,8 @@ use it.
 - Declare git repositories as dependencies of a project, pinned in a committed
   `gotpm.lock`, so `gotpm sync` reproduces them anywhere
 - Install font families from Google Fonts and pin the ones a project needs
+- Run Typst with `gotpm run`, which installs the compiler a project pins and
+  finds installed fonts without any shell setup
 - Check that every package a Typst file imports will resolve
 - Manage the Version of a Package
 - Use it in `GitHub Actions` for publishing Packages to the `Typst Universe`
