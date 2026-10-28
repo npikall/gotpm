@@ -277,3 +277,22 @@ func TestOpenDir_LivesBesideTheFontDirectory(t *testing.T) {
 	assert.True(t, strings.HasPrefix(dir.Root, data), "%q is outside the isolated data directory", dir.Root)
 	assert.Equal(t, compilertest.BinaryContent("0.13.1"), readBinary(t, dir, "0.13.1"))
 }
+
+func TestNewestStable(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		versions []string
+		want     string
+	}{
+		"nothing":            {nil, ""},
+		"only pre-releases":  {[]string{"0.14.0-rc.1", "0.15.0-beta.2"}, ""},
+		"newest wins":        {[]string{"0.9.0", "0.13.1", "0.10.0"}, "0.13.1"},
+		"pre-release passed": {[]string{"0.13.1", "0.14.0-rc.1"}, "0.13.1"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, compilers.NewestStable(tt.versions))
+		})
+	}
+}
