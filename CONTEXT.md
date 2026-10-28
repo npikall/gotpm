@@ -341,7 +341,8 @@ repository, ready for a pull request.
 Invoke a compiler in place of `typst`, passing every argument on to it. Inside
 a project the compiler pin decides which compiler; outside one, the newest
 installed stable compiler does, and the latest stable release is installed when
-there is none. Touches the network only to install a compiler that is missing. Adds the
+there is none. A compiler named for one run is used as is and pins nothing.
+Touches the network only to install a compiler that is missing. Adds the
 font directory to Typst's font paths, but never Syncs.
 _Avoid_: exec, shim (as a command name)
 
