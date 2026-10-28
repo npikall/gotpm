@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+
 	"github.com/npikall/gotpm/internal/cmds/run"
 	"github.com/npikall/gotpm/internal/ui"
 	"github.com/spf13/cobra"
@@ -24,21 +26,33 @@ the latest stable release satisfying it, and run says so. Outside a
 project, the newest installed stable compiler is used, or the latest stable
 release when none is installed.
 
+--typst runs exactly the compiler of that version for this one invocation,
+installed first when missing, and writes nothing: the pin is left as it is.
+Naming a pre-release here is the way to run one.
+
 gotpm's own flags end at the first argument that is not one of them, so
 'gotpm run compile --help' shows typst's help. Put '--' first to hand typst a
 flag of its own, as in 'gotpm run -- --version'.`,
 	Example: `gotpm run compile main.typ
 gotpm run watch main.typ
+gotpm run --typst 0.13.1 compile main.typ
 gotpm run -- --version`,
 	Args: cobra.ArbitraryArgs,
 	RunE: RunRunner,
 }
 
+var errNoCompilerNamed = errors.New("--typst needs the version of a compiler")
+
 func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().SetInterspersed(false)
+	runCmd.Flags().String("typst", "", "Run the compiler of this version, without touching the pin.")
 }
 
 func RunRunner(cmd *cobra.Command, args []string) error {
-	return run.Run(cmd.Context(), args, ui.Stderr(), newLogger(cmd))
+	compiler := Must(cmd.Flags().GetString("typst"))
+	if cmd.Flags().Changed("typst") && compiler == "" {
+		return errNoCompilerNamed
+	}
+	return run.Run(cmd.Context(), compiler, args, ui.Stderr(), newLogger(cmd))
 }

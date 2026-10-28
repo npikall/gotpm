@@ -68,7 +68,7 @@ func runIn(t *testing.T) (string, *[]run.Launch) {
 	t.Helper()
 	var out bytes.Buffer
 	launches := record(t)
-	require.NoError(t, run.Run(context.Background(), []string{"compile", "main.typ"}, &out, discardLogger()))
+	require.NoError(t, run.Run(context.Background(), "", []string{"compile", "main.typ"}, &out, discardLogger()))
 	require.Len(t, *launches, 1)
 	return out.String(), launches
 }
@@ -196,7 +196,7 @@ func TestRun_InsideAProjectWritesNoPinWhenTheInstallFails(t *testing.T) { //noli
 	srv.Publish("0.13.1", compilertest.WrongDigest())
 	launches := record(t)
 
-	require.Error(t, run.Run(context.Background(), nil, &bytes.Buffer{}, discardLogger()))
+	require.Error(t, run.Run(context.Background(), "", nil, &bytes.Buffer{}, discardLogger()))
 
 	assert.Empty(t, *launches)
 	assert.Equal(t, before, readFile(t, file))

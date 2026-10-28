@@ -57,41 +57,59 @@ func UseLauncher(l Launcher) func() {
 // on out. Outside a project it is the newest installed stable compiler, or the
 // latest stable release when none is installed. A missing compiler is
 // installed first.
-func Run(ctx context.Context, args []string, out io.Writer, logger *log.Logger) error {
+//
+// A compiler named other than "" is run instead, whatever the project says,
+// pre-release or not; nothing is written then.
+func Run(ctx context.Context, compiler string, args []string, out io.Writer, logger *log.Logger) error {
 	dir, err := compilers.OpenDir()
 	if err != nil {
 		return err
 	}
-	project, err := openProject()
-	if err != nil {
-		return err
-	}
-	required, pinned, err := floorAndPin(project, out, logger)
-	if err != nil {
-		return err
-	}
-	selection, err := choose(ctx, dir, required.Version, pinned, logger)
-	if err != nil {
-		return err
-	}
-	if err := ensure(ctx, dir, selection.Version, logger); err != nil {
-		return err
-	}
-	if project != nil && selection.NewPin {
-		if err := project.SetCompilerPin(selection.Version); err != nil {
+	version := compiler
+	if version == "" {
+		if version, err = projectCompiler(ctx, dir, out, logger); err != nil {
 			return err
 		}
-		announcePin(out, project.File, required, pinned, selection.Version)
+	} else if err := ensure(ctx, dir, version, logger); err != nil {
+		return err
 	}
-	binary, err := dir.Binary(selection.Version)
+	binary, err := dir.Binary(version)
 	if err != nil {
 		return err
 	}
-	logger.Debug("launching compiler", "version", selection.Version, "binary", binary, "args", args)
+	logger.Debug("launching compiler", "version", version, "binary", binary, "args", args)
 	launcherMu.RLock()
 	l := launcher
 	launcherMu.RUnlock()
 	return l(Launch{Binary: binary, Args: args, Env: os.Environ()})
+}
+
+// projectCompiler chooses and installs the compiler for the project the
+// working directory belongs to, pinning it when the selection says so, or for
+// no project.
+func projectCompiler(ctx context.Context, dir compilers.Dir, out io.Writer, logger *log.Logger) (string, error) {
+	project, err := openProject()
+	if err != nil {
+		return "", err
+	}
+	required, pinned, err := floorAndPin(project, out, logger)
+	if err != nil {
+		return "", err
+	}
+	selection, err := choose(ctx, dir, required.Version, pinned, logger)
+	if err != nil {
+		return "", err
+	}
+	if err := ensure(ctx, dir, selection.Version, logger); err != nil {
+		return "", err
+	}
+	if project != nil && selection.NewPin {
+		if err := project.SetCompilerPin(selection.Version); err != nil {
+			return "", err
+		}
+		announcePin(out, project.File, required, pinned, selection.Version)
+	}
+	return selection.Version, nil
 }
 
 // openProject finds the project the working directory belongs to, or nil
