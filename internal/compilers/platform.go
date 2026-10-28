@@ -32,12 +32,19 @@ func AssetName(goos, goarch string) (string, error) {
 	return "typst-" + target + ".tar.xz", nil
 }
 
+// The compiler's binary is typst.exe on windows, which Typst zips, and typst
+// everywhere else, which Typst packs as a tar.xz.
+const (
+	windowsBinary = "typst.exe"
+	unixBinary    = "typst"
+)
+
 // binaryName is the name of the compiler's binary on this platform.
 func binaryName() string {
 	if runtime.GOOS == "windows" {
-		return "typst.exe"
+		return windowsBinary
 	}
-	return "typst"
+	return unixBinary
 }
 
 // Asset returns the archive of the release built for this platform.
