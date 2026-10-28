@@ -16,6 +16,7 @@ nav = [
 		"guides/dependencies.md",
 		"guides/authoring.md",
 		"guides/publishing.md",
+		"guides/compilers.md",
 	] },
 	"reference.md",
 	"comparison.md",
