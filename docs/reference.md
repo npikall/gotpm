@@ -228,6 +228,7 @@ Show every path and directory gotpm reads or writes.
 | `index` | `index-cache.json`, the cached package index |
 | `remotes` | The cache of cloned remote repositories |
 | `fonts` | The fonts installed by `gotpm font install`, one directory per family |
+| `compilers` | The compiler directory, one installed Typst compiler per version |
 | `root` | The directory of the current project |
 | `manifest` | The project's `typst.toml` |
 | `lock` | The project's `gotpm.lock` |
