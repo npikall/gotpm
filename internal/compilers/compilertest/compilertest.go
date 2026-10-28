@@ -76,6 +76,16 @@ func NoDigest() Option {
 	}
 }
 
+// NoAssetForThisPlatform publishes the archive only for a platform other
+// than this one, as for a platform Typst ships no compiler for.
+func NoAssetForThisPlatform() Option {
+	return func(r *release) {
+		for i := range r.assets {
+			r.assets[i].Name = "typst-elsewhere-unknown-none.tar.xz"
+		}
+	}
+}
+
 // New starts a fake repository, stopped when the test ends.
 func New(t *testing.T) *Server {
 	t.Helper()
@@ -123,6 +133,12 @@ func (s *Server) Publish(version string, opts ...Option) {
 	defer s.mu.Unlock()
 	s.archives[download] = archive
 	s.releases = append(s.releases, r)
+}
+
+// Unreachable takes the repository offline: every later request fails to
+// connect.
+func (s *Server) Unreachable() {
+	s.srv.Close()
 }
 
 // Requests returns the path of every request received so far.

@@ -72,7 +72,7 @@ func Run(ctx context.Context, compiler string, args []string, out io.Writer, log
 		if version, err = projectCompiler(ctx, dir, out, logger); err != nil {
 			return err
 		}
-	} else if err := ensure(ctx, dir, version, logger); err != nil {
+	} else if err := ensure(ctx, dir, version, out, logger); err != nil {
 		return err
 	}
 	binary, err := dir.Binary(version)
@@ -106,7 +106,7 @@ func projectCompiler(ctx context.Context, dir compilers.Dir, out io.Writer, logg
 	if err != nil {
 		return "", err
 	}
-	if err := ensure(ctx, dir, selection.Version, logger); err != nil {
+	if err := ensure(ctx, dir, selection.Version, out, logger); err != nil {
 		return "", err
 	}
 	if project != nil && selection.NewPin {
@@ -168,16 +168,21 @@ func announcePin(out io.Writer, file string, floor compilers.Requirement, previo
 		previous, version, file, previous, floor)
 }
 
-// ensure installs version when it is missing, showing progress only then.
-func ensure(ctx context.Context, dir compilers.Dir, version string, logger *log.Logger) error {
+// ensure installs version when it is missing, showing progress only then,
+// and warns on out when its archive could not be verified.
+func ensure(ctx context.Context, dir compilers.Dir, version string, out io.Writer, logger *log.Logger) error {
 	if _, err := dir.Binary(version); !errors.Is(err, compilers.ErrNotInstalled) {
 		return err
 	}
-	_, err := ui.WithSpinner(" installing compiler "+version, func() (bool, error) {
+	result, err := ui.WithSpinner(" installing compiler "+version, func() (compilers.Result, error) {
 		return dir.Ensure(ctx, compilers.Default(), version)
 	})
-	if err == nil {
-		logger.Debug("installed compiler", "version", version, "path", dir.Path(version))
+	if err != nil {
+		return err
 	}
-	return err
+	logger.Debug("installed compiler", "version", version, "path", dir.Path(version))
+	if result.Unverified {
+		ui.Fwarnf(out, "installed compiler %s unverified: its release publishes no digest", version)
+	}
+	return nil
 }

@@ -82,17 +82,30 @@ func (d Dir) Installed() ([]string, error) {
 	return versions, nil
 }
 
+// Result is what Ensure did.
+type Result struct {
+	// Installed reports that the compiler was downloaded and installed.
+	Installed bool
+	// Unverified reports that its release publishes no digest, so the
+	// archive was installed unchecked, trusting HTTPS alone.
+	Unverified bool
+}
+
 // Ensure installs version from src unless it is installed already, which it
-// finds out without asking src. It reports whether it installed anything.
-func (d Dir) Ensure(ctx context.Context, src Source, version string) (bool, error) {
+// finds out without asking src. An archive is checked against its digest; one
+// without a digest, as older releases are, is installed all the same.
+func (d Dir) Ensure(ctx context.Context, src Source, version string) (Result, error) {
 	if _, err := d.Binary(version); !errors.Is(err, ErrNotInstalled) {
-		return false, err
+		return Result{}, err
 	}
 	archive, asset, err := download(ctx, src, version)
 	if err != nil {
-		return false, err
+		return Result{}, err
 	}
-	return true, d.install(version, asset, archive)
+	if err := d.install(version, asset, archive); err != nil {
+		return Result{}, err
+	}
+	return Result{Installed: true, Unverified: asset.Digest == ""}, nil
 }
 
 func (d Dir) binaryPath(version string) string {
@@ -136,11 +149,14 @@ func (d Dir) newStaging(version string) (string, error) {
 }
 
 // download fetches the archive of version for this platform and checks it
-// against its digest.
+// against its digest, if it has one.
 func download(ctx context.Context, src Source, version string) ([]byte, Asset, error) {
 	release, err := src.Release(ctx, version)
-	if err != nil {
+	if errors.Is(err, ErrNoRelease) {
 		return nil, Asset{}, err
+	}
+	if err != nil {
+		return nil, Asset{}, fmt.Errorf("%w %s: %w", ErrDownload, version, err)
 	}
 	asset, err := release.Asset()
 	if err != nil {
@@ -148,15 +164,20 @@ func download(ctx context.Context, src Source, version string) ([]byte, Asset, e
 	}
 	archive, err := src.Download(ctx, asset)
 	if err != nil {
-		return nil, Asset{}, fmt.Errorf("could not download compiler %s: %w", version, err)
+		return nil, Asset{}, fmt.Errorf("%w %s: %w", ErrDownload, version, err)
 	}
 	return archive, asset, verify(version, asset, archive)
 }
 
+// verify checks archive against the digest of asset; there is nothing to
+// check without one.
 func verify(version string, asset Asset, archive []byte) error {
+	if asset.Digest == "" {
+		return nil
+	}
 	want, ok := strings.CutPrefix(asset.Digest, digestPrefix)
 	if !ok {
-		return fmt.Errorf("%w: %s of compiler %s", ErrNoDigest, asset.Name, version)
+		return fmt.Errorf("%w: %s of compiler %s has %q", ErrUnknownDigest, asset.Name, version, asset.Digest)
 	}
 	sum := sha256.Sum256(archive)
 	if hex.EncodeToString(sum[:]) != want {
