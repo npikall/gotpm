@@ -18,9 +18,9 @@ import (
 )
 
 // project writes a manifest requiring floor, pinning pin, either "" to leave
-// the key out, and makes a subdirectory of the project the working directory.
-// It returns the manifest's path.
-func project(t *testing.T, floor, pin string) string {
+// the key out, and declaring declared, and makes a subdirectory of the
+// project the working directory. It returns the manifest's path.
+func project(t *testing.T, floor, pin string, declared ...string) string {
 	t.Helper()
 	root := t.TempDir()
 	var content strings.Builder
@@ -33,8 +33,14 @@ entrypoint = "main.typ"
 	if floor != "" {
 		content.WriteString(`compiler = "` + floor + `"` + "\n")
 	}
+	if pin != "" || len(declared) > 0 {
+		content.WriteString("\n[tool.gotpm]\n")
+	}
 	if pin != "" {
-		content.WriteString("\n[tool.gotpm]\n# chosen by hand\ncompiler-pin = \"" + pin + "\"\n")
+		content.WriteString("# chosen by hand\ncompiler-pin = \"" + pin + "\"\n")
+	}
+	if len(declared) > 0 {
+		content.WriteString("dependencies = [\"" + strings.Join(declared, `", "`) + "\"]\n")
 	}
 	file := filepath.Join(root, manifest.FileName)
 	require.NoError(t, paths.WriteFile(file, []byte(content.String())))

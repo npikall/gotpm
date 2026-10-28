@@ -52,7 +52,8 @@ func UseLauncher(l Launcher) func() {
 
 // Run launches the compiler with args. Inside a project it is the project's
 // compiler pin, chosen and written to the manifest when the project pins none
-// or its pin is below the project's compiler requirement; that is announced
+// or its pin is below the project's floor, the highest compiler requirement of
+// the project and its installed declared dependencies; that is announced
 // on out. Outside a project it is the newest installed stable compiler, or the
 // latest stable release when none is installed. A missing compiler is
 // installed first.
@@ -65,11 +66,11 @@ func Run(ctx context.Context, args []string, out io.Writer, logger *log.Logger) 
 	if err != nil {
 		return err
 	}
-	var floor, pinned string
-	if project != nil {
-		floor, pinned = project.CompilerFloor(), project.CompilerPin()
+	required, pinned, err := floorAndPin(project, out, logger)
+	if err != nil {
+		return err
 	}
-	selection, err := choose(ctx, dir, floor, pinned, logger)
+	selection, err := choose(ctx, dir, required.Version, pinned, logger)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func Run(ctx context.Context, args []string, out io.Writer, logger *log.Logger) 
 		if err := project.SetCompilerPin(selection.Version); err != nil {
 			return err
 		}
-		announcePin(out, project.File, floor, pinned, selection.Version)
+		announcePin(out, project.File, required, pinned, selection.Version)
 	}
 	binary, err := dir.Binary(selection.Version)
 	if err != nil {
@@ -103,6 +104,16 @@ func openProject() (*deps.Project, error) {
 	return project, err
 }
 
+// floorAndPin are the project's floor and compiler pin, neither outside a
+// project.
+func floorAndPin(project *deps.Project, out io.Writer, logger *log.Logger) (compilers.Requirement, string, error) {
+	if project == nil {
+		return compilers.Requirement{}, "", nil
+	}
+	required, err := projectFloor(project, out, logger)
+	return required, project.CompilerPin(), err
+}
+
 // choose selects the compiler for a floor and pin, both "" outside a project,
 // asking the release source only when no installed compiler will do.
 func choose(ctx context.Context, dir compilers.Dir, floor, pinned string, logger *log.Logger) (compilers.Selection, error) {
@@ -123,13 +134,13 @@ func choose(ctx context.Context, dir compilers.Dir, floor, pinned string, logger
 }
 
 // announcePin says in one line that version was pinned in file, replacing
-// previous, if any, for being below floor.
-func announcePin(out io.Writer, file, floor, previous, version string) {
+// previous, if any, for being below the floor.
+func announcePin(out io.Writer, file string, floor compilers.Requirement, previous, version string) {
 	if previous == "" {
 		ui.Finfof(out, "pinned compiler %s in %s", version, file)
 		return
 	}
-	ui.Finfof(out, "raised the compiler pin from %s to %s in %s: %s is below the compiler requirement %s",
+	ui.Finfof(out, "raised the compiler pin from %s to %s in %s: %s is below %s",
 		previous, version, file, previous, floor)
 }
 
