@@ -76,10 +76,10 @@ func TestEnsure_InstallsTheBinaryOfTheVersion(t *testing.T) {
 	srv.Publish("0.13.1")
 	dir := newDir(t)
 
-	installed, err := dir.Ensure(context.Background(), srv.Source(), "0.13.1")
+	result, err := dir.Ensure(context.Background(), srv.Source(), "0.13.1")
 	require.NoError(t, err)
 
-	assert.True(t, installed)
+	assert.Equal(t, compilers.Result{Installed: true}, result)
 	assert.Equal(t, compilertest.BinaryContent("0.13.1"), readBinary(t, dir, "0.13.1"))
 }
 
@@ -129,17 +129,58 @@ func TestEnsure_RefusesADigestMismatchAndLeavesNothingBehind(t *testing.T) {
 	require.ErrorIs(t, err, compilers.ErrNotInstalled)
 }
 
-func TestEnsure_RefusesAnArchiveWithoutDigest(t *testing.T) {
+func TestEnsure_InstallsAnArchiveWithoutDigestUnverified(t *testing.T) {
 	t.Parallel()
 	srv := compilertest.New(t)
 	srv.Publish("0.10.0", compilertest.NoDigest())
 	dir := newDir(t)
 
-	_, err := dir.Ensure(context.Background(), srv.Source(), "0.10.0")
+	result, err := dir.Ensure(context.Background(), srv.Source(), "0.10.0")
+	require.NoError(t, err)
 
-	require.ErrorIs(t, err, compilers.ErrNoDigest)
+	assert.Equal(t, compilers.Result{Installed: true, Unverified: true}, result)
+	assert.Equal(t, compilertest.BinaryContent("0.10.0"), readBinary(t, dir, "0.10.0"))
+}
+
+func TestEnsure_FailsWithTheVersionWhenTheSourceIsUnreachable(t *testing.T) {
+	t.Parallel()
+	srv := compilertest.New(t)
+	srv.Publish("0.13.1")
+	srv.Unreachable()
+	dir := newDir(t)
+
+	_, err := dir.Ensure(context.Background(), srv.Source(), "0.13.1")
+
+	require.ErrorIs(t, err, compilers.ErrDownload)
+	require.ErrorContains(t, err, "could not download compiler 0.13.1")
 	entries, _ := os.ReadDir(dir.Root)
 	assert.Empty(t, entries)
+}
+
+func TestEnsure_FailsNamingThePlatformWhenTheReleaseHasNoAssetForIt(t *testing.T) {
+	t.Parallel()
+	srv := compilertest.New(t)
+	srv.Publish("0.13.1", compilertest.NoAssetForThisPlatform())
+	dir := newDir(t)
+
+	_, err := dir.Ensure(context.Background(), srv.Source(), "0.13.1")
+
+	require.ErrorIs(t, err, compilers.ErrUnsupportedPlatform)
+	require.ErrorContains(t, err, runtime.GOOS+"/"+runtime.GOARCH)
+	for _, request := range srv.Requests() {
+		assert.NotContains(t, request, "/download/", "nothing is downloaded")
+	}
+}
+
+func TestLatest_FailsWhenTheSourceIsUnreachable(t *testing.T) {
+	t.Parallel()
+	srv := compilertest.New(t)
+	srv.Publish("0.13.1")
+	srv.Unreachable()
+
+	_, err := compilers.Latest(context.Background(), srv.Source())
+
+	assert.ErrorContains(t, err, "could not look up compiler releases")
 }
 
 func TestStable_LeavesOutAPreReleaseTagNotFlaggedAsOne(t *testing.T) {
@@ -163,10 +204,10 @@ func TestEnsure_MakesNoRequestForAnInstalledVersion(t *testing.T) {
 	require.NoError(t, err)
 	before := len(srv.Requests())
 
-	installed, err := dir.Ensure(context.Background(), srv.Source(), "0.13.1")
+	result, err := dir.Ensure(context.Background(), srv.Source(), "0.13.1")
 	require.NoError(t, err)
 
-	assert.False(t, installed)
+	assert.Equal(t, compilers.Result{}, result)
 	assert.Len(t, srv.Requests(), before)
 }
 

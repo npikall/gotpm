@@ -25,7 +25,8 @@ var (
 	ErrNoRelease           = errors.New("no such compiler release")
 	ErrUnsupportedPlatform = errors.New("typst ships no compiler for this platform")
 	ErrChecksum            = errors.New("compiler archive does not match its digest")
-	ErrNoDigest            = errors.New("compiler archive has no digest")
+	ErrUnknownDigest       = errors.New("compiler archive has a digest of unknown kind")
+	ErrDownload            = errors.New("could not download compiler")
 	ErrNotInstalled        = errors.New("compiler is not installed")
 	ErrInvalidArchive      = errors.New("invalid compiler archive")
 	ErrFailedRequest       = errors.New("http request failed")
@@ -88,7 +89,7 @@ func Use(s Source) func() {
 func Stable(ctx context.Context, src Source) ([]Release, error) {
 	releases, err := src.Releases(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not look up compiler releases: %w", err)
 	}
 	stable := slices.DeleteFunc(slices.Clone(releases), func(r Release) bool {
 		return r.Prerelease || !isStable(r.Version)
