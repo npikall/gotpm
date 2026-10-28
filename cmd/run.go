@@ -17,9 +17,10 @@ The compiler comes from gotpm's compiler directory, installed first when
 missing. A typst on $PATH is never used.
 
 Inside a project, the compiler pin in typst.toml decides the compiler. When
-the project pins none, or its pin is below the project's compiler requirement,
-the newest installed stable compiler satisfying the requirement is pinned, or
-else the latest stable release satisfying it, and run says so. Outside a
+the project pins none, or its pin is below the project's floor — the highest
+compiler requirement of the project and its installed declared dependencies —
+the newest installed stable compiler satisfying the floor is pinned, or else
+the latest stable release satisfying it, and run says so. Outside a
 project, the newest installed stable compiler is used, or the latest stable
 release when none is installed.
 

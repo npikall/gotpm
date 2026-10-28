@@ -77,9 +77,10 @@ func (p *Project) SetFonts(families []string) error {
 	return nil
 }
 
-// CompilerFloor is the lowest compiler the project compiles with, or "" when
-// it states no compiler requirement.
-func (p *Project) CompilerFloor() string {
+// CompilerRequirement is the lowest compiler the project itself compiles
+// with, or "" when it states none. Its floor also counts its declared
+// dependencies' requirements.
+func (p *Project) CompilerRequirement() string {
 	return p.Manifest.Package.Compiler
 }
 

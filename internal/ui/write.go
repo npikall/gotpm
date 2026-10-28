@@ -39,9 +39,14 @@ func Finfof(w io.Writer, format string, a ...any) {
 }
 
 func Warnf(format string, a ...any) {
+	Fwarnf(stdout, format, a...)
+}
+
+// Fwarnf writes a warning line to w.
+func Fwarnf(w io.Writer, format string, a ...any) {
 	prefix := YellowBold.Render("warning")
 	text := Normal.Render(fmt.Sprintf(format, a...))
-	_, _ = fmt.Fprintf(stdout, "%s: %s\n", prefix, text)
+	_, _ = fmt.Fprintf(w, "%s: %s\n", prefix, text)
 }
 
 // Missingf reports something that could not be found.
