@@ -195,7 +195,8 @@ func verify(version string, asset Asset, archive []byte) error {
 	return nil
 }
 
-// unpack writes the compiler binary held in archive to target.
+// unpack writes the compiler binary held in archive to target. Typst zips its
+// windows builds, so a zip holds typst.exe and a tar.xz holds typst.
 func unpack(asset Asset, archive []byte, target string) error {
 	var binary io.ReadCloser
 	var err error
@@ -225,7 +226,7 @@ func fromTarXz(archive []byte) (io.ReadCloser, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not read tar: %w", err)
 		}
-		if header.Typeflag == tar.TypeReg && path.Base(header.Name) == binaryName() {
+		if header.Typeflag == tar.TypeReg && path.Base(header.Name) == unixBinary {
 			return io.NopCloser(tr), nil
 		}
 	}
@@ -237,7 +238,7 @@ func fromZip(archive []byte) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("could not read zip: %w", err)
 	}
 	for _, file := range zr.File {
-		if file.Mode().IsRegular() && path.Base(file.Name) == binaryName() {
+		if file.Mode().IsRegular() && path.Base(file.Name) == windowsBinary {
 			rc, err := file.Open()
 			if err != nil {
 				return nil, fmt.Errorf("could not open %s: %w", file.Name, err)
