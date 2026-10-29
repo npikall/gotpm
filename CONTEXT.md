@@ -223,6 +223,40 @@ A font family the project's manifest declares and its lock pins. gotpm Fetches
 it, together with the fonts the project's dependencies declare.
 _Avoid_: font dependency, required font
 
+### Compilers
+
+**Compiler**:
+A release of the Typst compiler binary, named by its version. gotpm runs only
+compilers it installed itself; a `typst` found on `$PATH` is never used.
+_Avoid_: toolchain, typst version, binary
+
+**Installed Compiler**:
+One compiler gotpm downloaded into the compiler directory.
+_Avoid_: cached compiler, managed typst
+
+**Compiler Directory**:
+The machine-wide directory holding installed compilers, one per version. Like
+the font directory it is not cache: gotpm put each compiler there on purpose,
+and only removes one when told to.
+_Avoid_: compiler cache, toolchain dir
+
+**Compiler Requirement**:
+The `compiler` key of a manifest: the lowest compiler version the package
+compiles with. A floor, never an exact version — any newer compiler satisfies
+it. A project has to satisfy its own requirement and those of its declared
+dependencies, so its floor is the highest of them.
+_Avoid_: compiler version, pinned compiler
+
+**Compiler Pin**:
+The exact compiler a project is compiled with, recorded in gotpm's section of
+its manifest — not in the lock, because no dependent needs it to resolve
+anything. It satisfies the project's floor, and it is what makes two machines
+compile the project with the same compiler. A dependency's compiler pin means
+nothing to the projects depending on it. Run writes it when the manifest has
+none or it no longer satisfies the floor; otherwise it is never moved except by
+`compiler pin`. Pre-releases are pinned only when named.
+_Avoid_: typst pin, compiler lock
+
 ### Publication
 
 **Fork**:
@@ -248,7 +282,7 @@ _Avoid_: release, publication, PR
 **Project Command**:
 A command whose subject is the current project: it reads `typst.toml` and
 `gotpm.lock`, and installs or deletes the whole dependency graph they describe.
-`add`, `sync`, `remove`, `font add` and `font remove`. Because a graph is many packages, a project command
+`add`, `sync`, `remove`, `font add`, `font remove` and `compiler pin`. Because a graph is many packages, a project command
 always works on the package directory and never takes an install dir. `bump` and
 `locate` read the project too, but change no dependency.
 _Avoid_: dependency command, local command
@@ -256,8 +290,9 @@ _Avoid_: dependency command, local command
 **Standalone Command**:
 A command that needs no project, so the directory it operates on can be named on
 the command line. `install`, `uninstall`, `list`, `check`, `publish`, `init`,
-`update`, `cache`, `config`, `self`, `font install`, `font uninstall` and
-`font search`. These are the only commands an install dir
+`update`, `cache`, `config`, `self`, `font install`, `font uninstall`,
+`font search`, `run`, `compiler list` and `compiler uninstall`. `run` reads the
+project when there is one, but does not need it. These are the only commands an install dir
 is offered to, and only for the forms of them that act on one package version —
 `install`'s working-tree form, not `install --remote`.
 _Avoid_: regular command, global command, non-project command
@@ -301,6 +336,15 @@ compiler downloads it and gotpm does not interfere.
 **Publish**:
 Get the project's working tree into a fork of the Typst Universe package
 repository, ready for a pull request.
+
+**Run**:
+Invoke a compiler in place of `typst`, passing every argument on to it. Inside
+a project the compiler pin decides which compiler; outside one, the newest
+installed stable compiler does, and the latest stable release is installed when
+there is none. A compiler named for one run is used as is and pins nothing.
+Touches the network only to install a compiler that is missing. Adds the
+font directory to Typst's font paths, but never Syncs.
+_Avoid_: exec, shim (as a command name)
 
 **Publish Hook**:
 Shell commands the manifest runs in the package root around a publish — the

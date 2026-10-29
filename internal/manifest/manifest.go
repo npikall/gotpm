@@ -50,6 +50,9 @@ type Gotpm struct {
 	// PostPublishHook lists shell commands publish runs in the package root
 	// once it is done, e.g. to remove what the pre-publish hook generated.
 	PostPublishHook []string `toml:"post-publish-hook,omitempty"`
+	// CompilerPin is the exact compiler the project is compiled with, e.g.
+	// "0.13.1". It is meant to satisfy Package.Compiler, the floor.
+	CompilerPin string `toml:"compiler-pin,omitempty"`
 }
 
 type PackageMeta struct {

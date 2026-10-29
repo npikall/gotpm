@@ -36,7 +36,7 @@ type Group struct {
 func Keys() []string {
 	return []string{
 		"packages",
-		"data-dir", "config-dir", "config", "index", "remotes", "fonts",
+		"data-dir", "config-dir", "config", "index", "remotes", "fonts", "compilers",
 		"root", "manifest", "lock",
 	}
 }
@@ -79,6 +79,7 @@ func gotpmEntries() []Entry {
 	indexCache, indexErr := index.CachePath()
 	remotes, remotesErr := remote.CacheDir()
 	fonts, fontsErr := paths.GotpmFontsDir()
+	compilerDir, compilerDirErr := paths.GotpmCompilersDir()
 
 	return []Entry{
 		{Key: "data-dir", Path: dataDir, Err: dataErr},
@@ -87,6 +88,7 @@ func gotpmEntries() []Entry {
 		{Key: "index", Path: indexCache, Err: indexErr},
 		{Key: "remotes", Path: remotes, Err: remotesErr},
 		{Key: "fonts", Path: fonts, Note: "for $TYPST_FONT_PATHS", Err: fontsErr},
+		{Key: "compilers", Path: compilerDir, Err: compilerDirErr},
 	}
 }
 

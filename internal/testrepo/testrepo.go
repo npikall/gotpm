@@ -71,6 +71,10 @@ type Package struct {
 	// served is the http address of a private package, empty for one reached
 	// over file://.
 	served string
+	// compiler and compilerPin are the compiler requirement and compiler pin
+	// the next release's manifest states, neither when "".
+	compiler    string
+	compilerPin string
 }
 
 // New creates an empty repository for a package. Nothing is committed until
@@ -135,6 +139,20 @@ func (p *Package) Tag() string {
 		return "HEAD"
 	}
 	return "v" + p.version
+}
+
+// RequireCompiler makes the next release state version as its compiler
+// requirement.
+func (p *Package) RequireCompiler(version string) *Package {
+	p.compiler = version
+	return p
+}
+
+// PinCompiler makes the next release pin version as its compiler, the way a
+// package that was itself compiled with gotpm run ships.
+func (p *Package) PinCompiler(version string) *Package {
+	p.compilerPin = version
+	return p
 }
 
 // Hash is the commit of the most recent release.
@@ -229,8 +247,17 @@ func (p *Package) root() string { return filepath.Join(p.dir, filepath.FromSlash
 func (p *Package) manifest(declared []string) []byte {
 	var b strings.Builder
 	fmt.Fprintf(&b, "[package]\nname = %q\nversion = %q\nentrypoint = \"lib.typ\"\n", p.name, p.version)
+	if p.compiler != "" {
+		fmt.Fprintf(&b, "compiler = %q\n", p.compiler)
+	}
+	if len(declared) > 0 || p.compilerPin != "" {
+		b.WriteString("\n[tool.gotpm]\n")
+	}
+	if p.compilerPin != "" {
+		fmt.Fprintf(&b, "compiler-pin = %q\n", p.compilerPin)
+	}
 	if len(declared) > 0 {
-		b.WriteString("\n[tool.gotpm]\ndependencies = [\n")
+		b.WriteString("dependencies = [\n")
 		for _, dep := range declared {
 			fmt.Fprintf(&b, "  %q,\n", dep)
 		}

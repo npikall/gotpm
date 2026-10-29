@@ -17,7 +17,7 @@ The commands fall into two groups, and the difference decides which flags they
 take.
 
 **Project commands** — [`add`](#add), [`sync`](#sync), [`remove`](#remove),
-[`font add` and `font remove`](#font) —
+[`font add` and `font remove`](#font), [`compiler pin`](#compiler) —
 take the current project as their subject. They read `typst.toml` and
 `gotpm.lock`, and install or delete the whole dependency graph those two
 describe. Run one outside a project and it says so. [`bump`](#bump) and
@@ -26,7 +26,9 @@ describe. Run one outside a project and it says so. [`bump`](#bump) and
 **Standalone commands** — [`install`](#install), [`uninstall`](#uninstall),
 [`list`](#list), [`check`](#check), [`publish`](#publish), [`init`](#init),
 [`update`](#update), [`cache`](#cache), [`config`](#config), [`self`](#self),
-[`font install`, `font uninstall` and `font search`](#font) — need no project. `install` and `uninstall` act on a single package version,
+[`font install`, `font uninstall` and `font search`](#font), [`run`](#run),
+[`compiler list` and `compiler uninstall`](#compiler) — need no project; `run`
+reads it when there is one. `install` and `uninstall` act on a single package version,
 which is why they are the only two that accept `--install-dir`: that flag names
 a directory to receive one package's files directly, and a dependency graph does
 not fit in one. A project command always works on the [package
@@ -38,10 +40,12 @@ directory](concepts.md#the-package-directory).
 | --- | --- |
 | `$TYPST_PACKAGE_PATH` | Moves the package directory itself, layout and all. Honoured by every command. |
 | `$GOTPM_INSTALL_DIR` | The ambient form of `--install-dir`: a single-package destination, set once instead of typed each time. Ignored by every command that does not offer the flag. |
-| `$GITHUB_TOKEN` | Sent to the GitHub API, and only there, when the `font` commands look up a commit or the family list. Lifts the limit of 60 unauthenticated requests an hour. |
+| `$GITHUB_TOKEN` | Sent to the GitHub API, and only there, when the `font` commands look up a commit or the family list, and when `run` or `compiler pin` look up compiler releases. Lifts the limit of 60 unauthenticated requests an hour. |
+| `$TYPST_FONT_PATHS` | Kept by [`run`](#run), with the font directory appended after your own paths. |
 
-gotpm reads no font path of its own. Typst finds the fonts gotpm installs only
-when `$TYPST_FONT_PATHS` points at the font directory — see [`font`](#font).
+[`run`](#run) adds the font directory to Typst's font paths by itself. A plain
+`typst` finds the fonts gotpm installs only when `$TYPST_FONT_PATHS` points at
+the font directory — see [`font`](#font).
 
 `$GOTPM_INSTALL_DIR` is not a setting for where gotpm keeps its data. Left set
 in a shell, it sends the next `gotpm install` into a flat directory Typst cannot
@@ -111,6 +115,28 @@ A package outside the Typst Universe has to be present in the package
 directory; a Universe package need only exist in the index, because the compiler
 downloads it and gotpm does not interfere.
 
+## `compiler`
+
+Move the project's compiler pin, and see and delete the compilers `run` runs.
+
+```console
+--8<-- "docs/includes/cli/compiler.txt"
+```
+
+| Command | Kind | Does |
+| --- | --- | --- |
+| `compiler pin [version]` | project | Writes the compiler pin into `typst.toml` and installs that compiler; without a version, the latest stable release |
+| `compiler list` | standalone | Lists the installed compilers, marking the newest stable one and the project's compiler pin |
+| `compiler uninstall <version>` | standalone | Deletes an installed compiler, pinned by some project or not |
+
+A version below the project's floor — the highest compiler requirement of the
+project and its installed declared dependencies — cannot be pinned. A pre-release is
+pinned only when named.
+
+The compiler directory is not cache: `gotpm cache clear` leaves it alone.
+
+[:octicons-arrow-right-24: Running the compiler](guides/compilers.md)
+
 ## `config`
 
 Read and write gotpm's own configuration, stored as TOML in the user config
@@ -134,9 +160,10 @@ pin the ones a project needs.
 --8<-- "docs/includes/cli/font.txt"
 ```
 
-Fonts are kept in gotpm's font directory, one directory per family. Typst does
-not look there on its own, so point `$TYPST_FONT_PATHS` at it once, e.g. in
-`~/.bashrc`:
+Fonts are kept in gotpm's font directory, one directory per family.
+[`gotpm run`](#run) adds it to Typst's font paths by itself. A plain `typst`
+does not look there on its own, so to use one, point `$TYPST_FONT_PATHS` at it
+once, e.g. in `~/.bashrc`:
 
 ```sh
 export TYPST_FONT_PATHS="$(gotpm locate fonts)"
@@ -228,6 +255,7 @@ Show every path and directory gotpm reads or writes.
 | `index` | `index-cache.json`, the cached package index |
 | `remotes` | The cache of cloned remote repositories |
 | `fonts` | The fonts installed by `gotpm font install`, one directory per family |
+| `compilers` | The compiler directory, one installed Typst compiler per version |
 | `root` | The directory of the current project |
 | `manifest` | The project's `typst.toml` |
 | `lock` | The project's `gotpm.lock` |
@@ -247,9 +275,10 @@ Typst
 ...
 ```
 
-Typst does not look in the `fonts` directory on its own. Point
-`$TYPST_FONT_PATHS` at it, for example in `~/.bashrc`, and every installed
-font is available to `typst compile`:
+[`gotpm run`](#run) adds the `fonts` directory to Typst's font paths by itself.
+A plain `typst` does not look there on its own; point `$TYPST_FONT_PATHS` at
+it, for example in `~/.bashrc`, and every installed font is available to
+`typst compile`:
 
 ```sh
 export TYPST_FONT_PATHS="$(gotpm locate fonts)"
@@ -283,6 +312,26 @@ info: removed @gotpm/cetz:0.3.1
 info:   no longer needed: @gotpm/oxifmt:0.2.1
 info: the package files are still in the package directory; pass --prune to delete them
 ```
+
+## `run`
+
+Run `typst` with a compiler gotpm installs, handing it every argument unchanged.
+
+```console
+--8<-- "docs/includes/cli/run.txt"
+```
+
+| Where | Which compiler |
+| --- | --- |
+| `--typst <version>` given | Exactly that one; nothing is written |
+| Inside a project with a pin at or above the floor | The pinned one |
+| Inside a project with no pin, or a pin below the floor | The newest installed stable compiler satisfying the floor, else the latest stable release satisfying it — written as the compiler pin and announced |
+| Outside a project | The newest installed stable compiler, else the latest stable release |
+
+The network is used only to install a compiler that is missing. A `typst` on
+`$PATH` is never used, and nothing is synced.
+
+[:octicons-arrow-right-24: Running the compiler](guides/compilers.md)
 
 ## `self`
 
