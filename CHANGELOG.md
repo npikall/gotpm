@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-11-01
+
+### 🐛 Bug Fixes
+
+- *(store)* prune empty parent directories on uninstall
+- *(pkgfiles)* match ignore rules the way git does
+
+### 📚 Documentation
+
+- explain how package files are chosen
+
+### 🚜 Refactor
+
+- *(pkgfiles)* cap concurrent file copies at numcpu
+
+### 💼 Other
+
+- *(nix)* update nixpkgs
+- add govulncheck and nix
+- lint workflows
+- *(govulncheck)* upload sarif to code scanning, run weekly
+- drop go-gitignore dependency
+
 ## [0.8.0] - 2026-10-17
 
 ### 🚀 Features
@@ -41,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(brew)* clear quarantine on staged dir, not missing file
 - bump go version
 - update dependencies and vendor
+- *(release)* v0.8.0
 
 ## [0.7.0] - 2026-10-09
 
@@ -850,6 +874,7 @@ improvements and bug fixes
 - update files
 - update release workflow, use git-changelog
 
+[0.8.1]: https://github.com/npikall/gotpm/compare/v0.8.0..v0.8.1
 [0.8.0]: https://github.com/npikall/gotpm/compare/v0.7.0..v0.8.0
 [0.7.0]: https://github.com/npikall/gotpm/compare/v0.6.0..v0.7.0
 [0.6.0]: https://github.com/npikall/gotpm/compare/v0.5.2..v0.6.0
