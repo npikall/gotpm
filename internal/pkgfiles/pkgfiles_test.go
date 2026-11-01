@@ -8,7 +8,6 @@ import (
 
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/npikall/gotpm/internal/pkgfiles"
-	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,18 +18,18 @@ func writeFile(t *testing.T, dir, name, content string) {
 	require.NoError(t, paths.WriteFile(filepath.Join(dir, name), []byte(content)))
 }
 
-func jobSrcBasenames(jobs []pkgfiles.Job) []string {
+func collectNames(t *testing.T, src string) []string {
+	t.Helper()
+	jobs, err := pkgfiles.Collect(src, t.TempDir())
+	require.NoError(t, err)
 	names := make([]string, 0, len(jobs))
 	for _, job := range jobs {
-		names = append(names, filepath.Base(job.Src))
+		rel, err := filepath.Rel(src, job.Src)
+		require.NoError(t, err)
+		names = append(names, filepath.ToSlash(rel))
 	}
 	sort.Strings(names)
 	return names
-}
-
-func matcherFromLines(t *testing.T, patterns ...string) *ignore.GitIgnore {
-	t.Helper()
-	return ignore.CompileIgnoreLines(patterns...)
 }
 
 func TestCopyTree(t *testing.T) {
@@ -61,61 +60,6 @@ func TestCopyTree_HonoursIgnoreFiles(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(dst, ".typstignore"))
 }
 
-func TestReadIgnoreLines(t *testing.T) {
-	t.Parallel()
-	t.Run("returns nil for non-existent file", func(t *testing.T) {
-		t.Parallel()
-		assert.Nil(t, pkgfiles.ReadIgnoreLines(filepath.Join(t.TempDir(), "nope")))
-	})
-	t.Run("returns trimmed non-empty lines", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		writeFile(t, dir, ".typstignore", "*.typ\nREADME.md\n")
-		assert.Equal(t, []string{"*.typ", "README.md"},
-			pkgfiles.ReadIgnoreLines(filepath.Join(dir, ".typstignore")))
-	})
-	t.Run("skips blank lines", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		writeFile(t, dir, ".typstignore", "*.typ\n\nREADME.md\n")
-		assert.Equal(t, []string{"*.typ", "README.md"},
-			pkgfiles.ReadIgnoreLines(filepath.Join(dir, ".typstignore")))
-	})
-	t.Run("strips windows-style CRLF line endings", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		writeFile(t, dir, ".typstignore", "*.typ\r\nREADME.md\r\n")
-		assert.Equal(t, []string{"*.typ", "README.md"},
-			pkgfiles.ReadIgnoreLines(filepath.Join(dir, ".typstignore")))
-	})
-}
-
-func TestShouldIgnore(t *testing.T) {
-	t.Parallel()
-	t.Run("root . is never ignored", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, pkgfiles.ShouldIgnore(".", nil))
-	})
-	t.Run("hardcoded filenames are ignored", func(t *testing.T) {
-		t.Parallel()
-		assert.True(t, pkgfiles.ShouldIgnore(".git", nil))
-		assert.True(t, pkgfiles.ShouldIgnore(".gitignore", nil))
-		assert.True(t, pkgfiles.ShouldIgnore(".typstignore", nil))
-		assert.True(t, pkgfiles.ShouldIgnore(paths.ProvenanceFile, nil))
-		assert.True(t, pkgfiles.ShouldIgnore(filepath.Join("nested", ".git"), nil))
-	})
-	t.Run("nil matcher does not ignore unknown files", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, pkgfiles.ShouldIgnore("lib.typ", nil))
-	})
-	t.Run("matcher-matched path is ignored", func(t *testing.T) {
-		t.Parallel()
-		matcher := matcherFromLines(t, "*.md")
-		assert.True(t, pkgfiles.ShouldIgnore("README.md", matcher))
-		assert.False(t, pkgfiles.ShouldIgnore("lib.typ", matcher))
-	})
-}
-
 func TestCollect_RespectsTypstIgnore(t *testing.T) {
 	t.Parallel()
 	src := t.TempDir()
@@ -123,9 +67,7 @@ func TestCollect_RespectsTypstIgnore(t *testing.T) {
 	writeFile(t, src, "README.md", "")
 	writeFile(t, src, ".typstignore", "README.md\n")
 
-	jobs, err := pkgfiles.Collect(src, t.TempDir(), pkgfiles.Matcher(src))
-	require.NoError(t, err)
-	assert.Equal(t, []string{"lib.typ"}, jobSrcBasenames(jobs))
+	assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
 }
 
 func TestCollect_RespectsGitIgnore(t *testing.T) {
@@ -135,9 +77,7 @@ func TestCollect_RespectsGitIgnore(t *testing.T) {
 	writeFile(t, src, "out.pdf", "")
 	writeFile(t, src, ".gitignore", "*.pdf\n")
 
-	jobs, err := pkgfiles.Collect(src, t.TempDir(), pkgfiles.Matcher(src))
-	require.NoError(t, err)
-	assert.Equal(t, []string{"lib.typ"}, jobSrcBasenames(jobs))
+	assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
 }
 
 func TestCollect_GitIgnoreAndTypstIgnoreCombined(t *testing.T) {
@@ -149,9 +89,7 @@ func TestCollect_GitIgnoreAndTypstIgnoreCombined(t *testing.T) {
 	writeFile(t, src, ".gitignore", "*.pdf\n")
 	writeFile(t, src, ".typstignore", "notes.md\n")
 
-	jobs, err := pkgfiles.Collect(src, t.TempDir(), pkgfiles.Matcher(src))
-	require.NoError(t, err)
-	assert.Equal(t, []string{"lib.typ"}, jobSrcBasenames(jobs))
+	assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
 }
 
 func TestCollect_IgnoredDirectorySkipsContents(t *testing.T) {
@@ -162,9 +100,7 @@ func TestCollect_IgnoredDirectorySkipsContents(t *testing.T) {
 	writeFile(t, src, filepath.Join("build", "nested", "b.typ"), "")
 	writeFile(t, src, ".typstignore", "build\n")
 
-	jobs, err := pkgfiles.Collect(src, t.TempDir(), pkgfiles.Matcher(src))
-	require.NoError(t, err)
-	assert.Equal(t, []string{"lib.typ"}, jobSrcBasenames(jobs))
+	assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
 }
 
 func TestCopyFile(t *testing.T) {
@@ -265,7 +201,184 @@ func TestCopyFile_ReportsFailures(t *testing.T) {
 func TestCollect_ReportsAMissingSource(t *testing.T) {
 	t.Parallel()
 
-	_, err := pkgfiles.Collect(filepath.Join(t.TempDir(), "missing"), t.TempDir(), nil)
+	_, err := pkgfiles.Collect(filepath.Join(t.TempDir(), "missing"), t.TempDir())
 
 	require.ErrorContains(t, err, "walking")
+}
+
+func TestCollect_HonoursNestedGitIgnore(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "lib.typ", "")
+	writeFile(t, src, "out.pdf", "")
+	writeFile(t, src, filepath.Join("sub", "out.pdf"), "")
+	writeFile(t, src, filepath.Join("sub", "keep.typ"), "")
+	writeFile(t, src, filepath.Join("sub", ".gitignore"), "*.pdf\n")
+
+	assert.Equal(t, []string{"lib.typ", "out.pdf", "sub/keep.typ"}, collectNames(t, src))
+}
+
+func TestCollect_DeeperGitIgnoreOutranksShallower(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, filepath.Join("sub", "a.pdf"), "")
+	writeFile(t, src, ".gitignore", "*.pdf\n")
+	writeFile(t, src, filepath.Join("sub", ".gitignore"), "!a.pdf\n")
+
+	assert.Equal(t, []string{"sub/a.pdf"}, collectNames(t, src))
+}
+
+func TestCollect_TypstIgnoreOutranksNestedGitIgnore(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "lib.typ", "")
+	writeFile(t, src, filepath.Join("assets", "thumbnail.png"), "")
+	writeFile(t, src, filepath.Join("assets", ".gitignore"), "thumbnail.png\n")
+	writeFile(t, src, ".typstignore", "!thumbnail.png\n")
+
+	assert.Equal(t, []string{"assets/thumbnail.png", "lib.typ"}, collectNames(t, src))
+}
+
+func TestCollect_OnlyRootTypstIgnoreCounts(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, filepath.Join("sub", "notes.md"), "")
+	writeFile(t, src, filepath.Join("sub", ".typstignore"), "notes.md\n")
+
+	assert.Equal(t, []string{"sub/notes.md"}, collectNames(t, src))
+}
+
+func TestCollect_IgnoresMachineLocalGitExcludes(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "lib.typ", "")
+	writeFile(t, src, filepath.Join(".git", "info", "exclude"), "lib.typ\n")
+
+	assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
+}
+
+func TestCollect_FailsOnAnUnreadableGitIgnore(t *testing.T) {
+	t.Parallel()
+	if os.Geteuid() == 0 {
+		t.Skip("root reads files regardless of mode")
+	}
+	for name, ignoreFile := range map[string]string{
+		"root":   ".gitignore",
+		"nested": filepath.Join("sub", ".gitignore"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			src := t.TempDir()
+			writeFile(t, src, "lib.typ", "")
+			writeFile(t, src, ignoreFile, "*.pdf\n")
+			require.NoError(t, os.Chmod(filepath.Join(src, ignoreFile), 0))
+
+			_, err := pkgfiles.Collect(src, t.TempDir())
+
+			require.ErrorContains(t, err, ".gitignore")
+		})
+	}
+}
+
+const validManifest = "[package]\nname = \"p\"\nversion = \"0.1.0\"\nentrypoint = \"lib.typ\"\n"
+
+func TestCollect_LeavesOutNamesNeverPartOfAPackage(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "lib.typ", "")
+	writeFile(t, src, filepath.Join(".git", "HEAD"), "")
+	writeFile(t, src, filepath.Join(".jj", "repo", "store", "type"), "")
+	writeFile(t, src, filepath.Join("nested", ".jj", "working_copy", "type"), "")
+	writeFile(t, src, ".gitignore", "")
+	writeFile(t, src, ".typstignore", "")
+	writeFile(t, src, paths.ProvenanceFile, "")
+	writeFile(t, src, filepath.Join("nested", ".git", "HEAD"), "")
+	writeFile(t, src, filepath.Join("nested", "a.typ"), "")
+
+	assert.Equal(t, []string{"lib.typ", "nested/a.typ"}, collectNames(t, src))
+}
+
+func TestCollect_ReadsIgnoreFileLines(t *testing.T) {
+	t.Parallel()
+	tests := map[string]string{
+		"blank lines":         "a.md\n\nb.md\n",
+		"CRLF line endings":   "a.md\r\nb.md\r\n",
+		"no trailing newline": "a.md\nb.md",
+		"comments in between": "a.md\n# lib.typ\nb.md\n",
+	}
+	for name, content := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			src := t.TempDir()
+			writeFile(t, src, "lib.typ", "")
+			writeFile(t, src, "a.md", "")
+			writeFile(t, src, "b.md", "")
+			writeFile(t, src, ".typstignore", content)
+
+			assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
+		})
+	}
+}
+
+func TestCollect_DirectoryOnlyPatternSparesAFile(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "build", "")
+	writeFile(t, src, filepath.Join("sub", "build", "x.typ"), "")
+	writeFile(t, src, ".gitignore", "build/\n")
+
+	assert.Equal(t, []string{"build"}, collectNames(t, src))
+}
+
+func TestCollect_NegationBelowDoubleStarDirectory(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, filepath.Join("docs", "drop.md"), "")
+	writeFile(t, src, filepath.Join("docs", "keep.md"), "")
+	writeFile(t, src, filepath.Join("docs", "deep", "drop.md"), "")
+	writeFile(t, src, ".gitignore", "docs/**\n!docs/keep.md\n")
+
+	assert.Equal(t, []string{"docs/keep.md"}, collectNames(t, src))
+}
+
+func TestCollect_DoubleStarDirectoryExcludesEverythingBelow(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "lib.typ", "")
+	writeFile(t, src, filepath.Join("docs", "a.md"), "")
+	writeFile(t, src, filepath.Join("docs", "deep", "b.md"), "")
+	writeFile(t, src, filepath.Join("other", "docs", "c.md"), "")
+	writeFile(t, src, ".gitignore", "docs/**\n")
+
+	assert.Equal(t, []string{"lib.typ", "other/docs/c.md"}, collectNames(t, src))
+}
+
+func TestCollect_HonoursManifestExclude(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "lib.typ", "")
+	writeFile(t, src, filepath.Join("docs", "a.md"), "")
+	writeFile(t, src, "typst.toml", validManifest+"exclude = [\"docs\"]\n")
+
+	assert.Equal(t, []string{"lib.typ", "typst.toml"}, collectNames(t, src))
+}
+
+func TestCollect_IgnoresAManifestAboveThePackage(t *testing.T) {
+	t.Parallel()
+	parent := t.TempDir()
+	writeFile(t, parent, "typst.toml", validManifest+"exclude = [\"lib.typ\"]\n")
+	src := filepath.Join(parent, "pkg")
+	writeFile(t, src, "lib.typ", "")
+
+	assert.Equal(t, []string{"lib.typ"}, collectNames(t, src))
+}
+
+func TestCollect_FailsOnAnInvalidManifest(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	writeFile(t, src, "typst.toml", "not toml [")
+
+	_, err := pkgfiles.Collect(src, t.TempDir())
+
+	require.ErrorContains(t, err, "exclude list")
 }
