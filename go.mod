@@ -14,7 +14,6 @@ require (
 	github.com/creativeprojects/go-selfupdate v1.6.0
 	github.com/go-git/go-git/v6 v6.0.0-beta.1
 	github.com/npikall/toml-edit v0.1.0
-	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/term v0.47.0
