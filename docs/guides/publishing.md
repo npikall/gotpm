@@ -67,8 +67,9 @@ What happened, in order:
 3. A branch named `<name>-<version>` is checked out, tracking the fork's branch
    of that name if it already exists.
 4. The package files are copied into `packages/preview/<name>/<version>/`,
-   honouring `.gitignore` and `.typstignore`, with `.git`, `.gitignore` and
-   `.typstignore` themselves left out.
+   honouring every `.gitignore`, the root `.typstignore` and the manifest's
+   `exclude`, with `.git`, `.jj`, `.gitignore` and `.typstignore` themselves
+   left out.
 5. The result is committed and pushed to your fork.
 
 Then run the `gh pr create` line it printed. A **submission** — one package
@@ -137,9 +138,9 @@ script, and pass `--no-hooks` to publish without running either hook. Files a
 hook would generate are then missing from the submission unless they already
 exist.
 
-A generated file is usually listed in `.gitignore`, and publish honours
-`.gitignore` — so re-include it in `.typstignore`, or it never reaches the
-submission:
+A generated file is usually listed in a `.gitignore`, and publish honours
+every `.gitignore`, nested ones included — so re-include it in `.typstignore`,
+which outranks them, or it never reaches the submission:
 
 ```gitignore
 # .typstignore
