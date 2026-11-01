@@ -164,6 +164,56 @@ func TestRemove_MissingPackageIsNotAnError(t *testing.T) {
 	assert.NoError(t, s.Remove(ref(t)))
 }
 
+func TestRemove_LastVersionTakesTheEmptyParentsWithIt(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	s := store.At(root)
+	r := ref(t)
+	require.NoError(t, s.Install(r, sourcePackage(t, "x")))
+
+	require.NoError(t, s.Remove(r))
+
+	assert.NoDirExists(t, s.PackageDir("local", "my-pkg"))
+	assert.NoDirExists(t, s.NamespaceDir("local"))
+	assert.DirExists(t, root, "the store root is never removed")
+}
+
+func TestRemove_KeepsAParentHoldingAnyFile(t *testing.T) {
+	t.Parallel()
+	s := store.At(t.TempDir())
+	r := ref(t)
+	require.NoError(t, s.Install(r, sourcePackage(t, "x")))
+	foreign := filepath.Join(s.PackageDir("local", "my-pkg"), ".DS_Store")
+	require.NoError(t, paths.WriteFile(foreign, []byte("finder")))
+
+	require.NoError(t, s.Remove(r))
+
+	assert.FileExists(t, foreign, "only a strictly empty directory may be pruned")
+}
+
+func TestRemovePackage_TakesTheEmptyNamespaceWithIt(t *testing.T) {
+	t.Parallel()
+	s := store.At(t.TempDir())
+	require.NoError(t, s.Install(ref(t), sourcePackage(t, "x")))
+
+	require.NoError(t, s.RemovePackage("local", "my-pkg"))
+
+	assert.NoDirExists(t, s.NamespaceDir("local"))
+}
+
+func TestRemove_FlatStoreLeavesItsParentAlone(t *testing.T) {
+	t.Setenv(paths.InstallDirEnvVar, "")
+	parent := t.TempDir()
+	override := filepath.Join(parent, "out")
+	s, err := store.Open(override)
+	require.NoError(t, err)
+	require.NoError(t, s.Install(ref(t), sourcePackage(t, "x")))
+
+	require.NoError(t, s.Remove(ref(t)))
+
+	assert.DirExists(t, parent, "the parent of an install dir is not gotpm's layout")
+}
+
 func TestNamespaceDir(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, filepath.Join("/data", "local"), store.At("/data").NamespaceDir("local"))

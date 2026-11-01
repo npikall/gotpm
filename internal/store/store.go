@@ -176,13 +176,13 @@ func (s Store) Link(ref pkg.Ref, srcDir string) error {
 // Remove deletes an installed package version. A missing package is not an
 // error.
 func (s Store) Remove(ref pkg.Ref) error {
-	return remove(s.Dir(ref))
+	return s.removeAndPrune(s.Dir(ref))
 }
 
 // RemovePackage deletes every installed version of a package. A missing
 // package is not an error.
 func (s Store) RemovePackage(namespace, name string) error {
-	return remove(s.PackageDir(namespace, name))
+	return s.removeAndPrune(s.PackageDir(namespace, name))
 }
 
 // RemoveNamespace deletes a namespace with every package in it. A missing
@@ -231,6 +231,22 @@ func (s Store) Scan() ([]Namespace, error) {
 		return nil, fmt.Errorf("could not read typst packages: %w", err)
 	}
 	return collect(s.root, entries, scanNamespace), nil
+}
+
+// removeAndPrune deletes path, then the directories above it left empty, up
+// to but never including the store root; best effort, as os.Remove only takes
+// an empty directory. A flat store has no layout above its root to prune.
+func (s Store) removeAndPrune(path string) error {
+	if err := remove(path); err != nil {
+		return err
+	}
+	if s.flat {
+		return nil
+	}
+	root := filepath.Clean(s.root)
+	for dir := filepath.Dir(path); dir != root && os.Remove(dir) == nil; dir = filepath.Dir(dir) { //nolint: revive // the condition does the work
+	}
+	return nil
 }
 
 // collect scans each of the entries of dir, keeping what scan accepts. The
