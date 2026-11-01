@@ -11,13 +11,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
 	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
+	"golang.org/x/sync/errgroup"
 )
 
 var ignoredNames = map[string]struct{}{
@@ -251,25 +252,22 @@ func skip(d fs.DirEntry) error {
 	return nil
 }
 
-// Run performs every transfer job concurrently, reporting all failures.
+// Run performs the transfer jobs concurrently, at most one per CPU at a time,
+// reporting all failures. Unbounded concurrency makes the filesystem the
+// bottleneck: thousands of simultaneous opens and mkdirs contend in the kernel.
 func Run(jobs []Job) error {
-	errCh := make(chan error, len(jobs))
+	errs := make([]error, len(jobs))
 
-	var wg sync.WaitGroup
-	for _, job := range jobs {
-		wg.Go(func() {
-			if err := CopyFile(job.Src, job.Dst); err != nil {
-				errCh <- err
-			}
+	var g errgroup.Group
+	g.SetLimit(runtime.NumCPU())
+	for i, job := range jobs {
+		g.Go(func() error {
+			errs[i] = CopyFile(job.Src, job.Dst)
+			return nil
 		})
 	}
-	wg.Wait()
-	close(errCh)
+	_ = g.Wait() // every goroutine returns nil; failures are collected in errs
 
-	var errs []error
-	for err := range errCh {
-		errs = append(errs, err)
-	}
 	return errors.Join(errs...)
 }
 
