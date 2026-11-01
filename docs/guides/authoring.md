@@ -42,9 +42,15 @@ directory](../concepts.md#the-package-directory). `gotpm install` puts it there:
 $ gotpm install
 ```
 
-Everything below the package root is copied, except what `.gitignore` or
-`.typstignore` excludes, and except `.git`, `.gitignore` and `.typstignore`
-themselves, which are never part of a package. The default namespace is
+Everything below the package root is copied, except what a `.gitignore`, the
+root `.typstignore` or the manifest's `exclude` leaves out, and except `.git`,
+`.jj`, `.gitignore` and `.typstignore` themselves, which are never part of a
+package.
+A `.gitignore` in a subdirectory applies below it, as in git; `.typstignore`
+and `exclude` outrank every `.gitignore`, so they can re-include a file git
+ignores — but not one inside an ignored directory, which is skipped whole, as
+in git: re-include the directory too (`!assets/`). Git's machine-local excludes (`.git/info/exclude`,
+`core.excludesFile`) never apply. The default namespace is
 `@local`, so the result is importable as:
 
 ```typst

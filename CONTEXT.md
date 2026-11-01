@@ -37,6 +37,12 @@ A directory on disk holding a package as it stands right now, with no commit
 behind it. What `install` and `publish` read.
 _Avoid_: source dir, local package, checkout
 
+**Package Files**:
+The files of a working tree that make up its package: everything below its
+root except what its ignore rules leave out, and except the names that are
+never part of a package. What `install` and `publish` copy.
+_Avoid_: bundle, payload, contents
+
 **Project**:
 The package the user is working on, together with the dependencies it declares.
 Only a project has a lock.
