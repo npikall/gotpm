@@ -58,7 +58,7 @@ func TestRun_InstallsAndRecordsTheDependency(t *testing.T) { //nolint: parallelt
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
 
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	assert.True(t, installed(t, packages, "cetz", "0.3.1"), "the package lands under the gotpm namespace")
 	assert.FileExists(t, filepath.Join(packages, "gotpm", "cetz", "0.3.1", "lib.typ"))
@@ -79,7 +79,7 @@ func TestRun_KeepsTheRestOfTheManifest(t *testing.T) { //nolint: paralleltest
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
 
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	content, err := os.ReadFile(filepath.Join(project, manifest.FileName))
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestRun_InstallsTransitiveDependencies(t *testing.T) { //nolint: parallelte
 	middle := testrepo.New(t, "middle", "1.0.0").Release(leaf)
 	root := testrepo.New(t, "root", "1.0.0").Release(middle)
 
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	for _, name := range []string{"root", "middle", "leaf"} {
 		assert.True(t, installed(t, packages, name, "1.0.0"), "%s must be installed", name)
@@ -117,8 +117,8 @@ func TestRun_AddsASecondVersionAlongsideTheFirst(t *testing.T) { //nolint: paral
 	old := testrepo.New(t, "cetz", "0.3.1").Release()
 	recent := testrepo.New(t, "cetz", "0.4.0").Release()
 
-	require.NoError(t, add.Run(old.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(recent.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(old.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(recent.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	assert.True(t, installed(t, packages, "cetz", "0.3.1"))
 	assert.True(t, installed(t, packages, "cetz", "0.4.0"))
@@ -132,8 +132,8 @@ func TestRun_AddingTheSamePackageTwiceDeclaresItOnce(t *testing.T) { //nolint: p
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
 
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
 }
@@ -143,9 +143,9 @@ func TestRun_RejectsACoordinateTakenByAnotherRepository(t *testing.T) { //nolint
 	testrepo.Project(t, "my-doc")
 	mine := testrepo.New(t, "cetz", "0.3.1").Release()
 	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(mine.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(mine.URL(), &add.Options{Yes: true}, discardLogger()))
 
-	err := add.Run(theirs.URL(), &add.Options{}, discardLogger())
+	err := add.Run(theirs.URL(), &add.Options{Yes: true}, discardLogger())
 
 	require.ErrorIs(t, err, deps.ErrSourceConflict)
 	assert.Contains(t, err.Error(), mine.URL(), "the error names what is installed")
@@ -159,9 +159,9 @@ func TestRun_ForceReplacesACoordinateTakenByAnotherRepository(t *testing.T) { //
 	testrepo.Project(t, "my-doc")
 	mine := testrepo.New(t, "cetz", "0.3.1").Release()
 	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(mine.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(mine.URL(), &add.Options{Yes: true}, discardLogger()))
 
-	require.NoError(t, add.Run(theirs.URL(), &add.Options{Force: true}, discardLogger()))
+	require.NoError(t, add.Run(theirs.URL(), &add.Options{Yes: true, Force: true}, discardLogger()))
 
 	assert.Equal(t, theirs.URL(), provenance(t, packages, "cetz", "0.3.1").URL)
 }
@@ -174,7 +174,7 @@ func TestRun_HonoursAnExplicitRevision(t *testing.T) { //nolint: paralleltest
 	wanted := dep.Hash()
 	dep.Release() // a second commit on the same version
 
-	require.NoError(t, add.Run(dep.URL(), &add.Options{Revision: wanted}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true, Revision: wanted}, discardLogger()))
 
 	entry, ok := lockOf(t, project).Get("@gotpm/cetz:0.3.1")
 	require.True(t, ok)
@@ -186,7 +186,7 @@ func TestRun_WithoutAProject(t *testing.T) {
 	t.Chdir(t.TempDir())
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
 
-	err := add.Run(dep.URL(), &add.Options{}, discardLogger())
+	err := add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger())
 
 	require.ErrorIs(t, err, manifest.ErrManifestNotFound)
 	assert.Contains(t, err.Error(), "gotpm init")
@@ -197,9 +197,9 @@ func TestRun_LeavesTheProjectAloneWhenAnInstallFails(t *testing.T) { //nolint: p
 	project := testrepo.Project(t, "my-doc")
 	mine := testrepo.New(t, "cetz", "0.3.1").Release()
 	theirs := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(mine.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(mine.URL(), &add.Options{Yes: true}, discardLogger()))
 
-	require.Error(t, add.Run(theirs.URL(), &add.Options{}, discardLogger()))
+	require.Error(t, add.Run(theirs.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
 	entry, ok := lockOf(t, project).Get("@gotpm/cetz:0.3.1")
@@ -215,7 +215,7 @@ func TestRun_InstallsIntoThePackageDirectoryDespiteAnInstallDirOverride(t *testi
 	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
 
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	for _, name := range []string{"root", "leaf"} {
 		assert.True(t, installed(t, packages, name, "1.0.0"),
@@ -234,7 +234,7 @@ func addUnlocked(t *testing.T, lock *lockfile.Lock) (string, error) {
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
 	pkg := testrepo.New(t, "fletcher", "0.5.0").ReleaseWith([]string{dep.Import()}, lock)
-	return project, add.Run(pkg.URL(), &add.Options{}, discardLogger())
+	return project, add.Run(pkg.URL(), &add.Options{Yes: true}, discardLogger())
 }
 
 func TestRun_RefusesAPackageWithoutLock(t *testing.T) { //nolint: paralleltest
@@ -258,7 +258,7 @@ func TestRun_RefusesAPrivateRepository(t *testing.T) { //nolint: paralleltest
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "secret", "1.0.0").Private().Release()
 
-	err := add.Run(dep.URL(), &add.Options{}, discardLogger())
+	err := add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger())
 
 	require.ErrorIs(t, err, remote.ErrRepositoryNotFound, "add clones without credentials, even when the user has them")
 	assert.Contains(t, err.Error(), "install -r", "the error points at what does support private repositories")
@@ -271,7 +271,7 @@ func TestRun_LocksAnUnreachableDependencyWithoutInstallingIt(t *testing.T) { //n
 	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
 	dep := testrepo.New(t, "cetz", "0.3.1").Release(leaf)
 
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()),
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()),
 		"a dependency this user cannot clone is a warning, not a fatal error")
 
 	assert.True(t, installed(t, packages, "cetz", "0.3.1"))
@@ -282,4 +282,84 @@ func TestRun_LocksAnUnreachableDependencyWithoutInstallingIt(t *testing.T) { //n
 	assert.Equal(t, leaf.Hash(), pin.Hash)
 	assert.Equal(t, []string{dep.Import()}, pin.RequiredBy)
 	assert.False(t, pin.Direct)
+}
+
+// answers stubs the confirmation with a fixed answer, and records each
+// question it was asked.
+func answers(yes bool) (func(string) (bool, error), *[]string) {
+	asked := []string{}
+	return func(q string) (bool, error) {
+		asked = append(asked, q)
+		return yes, nil
+	}, &asked
+}
+
+func TestRun_AsksBeforeAddingToEitherKind(t *testing.T) { //nolint: paralleltest
+	for _, tc := range []struct {
+		tool     string
+		question string
+	}{
+		{"", `package "proj"`},
+		{"\n[tool.gotpm]\nkind = \"document\"\n", `document "proj"`},
+	} {
+		packages := testrepo.Isolate(t)
+		project := testrepo.Project(t, "proj")
+		appendManifest(t, project, tc.tool)
+		dep := testrepo.New(t, "cetz", "0.3.1").Release()
+		confirm, asked := answers(true)
+
+		require.NoError(t, add.Run(dep.URL(), &add.Options{Confirm: confirm}, discardLogger()))
+
+		require.Len(t, *asked, 1, "a dependency must not be added without being asked about")
+		assert.Contains(t, (*asked)[0], dep.URL())
+		assert.Contains(t, (*asked)[0], tc.question)
+		assert.True(t, installed(t, packages, "cetz", "0.3.1"))
+		assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
+	}
+}
+
+func TestRun_DeclinedAddsNothing(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	project := testrepo.Project(t, "proj")
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	confirm, _ := answers(false)
+
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Confirm: confirm}, discardLogger()))
+
+	assert.False(t, installed(t, packages, "cetz", "0.3.1"))
+	assert.Empty(t, declared(t, project))
+	assert.NoFileExists(t, filepath.Join(project, lockfile.FileName))
+}
+
+func TestRun_YesSkipsTheQuestion(t *testing.T) { //nolint: paralleltest
+	testrepo.Isolate(t)
+	project := testrepo.Project(t, "proj")
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	confirm, asked := answers(false)
+
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true, Confirm: confirm}, discardLogger()))
+
+	assert.Empty(t, *asked, "--yes has already answered")
+	assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
+}
+
+func TestRun_NeedsSomeoneToConfirm(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	project := testrepo.Project(t, "proj")
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+
+	// No stub and no terminal under test, so there is nobody to ask.
+	err := add.Run(dep.URL(), &add.Options{}, discardLogger())
+
+	require.ErrorIs(t, err, add.ErrNeedsConfirmation)
+	assert.False(t, installed(t, packages, "cetz", "0.3.1"))
+	assert.Empty(t, declared(t, project))
+}
+
+func appendManifest(t *testing.T, projectDir, extra string) {
+	t.Helper()
+	file := filepath.Join(projectDir, manifest.FileName)
+	raw, err := os.ReadFile(file)
+	require.NoError(t, err)
+	require.NoError(t, paths.WriteFile(file, append(raw, extra...)))
 }

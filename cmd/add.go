@@ -22,6 +22,10 @@ where a dependency's own dependencies come from.
 Without --rev the newest release tag is used, or the current HEAD when the
 repository has no release tags.
 
+add asks before it changes anything, naming the project and whether it is a
+package or a document project. Pass --yes to skip the question; without a
+terminal to ask on, add refuses unless --yes is given.
+
 A package that does not sit at the root of its repository is named by its
 package path, separated from the repository by '//'.
 `,
@@ -29,6 +33,7 @@ package path, separated from the repository by '//'.
 gotpm add github.com/user/repo -t v0.1.2
 gotpm add git@github.com:user/repo.git
 gotpm add github.com/user/monorepo//packages/common
+gotpm add github.com/user/repo --yes
 `,
 	Args: cobra.ExactArgs(1),
 	RunE: AddRunner,
@@ -38,12 +43,14 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	addCmd.Flags().StringP("rev", "t", "", "The revision (hash or tag) to pin. Defaults to the newest release.")
 	addCmd.Flags().BoolP("force", "f", false, "Replace a package installed from a different repository.")
+	addCmd.Flags().BoolP("yes", "y", false, "Add without asking first.")
 }
 
 func AddRunner(cmd *cobra.Command, args []string) error {
 	opts := &add.Options{
 		Revision: Must(cmd.Flags().GetString("rev")),
 		Force:    Must(cmd.Flags().GetBool("force")),
+		Yes:      Must(cmd.Flags().GetBool("yes")),
 	}
 	return add.Run(args[0], opts, newLogger(cmd))
 }

@@ -51,7 +51,7 @@ func TestRun_RestoresAFreshCheckout(t *testing.T) { //nolint: paralleltest
 	project := testrepo.Project(t, "my-doc")
 	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 	emptyStore(t, packages)
 
 	require.NoError(t, sync.Run(&sync.Options{}, discardLogger()))
@@ -67,7 +67,7 @@ func TestRun_InstallsTheLockedCommitNotTheTag(t *testing.T) { //nolint: parallel
 	packages := testrepo.Isolate(t)
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 	pinned := dep.Hash()
 
 	// The author re-tags v0.3.1 onto a later commit. The lock still wins.
@@ -90,7 +90,7 @@ func TestRun_IsANoOpWhenEverythingIsInstalled(t *testing.T) { //nolint: parallel
 	testrepo.Isolate(t)
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 	before, err := os.ReadFile(filepath.Join(project, lockfile.FileName))
 	require.NoError(t, err)
 
@@ -107,8 +107,8 @@ func TestRun_PrunesWhatTheManifestNoLongerDeclares(t *testing.T) { //nolint: par
 	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
 	kept := testrepo.New(t, "kept", "1.0.0").Release()
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(kept.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(kept.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	// The user deleted the line from typst.toml by hand.
 	declare(t, project, kept.Import())
@@ -150,8 +150,8 @@ func TestRun_FrozenRefusesToRewriteAStaleLock(t *testing.T) { //nolint: parallel
 	project := testrepo.Project(t, "my-doc")
 	dropped := testrepo.New(t, "dropped", "1.0.0").Release()
 	kept := testrepo.New(t, "kept", "1.0.0").Release()
-	require.NoError(t, add.Run(dropped.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(kept.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dropped.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(kept.URL(), &add.Options{Yes: true}, discardLogger()))
 	declare(t, project, kept.Import())
 	before, err := os.ReadFile(filepath.Join(project, lockfile.FileName))
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestRun_FrozenAcceptsALockThatAgreesWithTheManifest(t *testing.T) { //nolin
 	packages := testrepo.Isolate(t)
 	testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 	emptyStore(t, packages)
 
 	require.NoError(t, sync.Run(&sync.Options{Frozen: true}, discardLogger()))
@@ -192,7 +192,7 @@ func TestRun_InstallsIntoThePackageDirectoryDespiteAnInstallDirOverride(t *testi
 	testrepo.Project(t, "my-doc")
 	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 	emptyStore(t, packages)
 
 	installDir := t.TempDir()
@@ -216,7 +216,7 @@ func addWithPrivateLeaf(t *testing.T) string {
 	testrepo.Project(t, "my-doc")
 	leaf := testrepo.New(t, "leaf", "1.0.0").Private().Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 	emptyStore(t, packages)
 	return packages
 }

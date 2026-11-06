@@ -118,7 +118,7 @@ func TestAdd_PinsAndInstallsTheFontsADependencyDeclares(t *testing.T) { //nolint
 	thesis := testrepo.New(t, "thesis", "1.0.0").ReleaseFonts(pinLato(t, srv))
 	srv.PublishContents("ofl", "lato", map[string]string{"Lato.ttf": "newer"})
 
-	require.NoError(t, add.Run(thesis.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(thesis.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	pin, ok := lockOf(t, project).GetFont("Lato")
 	require.True(t, ok)
@@ -136,7 +136,7 @@ func TestRun_RestoresTheFontsOfADependency(t *testing.T) { //nolint: paralleltes
 	srv := fonttest.Serve(t)
 	srv.Publish("ofl", "lato", "Lato.ttf")
 	thesis := testrepo.New(t, "thesis", "1.0.0").ReleaseFonts(pinLato(t, srv))
-	require.NoError(t, add.Run(thesis.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(thesis.URL(), &add.Options{Yes: true}, discardLogger()))
 	emptyFontDir(t)
 
 	require.NoError(t, sync.Run(&sync.Options{}, discardLogger()))
@@ -154,7 +154,7 @@ func TestAdd_TheProjectsOwnFontPinWins(t *testing.T) { //nolint: paralleltest
 	addLato(t)
 	mine, _ := lockOf(t, project).GetFont("Lato")
 
-	require.NoError(t, add.Run(thesis.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(thesis.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	pin, _ := lockOf(t, project).GetFont("Lato")
 	assert.Equal(t, mine.Hash, pin.Hash)
@@ -168,7 +168,7 @@ func TestRemove_DropsTheFontsOnlyTheDependencyRequired(t *testing.T) { //nolint:
 	srv := fonttest.Serve(t)
 	srv.Publish("ofl", "lato", "Lato.ttf")
 	thesis := testrepo.New(t, "thesis", "1.0.0").ReleaseFonts(pinLato(t, srv))
-	require.NoError(t, add.Run(thesis.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(thesis.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run(thesis.Import(), &remove.Options{}, discardLogger()))
 

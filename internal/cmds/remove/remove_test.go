@@ -44,7 +44,7 @@ func TestRun_DropsTheDependencyFromTheProject(t *testing.T) { //nolint: parallel
 	packages := testrepo.Isolate(t)
 	project := testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run("@gotpm/cetz:0.3.1", &remove.Options{}, discardLogger()))
 
@@ -58,7 +58,7 @@ func TestRun_PruneDeletesTheFilesToo(t *testing.T) { //nolint: paralleltest
 	packages := testrepo.Isolate(t)
 	testrepo.Project(t, "my-doc")
 	dep := testrepo.New(t, "cetz", "0.3.1").Release()
-	require.NoError(t, add.Run(dep.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run("@gotpm/cetz:0.3.1", &remove.Options{Prune: true}, discardLogger()))
 
@@ -70,7 +70,7 @@ func TestRun_TakesTransitiveDependenciesWithIt(t *testing.T) { //nolint: paralle
 	project := testrepo.Project(t, "my-doc")
 	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run(root.Import(), &remove.Options{Prune: true}, discardLogger()))
 
@@ -85,8 +85,8 @@ func TestRun_KeepsATransitiveDependencySomethingElseNeeds(t *testing.T) { //noli
 	shared := testrepo.New(t, "shared", "1.0.0").Release()
 	left := testrepo.New(t, "left", "1.0.0").Release(shared)
 	right := testrepo.New(t, "right", "1.0.0").Release(shared)
-	require.NoError(t, add.Run(left.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(right.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(left.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(right.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run(left.Import(), &remove.Options{Prune: true}, discardLogger()))
 
@@ -105,8 +105,8 @@ func TestRun_LeavesOtherVersionsAlone(t *testing.T) { //nolint: paralleltest
 	project := testrepo.Project(t, "my-doc")
 	old := testrepo.New(t, "cetz", "0.3.1").Release()
 	recent := testrepo.New(t, "cetz", "0.4.0").Release()
-	require.NoError(t, add.Run(old.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(recent.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(old.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(recent.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run("@gotpm/cetz:0.3.1", &remove.Options{Prune: true}, discardLogger()))
 
@@ -148,7 +148,7 @@ func TestRun_PrunesFromThePackageDirectoryDespiteAnInstallDirOverride(t *testing
 	testrepo.Project(t, "my-doc")
 	leaf := testrepo.New(t, "leaf", "1.0.0").Release()
 	root := testrepo.New(t, "root", "1.0.0").Release(leaf)
-	require.NoError(t, add.Run(root.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(root.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	installDir := t.TempDir()
 	t.Setenv(paths.InstallDirEnvVar, installDir)
@@ -165,8 +165,8 @@ func TestRun_KeepsADirectDependencySomethingElseNeeds(t *testing.T) { //nolint: 
 	project := testrepo.Project(t, "my-doc")
 	shared := testrepo.New(t, "shared", "1.0.0").Release()
 	user := testrepo.New(t, "user", "1.0.0").Release(shared)
-	require.NoError(t, add.Run(shared.URL(), &add.Options{}, discardLogger()))
-	require.NoError(t, add.Run(user.URL(), &add.Options{}, discardLogger()))
+	require.NoError(t, add.Run(shared.URL(), &add.Options{Yes: true}, discardLogger()))
+	require.NoError(t, add.Run(user.URL(), &add.Options{Yes: true}, discardLogger()))
 
 	require.NoError(t, remove.Run(shared.Import(), &remove.Options{}, discardLogger()))
 
