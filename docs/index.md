@@ -14,7 +14,6 @@ in the Universe, and reproducing either of those on someone else's machine.
 
 ```console
 $ gotpm add github.com/user/cetz
-add github.com/user/cetz to document "thesis"? [y/N] y
 info: added @gotpm/cetz:0.3.1 from github.com/user/cetz
 info:   @gotpm/oxifmt:0.2.1 (via @gotpm/cetz:0.3.1)
 ```

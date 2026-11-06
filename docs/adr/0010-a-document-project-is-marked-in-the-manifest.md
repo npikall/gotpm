@@ -38,8 +38,9 @@ is a package, which is what every manifest written before this field existed is.
   manifest format being the package manifest format, and the alternative was
   breaking `gotpm add`. Nothing should start deriving meaning from them.
 - The kind is read as advice, never as a refusal. `gotpm add` asks before it
-  adds a dependency, the same question in either kind, but naming the kind, so
-  a dependency added in the wrong project is noticed before it is recorded.
+  adds a dependency that is itself a document project, since nothing is meant
+  to import one; a package is added without a question. (It first asked on
+  every add, naming the project's kind.)
   `gotpm install` warns before installing a document project and installs it
   anyway. `gotpm publish` does not read the kind yet; refusing a document there
   needs no further manifest change.

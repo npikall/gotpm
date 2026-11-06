@@ -13,6 +13,7 @@ import (
 	"github.com/npikall/gotpm/internal/depgraph"
 	"github.com/npikall/gotpm/internal/deps"
 	"github.com/npikall/gotpm/internal/lockfile"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/remote"
 	"github.com/npikall/gotpm/internal/resolve"
 	"github.com/npikall/gotpm/internal/ui"
@@ -24,8 +25,8 @@ import (
 var ErrUnresolvable = errors.New("cannot resolve dependency")
 
 // ErrNeedsConfirmation is returned when add would have to ask before adding a
-// dependency, but there is no terminal to ask on.
-var ErrNeedsConfirmation = errors.New("refusing to add a dependency without a terminal to confirm it: pass --yes")
+// document project, but there is no terminal to ask on.
+var ErrNeedsConfirmation = errors.New("refusing to add a document project without a terminal to confirm it: pass --yes")
 
 // Options holds the resolved add flags.
 type Options struct {
@@ -34,10 +35,10 @@ type Options struct {
 	Revision string
 	// Force replaces a package installed from another repository.
 	Force bool
-	// Yes adds without asking first.
+	// Yes adds a document project without asking first.
 	Yes bool
-	// Confirm asks the question add puts before adding a dependency. Nil asks
-	// on the terminal.
+	// Confirm asks the question add puts before adding a document project. Nil
+	// asks on the terminal.
 	Confirm func(question string) (bool, error)
 }
 
@@ -51,7 +52,11 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
-	approved, err := approve(url, project, opts)
+	walked, err := walk(url, opts, logger)
+	if err != nil {
+		return err
+	}
+	approved, err := approve(url, walked.Kind, project, opts)
 	if err != nil {
 		return err
 	}
@@ -59,7 +64,7 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 		ui.Infof("did not add %s", url)
 		return nil
 	}
-	walked, results, err := fetch(url, opts, logger)
+	results, err := installAll(walked.Entries, opts.Force, logger)
 	if err != nil {
 		return err
 	}
@@ -73,11 +78,11 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	return nil
 }
 
-// approve asks whether url should become a dependency of project. A package
-// and a document project are asked the same question; naming the kind in it
-// is what lets the user notice they are in the wrong one.
-func approve(url string, project *deps.Project, opts *Options) (bool, error) {
-	if opts.Yes {
+// approve asks whether url, a project of kind, should become a dependency of
+// project. Only a document project is asked about: nothing is meant to import
+// one, so it is most likely the wrong repository. A package is added as is.
+func approve(url string, kind manifest.Kind, project *deps.Project, opts *Options) (bool, error) {
+	if opts.Yes || kind != manifest.KindDocument {
 		return true, nil
 	}
 	ask := opts.Confirm
@@ -88,31 +93,28 @@ func approve(url string, project *deps.Project, opts *Options) (bool, error) {
 		ask = ui.Confirm
 	}
 	m := project.Manifest
-	return ask(fmt.Sprintf("add %s to %s %q?", url, m.Kind(), m.Package.Name))
+	return ask(fmt.Sprintf("%s is a document project, not a package: nothing is meant to import it."+
+		" add it to %s %q anyway?", url, m.Kind(), m.Package.Name))
 }
 
-// fetch resolves url and everything it depends on, and installs it all. The
-// package at url comes first. Private repositories are not supported yet, so
-// every clone is made without the user's credentials.
-func fetch(url string, opts *Options, logger *log.Logger) (depgraph.Result, []deps.Result, error) {
+// walk resolves url and everything it depends on. The package at url comes
+// first. Private repositories are not supported yet, so every clone is made
+// without the user's credentials.
+func walk(url string, opts *Options, logger *log.Logger) (depgraph.Result, error) {
 	walked, err := ui.WithSpinner("resolving "+url, func() (depgraph.Result, error) {
 		return depgraph.Walk(
 			resolve.Request{URL: url, Revision: opts.Revision}, depgraph.Options{Anonymous: true}, logger,
 		)
 	})
 	if errors.Is(err, remote.ErrRepositoryNotFound) {
-		return depgraph.Result{}, nil, fmt.Errorf("%w"+
+		return depgraph.Result{}, fmt.Errorf("%w"+
 			"\nnote: if the repository is private: 'gotpm add' does not support private repositories yet;"+
 			" 'gotpm install -r %s' installs it without adding it to the project", err, url)
 	}
 	if err != nil {
-		return depgraph.Result{}, nil, err
+		return depgraph.Result{}, err
 	}
-	if err := errorForUnresolved(walked.Unresolved); err != nil {
-		return depgraph.Result{}, nil, err
-	}
-	results, err := installAll(walked.Entries, opts.Force, logger)
-	return walked, results, err
+	return walked, errorForUnresolved(walked.Unresolved)
 }
 
 func installAll(entries []lockfile.Entry, force bool, logger *log.Logger) ([]deps.Result, error) {

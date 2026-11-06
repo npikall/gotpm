@@ -89,6 +89,9 @@ type Result struct {
 	// the project, with RequiredBy filled in. Where two packages pin one
 	// family at different commits, the first pin met is kept.
 	Fonts []lockfile.Font
+	// Kind is what the requested package's project is: a package, or a
+	// document project nothing is meant to import.
+	Kind manifest.Kind
 }
 
 // Walk resolves a repository and everything it depends on.
@@ -97,7 +100,7 @@ func Walk(root resolve.Request, opts Options, logger *log.Logger) (Result, error
 	if err := w.visit(node{request: root, direct: true}, nil); err != nil {
 		return Result{}, err
 	}
-	return Result{Entries: w.entries, Unresolved: w.unresolved, Fonts: w.fonts.Fonts}, nil
+	return Result{Entries: w.entries, Unresolved: w.unresolved, Fonts: w.fonts.Fonts, Kind: w.rootKind}, nil
 }
 
 type node struct {
@@ -117,6 +120,7 @@ type walker struct {
 	unresolved     []Unresolved
 	bySourceCommit map[string]int
 	fonts          *lockfile.Lock
+	rootKind       manifest.Kind
 }
 
 func (w *walker) visit(n node, chain []string) error {
@@ -184,6 +188,9 @@ func (w *walker) add(resolved *resolve.Resolved, n node, sourceCommit string, ch
 		return err
 	}
 	w.warnOnCoordinateMismatch(entry, n)
+	if len(w.entries) == 0 {
+		w.rootKind = resolved.Manifest.Kind()
+	}
 	w.bySourceCommit[sourceCommit] = len(w.entries)
 	w.entries = append(w.entries, entry)
 	if err := w.collectFonts(resolved, entry.Import); err != nil {
