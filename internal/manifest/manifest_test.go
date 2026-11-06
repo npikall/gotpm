@@ -210,3 +210,22 @@ func TestLoadReadsTheWorkingDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "my-pkg", m.Package.Name)
 }
+
+// TestKind reads what a project is off its manifest. Every manifest written
+// before the key existed has none, and is a package.
+func TestKind(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		tool string
+		want manifest.Kind
+	}{
+		{"", manifest.KindPackage},
+		{"\n[tool.gotpm]\nkind = \"package\"\n", manifest.KindPackage},
+		{"\n[tool.gotpm]\nkind = \"document\"\n", manifest.KindDocument},
+	} {
+		file := write(t, "[package]\nname = \"p\"\nversion = \"0.1.0\"\nentrypoint = \"lib.typ\"\n"+tc.tool)
+		m, err := manifest.LoadFile(file)
+		require.NoError(t, err)
+		assert.Equal(t, tc.want, m.Kind())
+	}
+}

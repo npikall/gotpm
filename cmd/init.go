@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/npikall/gotpm/internal/cmds/scaffold"
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/spf13/cobra"
 )
 
