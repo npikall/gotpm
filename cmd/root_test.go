@@ -3,6 +3,7 @@ package cmd //nolint: testpackage
 import (
 	"testing"
 
+	"github.com/npikall/gotpm/internal/manifest"
 	"github.com/npikall/gotpm/internal/paths"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -84,4 +85,51 @@ func TestInstallKeepsAGivenNamespaceForAPrivatePackage(t *testing.T) {
 
 	require.Equal(t, "preview", opts.Namespace)
 	require.Empty(t, opts.PrivateNamespace, "-n wins over @private")
+}
+
+// TestInitRejectsBothKindFlags pins the mutual exclusion at the cobra layer:
+// --doc and --pkg name the two things init can scaffold, and a project is one
+// or the other.
+func TestInitRejectsBothKindFlags(t *testing.T) {
+	t.Parallel()
+	cmd := initFlagsCmd()
+	require.NoError(t, cmd.ParseFlags([]string{"--doc", "--pkg"}))
+	require.ErrorContains(t, cmd.ValidateFlagGroups(), "none of the others can be")
+}
+
+// TestInitAcceptsEitherKindFlag is the other half: each flag on its own is
+// fine, and so is neither, which scaffolds a package.
+func TestInitAcceptsEitherKindFlag(t *testing.T) {
+	t.Parallel()
+	for _, flags := range [][]string{{"--doc"}, {"--pkg"}, {}} {
+		cmd := initFlagsCmd()
+		require.NoError(t, cmd.ParseFlags(flags))
+		require.NoError(t, cmd.ValidateFlagGroups())
+	}
+}
+
+// TestKindFromFlags maps each kind flag to what init scaffolds; no flag at all
+// scaffolds a package.
+func TestKindFromFlags(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		flags []string
+		want  manifest.Kind
+	}{
+		{nil, manifest.KindPackage},
+		{[]string{"--pkg"}, manifest.KindPackage},
+		{[]string{"--doc"}, manifest.KindDocument},
+	} {
+		cmd := initFlagsCmd()
+		require.NoError(t, cmd.ParseFlags(tc.flags))
+		require.Equal(t, tc.want, kindFromFlags(cmd))
+	}
+}
+
+// initFlagsCmd is a throwaway command carrying init's flags, so a test never
+// leaves flags set on the command the binary runs.
+func initFlagsCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "init"}
+	addInitFlags(cmd)
+	return cmd
 }

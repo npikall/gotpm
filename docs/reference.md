@@ -68,6 +68,10 @@ dependency's own `gotpm.lock`, records them in yours and installs them into the
 font. Where your lock already pins the family at another commit, that pin is
 kept and the conflict is reported.
 
+`add` asks before it changes anything, naming the project and whether it is a
+package or a document project. `--yes` skips the question; without a terminal
+to ask on, `add` refuses unless `--yes` is given.
+
 [:octicons-arrow-right-24: Managing dependencies](guides/dependencies.md)
 
 ## `bump`
@@ -185,7 +189,9 @@ replaced or deleted without `--force`; `sync` skips it with a warning.
 
 ## `init`
 
-Scaffold a minimal Typst package: a `typst.toml` and a `lib.typ`.
+Scaffold a minimal Typst package: a `typst.toml` and a `lib.typ`. With `--doc`,
+scaffold a document project instead: a `typst.toml` marked
+`kind = "document"` and a `main.typ`.
 
 ```console
 --8<-- "docs/includes/cli/init.txt"

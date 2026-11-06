@@ -440,3 +440,27 @@ func TestRun_Remote_SkipsAnUnreachableDependency(t *testing.T) { //nolint: paral
 	assert.FileExists(t, filepath.Join(packages, manifest.Namespace, "sibling", "1.0.0", "lib.typ"))
 	assert.NoDirExists(t, filepath.Join(packages, manifest.Namespace, "leaf", "1.0.0"))
 }
+
+// TestRun_InstallsADocumentProject pins that a document project is warned
+// about, not refused: the warning is advice, the install still happens.
+func TestRun_InstallsADocumentProject(t *testing.T) {
+	t.Parallel()
+	src := sourcePackage(t, "v1")
+	require.NoError(t, paths.WriteFile(filepath.Join(src, "typst.toml"),
+		[]byte(manifestTOML+"\n[tool.gotpm]\nkind = \"document\"\n")))
+	opts, dest := destination(t)
+
+	require.NoError(t, install.Run(src, opts, discardLogger()))
+
+	assert.FileExists(t, filepath.Join(dest, "lib.typ"))
+}
+
+func TestKindWarning(t *testing.T) {
+	t.Parallel()
+	doc := &manifest.Manifest{}
+	doc.Package.Name = "thesis"
+	doc.Tool.Gotpm.Kind = manifest.KindDocument
+	assert.Contains(t, install.KindWarning(doc), `"thesis" is a document project`)
+
+	assert.Empty(t, install.KindWarning(&manifest.Manifest{}), "a package is what install is for")
+}

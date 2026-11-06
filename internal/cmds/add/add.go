@@ -23,6 +23,10 @@ import (
 // it writes is public resolution data (ADR 0001).
 var ErrUnresolvable = errors.New("cannot resolve dependency")
 
+// ErrNeedsConfirmation is returned when add would have to ask before adding a
+// dependency, but there is no terminal to ask on.
+var ErrNeedsConfirmation = errors.New("refusing to add a dependency without a terminal to confirm it: pass --yes")
+
 // Options holds the resolved add flags.
 type Options struct {
 	// Revision is the tag, branch or commit to pin. Empty asks for the newest
@@ -30,6 +34,11 @@ type Options struct {
 	Revision string
 	// Force replaces a package installed from another repository.
 	Force bool
+	// Yes adds without asking first.
+	Yes bool
+	// Confirm asks the question add puts before adding a dependency. Nil asks
+	// on the terminal.
+	Confirm func(question string) (bool, error)
 }
 
 // Run adds the package at url to the current project. The lock is written
@@ -42,6 +51,14 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	}
 	logger.Debug("adding to project", "dir", project.Dir)
 
+	approved, err := approve(url, project, opts)
+	if err != nil {
+		return err
+	}
+	if !approved {
+		ui.Infof("did not add %s", url)
+		return nil
+	}
 	walked, results, err := fetch(url, opts, logger)
 	if err != nil {
 		return err
@@ -54,6 +71,24 @@ func Run(url string, opts *Options, logger *log.Logger) error {
 	ui.Notes("", deps.UnreachableWarning(unreachablePins(walked.Unresolved), "the project"))
 	fontResults.Report()
 	return nil
+}
+
+// approve asks whether url should become a dependency of project. A package
+// and a document project are asked the same question; naming the kind in it
+// is what lets the user notice they are in the wrong one.
+func approve(url string, project *deps.Project, opts *Options) (bool, error) {
+	if opts.Yes {
+		return true, nil
+	}
+	ask := opts.Confirm
+	if ask == nil {
+		if !ui.IsTerminal() {
+			return false, ErrNeedsConfirmation
+		}
+		ask = ui.Confirm
+	}
+	m := project.Manifest
+	return ask(fmt.Sprintf("add %s to %s %q?", url, m.Kind(), m.Package.Name))
 }
 
 // fetch resolves url and everything it depends on, and installs it all. The
