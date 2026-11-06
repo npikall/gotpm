@@ -74,13 +74,10 @@ info: installed @local/thesis:0.1.0
 
 ## A worked example
 
-Add a repository. gotpm asks first, naming the project and what kind it is, so
-a dependency does not land in the wrong one. Everything it depends on comes
-along:
+Add a repository. Everything it depends on comes along:
 
 ```console
 $ gotpm add github.com/user/cetz
-add github.com/user/cetz to document "thesis"? [y/N] y
 info: added @gotpm/cetz:0.3.1 from github.com/user/cetz
 info:   @gotpm/oxifmt:0.2.1 (via @gotpm/cetz:0.3.1)
 ```
@@ -94,8 +91,17 @@ $ gotpm add github.com/user/cetz -t 4f2a1c9
 $ gotpm add git@github.com:user/private-pkg.git
 ```
 
+A repository that is a document project rather than a package is asked about
+before anything changes, since nothing is meant to import one:
+
+```console
+$ gotpm add github.com/user/thesis
+github.com/user/thesis is a document project, not a package: nothing is meant to import it. add it to document "notes" anyway? [y/N]
+```
+
 `--yes` answers the question up front. Without a terminal to ask on — in CI,
-or with stdin redirected — `gotpm add` refuses unless `--yes` is given.
+or with stdin redirected — `gotpm add` refuses such a repository unless
+`--yes` is given.
 
 Only the package you asked for is written to `typst.toml`; the rest are recorded
 in the lock as transitive:

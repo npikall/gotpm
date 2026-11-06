@@ -72,9 +72,10 @@ dependency's own `gotpm.lock`, records them in yours and installs them into the
 font. Where your lock already pins the family at another commit, that pin is
 kept and the conflict is reported.
 
-`add` asks before it changes anything, naming the project and whether it is a
-package or a document project. `--yes` skips the question; without a terminal
-to ask on, `add` refuses unless `--yes` is given.
+A package is added without asking. A repository that is a document project is
+asked about first, since nothing is meant to import one: `--yes` skips the
+question, and without a terminal to ask on, `add` refuses unless `--yes` is
+given.
 
 [:octicons-arrow-right-24: Managing dependencies](guides/dependencies.md)
 

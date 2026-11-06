@@ -75,6 +75,8 @@ type Package struct {
 	// the next release's manifest states, neither when "".
 	compiler    string
 	compilerPin string
+	// document makes the next release's manifest mark it a document project.
+	document bool
 }
 
 // New creates an empty repository for a package. Nothing is committed until
@@ -152,6 +154,12 @@ func (p *Package) RequireCompiler(version string) *Package {
 // package that was itself compiled with gotpm run ships.
 func (p *Package) PinCompiler(version string) *Package {
 	p.compilerPin = version
+	return p
+}
+
+// Document makes the next release a document project rather than a package.
+func (p *Package) Document() *Package {
+	p.document = true
 	return p
 }
 
@@ -250,8 +258,11 @@ func (p *Package) manifest(declared []string) []byte {
 	if p.compiler != "" {
 		fmt.Fprintf(&b, "compiler = %q\n", p.compiler)
 	}
-	if len(declared) > 0 || p.compilerPin != "" {
+	if len(declared) > 0 || p.compilerPin != "" || p.document {
 		b.WriteString("\n[tool.gotpm]\n")
+	}
+	if p.document {
+		b.WriteString("kind = \"document\"\n")
 	}
 	if p.compilerPin != "" {
 		fmt.Fprintf(&b, "compiler-pin = %q\n", p.compilerPin)

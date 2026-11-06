@@ -294,39 +294,44 @@ func answers(yes bool) (func(string) (bool, error), *[]string) {
 	}, &asked
 }
 
-func TestRun_AsksBeforeAddingToEitherKind(t *testing.T) { //nolint: paralleltest
-	for _, tc := range []struct {
-		tool     string
-		question string
-	}{
-		{"", `package "proj"`},
-		{"\n[tool.gotpm]\nkind = \"document\"\n", `document "proj"`},
-	} {
-		packages := testrepo.Isolate(t)
-		project := testrepo.Project(t, "proj")
-		appendManifest(t, project, tc.tool)
-		dep := testrepo.New(t, "cetz", "0.3.1").Release()
-		confirm, asked := answers(true)
+func TestRun_AddsAPackageWithoutAsking(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	project := testrepo.Project(t, "proj")
+	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	confirm, asked := answers(false)
 
-		require.NoError(t, add.Run(dep.URL(), &add.Options{Confirm: confirm}, discardLogger()))
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Confirm: confirm}, discardLogger()))
 
-		require.Len(t, *asked, 1, "a dependency must not be added without being asked about")
-		assert.Contains(t, (*asked)[0], dep.URL())
-		assert.Contains(t, (*asked)[0], tc.question)
-		assert.True(t, installed(t, packages, "cetz", "0.3.1"))
-		assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
-	}
+	assert.Empty(t, *asked, "a package is what a dependency is meant to be")
+	assert.True(t, installed(t, packages, "cetz", "0.3.1"))
+	assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
+}
+
+func TestRun_AsksBeforeAddingADocumentProject(t *testing.T) { //nolint: paralleltest
+	packages := testrepo.Isolate(t)
+	project := testrepo.Project(t, "proj")
+	dep := testrepo.New(t, "thesis", "0.1.0").Document().Release()
+	confirm, asked := answers(true)
+
+	require.NoError(t, add.Run(dep.URL(), &add.Options{Confirm: confirm}, discardLogger()))
+
+	require.Len(t, *asked, 1, "nothing is meant to import a document project")
+	assert.Contains(t, (*asked)[0], dep.URL())
+	assert.Contains(t, (*asked)[0], "document")
+	assert.Contains(t, (*asked)[0], `"proj"`, "the question names the project it lands in")
+	assert.True(t, installed(t, packages, "thesis", "0.1.0"))
+	assert.Equal(t, []string{"@gotpm/thesis:0.1.0"}, declared(t, project))
 }
 
 func TestRun_DeclinedAddsNothing(t *testing.T) { //nolint: paralleltest
 	packages := testrepo.Isolate(t)
 	project := testrepo.Project(t, "proj")
-	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	dep := testrepo.New(t, "thesis", "0.1.0").Document().Release()
 	confirm, _ := answers(false)
 
 	require.NoError(t, add.Run(dep.URL(), &add.Options{Confirm: confirm}, discardLogger()))
 
-	assert.False(t, installed(t, packages, "cetz", "0.3.1"))
+	assert.False(t, installed(t, packages, "thesis", "0.1.0"))
 	assert.Empty(t, declared(t, project))
 	assert.NoFileExists(t, filepath.Join(project, lockfile.FileName))
 }
@@ -334,32 +339,24 @@ func TestRun_DeclinedAddsNothing(t *testing.T) { //nolint: paralleltest
 func TestRun_YesSkipsTheQuestion(t *testing.T) { //nolint: paralleltest
 	testrepo.Isolate(t)
 	project := testrepo.Project(t, "proj")
-	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	dep := testrepo.New(t, "thesis", "0.1.0").Document().Release()
 	confirm, asked := answers(false)
 
 	require.NoError(t, add.Run(dep.URL(), &add.Options{Yes: true, Confirm: confirm}, discardLogger()))
 
 	assert.Empty(t, *asked, "--yes has already answered")
-	assert.Equal(t, []string{"@gotpm/cetz:0.3.1"}, declared(t, project))
+	assert.Equal(t, []string{"@gotpm/thesis:0.1.0"}, declared(t, project))
 }
 
 func TestRun_NeedsSomeoneToConfirm(t *testing.T) { //nolint: paralleltest
 	packages := testrepo.Isolate(t)
 	project := testrepo.Project(t, "proj")
-	dep := testrepo.New(t, "cetz", "0.3.1").Release()
+	dep := testrepo.New(t, "thesis", "0.1.0").Document().Release()
 
 	// No stub and no terminal under test, so there is nobody to ask.
 	err := add.Run(dep.URL(), &add.Options{}, discardLogger())
 
 	require.ErrorIs(t, err, add.ErrNeedsConfirmation)
-	assert.False(t, installed(t, packages, "cetz", "0.3.1"))
+	assert.False(t, installed(t, packages, "thesis", "0.1.0"))
 	assert.Empty(t, declared(t, project))
-}
-
-func appendManifest(t *testing.T, projectDir, extra string) {
-	t.Helper()
-	file := filepath.Join(projectDir, manifest.FileName)
-	raw, err := os.ReadFile(file)
-	require.NoError(t, err)
-	require.NoError(t, paths.WriteFile(file, append(raw, extra...)))
 }
