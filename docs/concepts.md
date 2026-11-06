@@ -226,21 +226,49 @@ of the **cache**: `gotpm cache clear` empties it, and deleting it loses nothing.
 
 The package directory is never cache.
 
+## Compilers
+
+A **compiler** is a release of the Typst compiler binary, named by its version.
+`gotpm run` runs only compilers gotpm installed itself, into the **compiler
+directory**, one per version; a `typst` on your `$PATH` is never used. Like the
+font directory, the compiler directory is not cache.
+
+Two keys of the manifest decide which compiler a project gets:
+
+| Key | What it says |
+| --- | --- |
+| `[package] compiler` | The **compiler requirement**: the lowest compiler the package compiles with. A floor — any newer compiler satisfies it. Typst defines it. |
+| `[tool.gotpm] compiler-pin` | The **compiler pin**: the exact compiler the project is compiled with. gotpm's own. |
+
+The floor a project's pin has to satisfy is the highest compiler requirement of
+the project and its installed declared dependencies. A dependency's compiler pin means
+nothing to its dependents: only its requirement counts. The pin lives in the
+manifest rather than in the lock for that reason — the lock is resolution data
+for dependents, and a pin resolves nothing for them
+([ADR 0010](adr/0010-compiler-pin-lives-in-the-manifest.md)).
+
+`run` writes the pin itself when the project has none, or when it falls below
+the floor, and says so.
+
 ## Project commands and standalone commands
 
 Every gotpm command is one or the other, and the difference decides which flags
 it takes.
 
-**Project commands** — `add`, `sync`, `remove` — take the current project as
-their subject. They read `typst.toml` and `gotpm.lock` and install or delete the
-whole dependency graph those two describe. Run one outside a project and it says
+**Project commands** — `add`, `sync`, `remove`, `font add`, `font remove`,
+`compiler pin` — take the current project as their subject. Most read
+`typst.toml` and `gotpm.lock` and install or delete the whole dependency graph
+those two describe; `compiler pin` only writes the compiler pin into
+`typst.toml`. Run one outside a project and it says
 so. Because a graph is many packages, a project command always works on the
 package directory and never takes an install dir. (`bump` and `locate` read the
 project too, but change no dependency.)
 
 **Standalone commands** — `install`, `uninstall`, `list`, `check`, `publish`,
-`init`, `update`, `cache`, `config`, `self` — need no project, so the directory
-they operate on can be named on the command line.
+`init`, `update`, `cache`, `config`, `self`, `font install`, `font uninstall`,
+`font search`, `run`, `compiler list`, `compiler uninstall` — need no project,
+so the directory they operate on can be named on the command line. `run` reads
+the project when there is one, to find its compiler pin.
 
 ## Where to go next
 
@@ -248,4 +276,5 @@ they operate on can be named on the command line.
   workflow end to end
 - [Authoring a package](guides/authoring.md) — scaffold, install, iterate, bump
 - [Publishing](guides/publishing.md) — getting a release into the Typst Universe
+- [Running the compiler](guides/compilers.md) — `gotpm run` and the compiler pin
 - [Command reference](reference.md) — every command and flag

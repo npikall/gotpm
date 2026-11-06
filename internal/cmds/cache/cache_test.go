@@ -225,3 +225,19 @@ func TestClear_FontsDryRunDeletesNothing(t *testing.T) { //nolint: paralleltest
 
 	assert.DirExists(t, fontsDir)
 }
+
+func TestClear_NeverTouchesTheCompilerDirectory(t *testing.T) { //nolint: paralleltest
+	for _, opts := range []cachecmd.Options{{}, {Forks: true}, {Fonts: true}, {Forks: true, Fonts: true}} {
+		isolateCacheDir(t)
+		seedCacheState(t)
+		compilersDir, err := paths.GotpmCompilersDir()
+		require.NoError(t, err)
+		binary := filepath.Join(compilersDir, "0.13.1", "typst")
+		require.NoError(t, os.MkdirAll(filepath.Dir(binary), paths.DirPerm))
+		require.NoError(t, os.WriteFile(binary, []byte("typst"), paths.FilePerm))
+
+		require.NoError(t, cachecmd.Clear(&opts, discardLogger()))
+
+		assert.FileExists(t, binary, "the compiler directory is never cache: %+v", opts)
+	}
+}

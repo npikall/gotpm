@@ -12,8 +12,9 @@ var fontCmd = &cobra.Command{
 	Long: `Download and install fonts, and make typst projects reproducible.
 
 Fonts come from the Google Fonts repository (github.com/google/fonts) and are
-kept in gotpm's font directory, one directory per family. Typst does not look
-there on its own; point $TYPST_FONT_PATHS at it, e.g. in ~/.bashrc:
+kept in gotpm's font directory, one directory per family. 'gotpm run' adds it
+to typst's font paths by itself. A plain typst does not look there on its own;
+to use one, point $TYPST_FONT_PATHS at it, e.g. in ~/.bashrc:
 
   export TYPST_FONT_PATHS="$(gotpm locate fonts)"
 

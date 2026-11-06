@@ -19,6 +19,11 @@ func Stderr() io.Writer {
 	return Pausing(colorprofile.NewWriter(os.Stderr, os.Environ()))
 }
 
+// Stdout returns the stdout the printers write to.
+func Stdout() io.Writer {
+	return stdout
+}
+
 func Print(v ...any) {
 	_, _ = fmt.Fprint(stdout, v...)
 }
@@ -28,15 +33,25 @@ func Printf(format string, a ...any) {
 }
 
 func Infof(format string, a ...any) {
+	Finfof(stdout, format, a...)
+}
+
+// Finfof writes an info line to w.
+func Finfof(w io.Writer, format string, a ...any) {
 	prefix := Green.Render("info")
 	text := Normal.Render(fmt.Sprintf(format, a...))
-	_, _ = fmt.Fprintf(stdout, "%s: %s\n", prefix, text)
+	_, _ = fmt.Fprintf(w, "%s: %s\n", prefix, text)
 }
 
 func Warnf(format string, a ...any) {
+	Fwarnf(stdout, format, a...)
+}
+
+// Fwarnf writes a warning line to w.
+func Fwarnf(w io.Writer, format string, a ...any) {
 	prefix := YellowBold.Render("warning")
 	text := Normal.Render(fmt.Sprintf(format, a...))
-	_, _ = fmt.Fprintf(stdout, "%s: %s\n", prefix, text)
+	_, _ = fmt.Fprintf(w, "%s: %s\n", prefix, text)
 }
 
 // Missingf reports something that could not be found.

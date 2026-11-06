@@ -32,7 +32,11 @@ gotpm locate
 # Print one path, for use in a shell
 cd "$(gotpm locate packages)"
 
-# Let typst find the fonts gotpm installs, e.g. in ~/.bashrc
+# List the installed compilers
+ls "$(gotpm locate compilers)"
+
+# Let a plain typst find the fonts gotpm installs, e.g. in ~/.bashrc
+# ('gotpm run' needs no setup)
 export TYPST_FONT_PATHS="$(gotpm locate fonts)"`,
 	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: locate.Keys(),

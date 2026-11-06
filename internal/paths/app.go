@@ -31,3 +31,13 @@ func GotpmFontsDir() (string, error) {
 	}
 	return filepath.Join(dataDir, "fonts"), nil
 }
+
+// GotpmCompilersDir returns the directory installed compilers are kept under,
+// one directory per version, without creating it.
+func GotpmCompilersDir() (string, error) {
+	dataDir, err := GotpmDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dataDir, "compilers"), nil
+}
