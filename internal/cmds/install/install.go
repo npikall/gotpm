@@ -64,6 +64,7 @@ func runLocal(path string, opts *Options, log *log.Logger) error {
 	if err != nil {
 		return err
 	}
+	ui.Notes("", kindWarning(m))
 	s, ref, err := destination(opts, m, log)
 	if err != nil {
 		return err
@@ -86,6 +87,16 @@ func loadSource(path string, log *log.Logger) (string, *manifest.Manifest, error
 	}
 	log.Debug("found package", "name", m.Package.Name, "version", m.Package.Version, "root", sourceDir)
 	return sourceDir, m, nil
+}
+
+// kindWarning is what install says before installing a document project
+// (ADR 0007): nothing imports one, so it is most likely the wrong directory.
+// It is advice, not a refusal. A package gets no warning.
+func kindWarning(m *manifest.Manifest) string {
+	if m.Kind() != manifest.KindDocument {
+		return ""
+	}
+	return fmt.Sprintf("%q is a document project, not a package: nothing is meant to import it", m.Package.Name)
 }
 
 // destination is where the package goes, cleared of what was there when
