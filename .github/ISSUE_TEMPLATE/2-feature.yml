@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a new feature or command for gotpm.
+title: "feature: "
+labels: [feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+      placeholder: When I develop a package, I always have to ...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should gotpm solve it? Example commands or flags help a lot.
+      placeholder: |
+        gotpm install --watch
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other tools that solve this.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to open a pull request for this.

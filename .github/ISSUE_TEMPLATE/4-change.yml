@@ -1,0 +1,27 @@
+name: Change request
+description: Suggest any other change (behavior, defaults, CI, packaging, ...).
+title: "change: "
+body:
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: What does gotpm do today, and why is that a problem?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed change
+      description: What should change instead?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Could this break existing workflows, lockfiles or CI setups?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

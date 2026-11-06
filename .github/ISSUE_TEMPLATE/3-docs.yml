@@ -1,0 +1,31 @@
+name: Documentation
+description: Point at unclear, missing or outdated documentation.
+title: "docs: "
+labels: [docs]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Where?
+      description: Link to the docs page, README section, or the command whose `--help` text is affected.
+      placeholder: https://npikall.github.io/gotpm/... or `gotpm sync --help`
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem?
+      options:
+        - Unclear or confusing
+        - Missing
+        - Outdated or wrong
+        - Typo or formatting
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is wrong, and what would you expect to read instead?
+    validations:
+      required: true
