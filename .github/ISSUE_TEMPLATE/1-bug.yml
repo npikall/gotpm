@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in gotpm does not work as expected.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please search
+        [existing issues](https://github.com/npikall/gotpm/issues?q=is%3Aissue) first.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Exact commands that trigger the bug. If a specific package or `gotpm.lock`
+        is involved, link a repo or paste the relevant files.
+      placeholder: |
+        gotpm init
+        gotpm install -v
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: |
+        Full terminal output, ideally re-run with `-vv` for verbose logs.
+        Paste text, no screenshots. Rendered as a code block automatically.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: gotpm version
+      description: Output of `gotpm --version`.
+      placeholder: e.g. v1.2.3
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation method
+      options:
+        - Homebrew
+        - Shell / PowerShell install script
+        - go install
+        - Nix
+        - Binary from GitHub Releases
+        - Built from source
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Typst version, related issues, anything else that might help.
