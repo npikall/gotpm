@@ -44,7 +44,7 @@ signs:
       - --yes
     artifacts: checksum
 
-# git-cliff (cliff.toml) generates the release notes, fed in via
+# git-cliff (.config/cliff.toml) generates the release notes, fed in via
 # `goreleaser release --release-notes=...`. Do NOT set changelog.disable:
 # true here — GoReleaser's changelog pipe skips entirely when disabled,
 # which also skips loading the --release-notes file, leaving the release

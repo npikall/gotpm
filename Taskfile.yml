@@ -48,28 +48,28 @@ tasks:
     aliases: [l]
     sources:
       - '**/*.go'
-      - .golangci.yml
+      - .config/golangci.yml
       - go.mod
     cmds:
-      - golangci-lint run
+      - golangci-lint run --config .config/golangci.yml
 
   lint:fix:
     desc: Run golangci-lint and fix any issues
     sources:
       - '**/*.go'
-      - .golangci.yml
+      - .config/golangci.yml
       - go.mod
     cmds:
-      - golangci-lint run --fix
+      - golangci-lint run --fix --config .config/golangci.yml
 
   format:
     desc: Run golangci-lint and format any Go files
     aliases: [fmt, f]
     sources:
       - '**/*.go'
-      - .golangci.yml
+      - .config/golangci.yml
     cmds:
-      - golangci-lint fmt
+      - golangci-lint fmt --config .config/golangci.yml
 
   test:install:
     internal: True
@@ -130,18 +130,20 @@ tasks:
       The snippets are build output, not source: they are gitignored and
       regenerated on every docs build, so they are never fingerprinted.
     cmds:
-      - ./scripts/gen-cli-docs.sh
+      - ./docs/gen-cli-docs.sh
 
   docs:serve:
     desc: Serve the documentation locally
     aliases: [d]
     deps: [docs:cli]
+    dir: docs
     cmds:
       - zensical serve
 
   docs:build:
     desc: Build the documentation site
     deps: [docs:cli]
+    dir: docs
     cmds:
       - zensical build --clean
 
@@ -149,10 +151,10 @@ tasks:
     desc: Clean repo from generated files
     aliases: [c]
     cmds:
-      - rm -fr site/
+      - rm -fr docs/site/
       - rm -fr docs/includes/cli
       - rm -fr .task/
-      - rm -fr .cache/
+      - rm -fr docs/.cache/
       - rm -fr lib.typ
       - rm -fr typst.toml
       - rm -fr gotpm.lock
@@ -194,7 +196,7 @@ tasks:
       --prerelease flag.
     vars:
       VERSION:
-        sh: "svu {{index .MATCH 0}}{{if .PRE}} --prerelease {{.PRE}}{{end}}"
+        sh: "svu {{index .MATCH 0}} --config .config/svu.yml{{if .PRE}} --prerelease {{.PRE}}{{end}}"
     cmds:
       - task: "release-internal:{{.VCS}}"
         vars:
