@@ -7,6 +7,9 @@ Copyright &copy; 2025 Nikolas Pikall
 """
 repo_url = "https://github.com/npikall/gotpm"
 repo_name = "npikall/gotpm"
+# Paths below resolve against this file, not the repo root.
+docs_dir = "content"
+edit_uri = "edit/master/docs/content/"
 
 nav = [
 	"index.md",
@@ -130,7 +133,7 @@ clickable_checkbox = true
 # with GitHub - CONTRIBUTING.md, README.md - render the same in both places.
 [project.markdown_extensions."github-callouts"]
 [project.markdown_extensions.pymdownx.snippets]
-base_path = ["."]
+base_path = [".."]
 # Fail the build on a missing snippet, so a renamed CLI snippet cannot ship as
 # an empty code block.
 check_paths = true

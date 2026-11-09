@@ -26,7 +26,7 @@ use it.
 
 ---
 
-<img class="shadow" src="https://github.com/npikall/gotpm/raw/master/docs/assets/casette.gif">
+<img class="shadow" src="https://github.com/npikall/gotpm/raw/master/docs/content/assets/casette.gif">
 
 ## Installation
 

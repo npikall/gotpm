@@ -50,9 +50,10 @@ Ready to contribute? Here's how to set up `gotpm` for local development.
 
 ## Documentation
 
-The site is built with [zensical][zensical] from `zensical.toml` and the
-Markdown in `docs/`. Install it with the `markdown-callouts` extension, which
-is what renders GitHub alerts (`> [!TIP]`) as admonitions on the site:
+Everything for the site lives in `docs/`: [zensical][zensical] reads
+`docs/zensical.toml` and builds the Markdown in `docs/content/`. Install it
+with the `markdown-callouts` extension, which is what renders GitHub alerts
+(`> [!TIP]`) as admonitions on the site:
 
 ```sh
 # once
@@ -63,7 +64,7 @@ uv tool install zensical --with markdown-callouts
 # serve the site locally at http://localhost:8000
 task docs:serve
 
-# build it into site/
+# build it into docs/site/
 task docs:build
 ```
 
@@ -81,7 +82,7 @@ Prose follows the vocabulary in [`CONTEXT.md`](https://github.com/npikall/gotpm/
 the docs and the CLI strings are both written against. The decision records in
 [`docs/adr/`](https://github.com/npikall/gotpm/tree/main/docs/adr) explain why the
 non-obvious parts are the way they are; they are for people working on gotpm and
-are deliberately not published to the site.
+are deliberately not published to the site, so they sit outside `docs/content/`.
 
 [go-task]: <https://github.com/go-task/task>
 [zensical]: <https://zensical.org>

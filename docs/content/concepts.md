@@ -245,7 +245,7 @@ the project and its installed declared dependencies. A dependency's compiler pin
 nothing to its dependents: only its requirement counts. The pin lives in the
 manifest rather than in the lock for that reason — the lock is resolution data
 for dependents, and a pin resolves nothing for them
-([ADR 0010](adr/0010-compiler-pin-lives-in-the-manifest.md)).
+([ADR 0010](https://github.com/npikall/gotpm/blob/master/docs/adr/0010-compiler-pin-lives-in-the-manifest.md)).
 
 `run` writes the pin itself when the project has none, or when it falls below
 the floor, and says so.

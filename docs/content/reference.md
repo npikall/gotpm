@@ -196,7 +196,7 @@ Its pin in `gotpm.lock` names the commit of the Google Fonts repository and the
 SHA-256 of every file, so `gotpm sync` installs exactly the files that were
 added, wherever it runs. A lock holding font pins is format version 2, which
 versions of gotpm older than font support refuse to read
-([ADR 0007](adr/0007-font-pins-raise-the-lock-schema-version.md)); a lock
+([ADR 0007](https://github.com/npikall/gotpm/blob/master/docs/adr/0007-font-pins-raise-the-lock-schema-version.md)); a lock
 without them stays version 1.
 
 Names match the way the repository lays out its directories, ignoring case,

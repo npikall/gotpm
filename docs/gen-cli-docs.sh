@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate the CLI help snippets included by docs/reference.md.
+# Generate the CLI help snippets included by docs/content/reference.md.
 #
 # Each snippet is the output of "gotpm help <command>", de-indented and stripped
 # of the padding fang adds. The snippets are build output, not source: they are
