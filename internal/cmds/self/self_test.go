@@ -55,7 +55,7 @@ func TestIsHomebrewCellarPath(t *testing.T) {
 }
 
 // TestAssetFilterForMatchesGoReleaserNaming pins the filter against the
-// exact asset names GoReleaser produces (see .goreleaser.yaml's archives
+// exact asset names GoReleaser produces (see .config/goreleaser.yaml's archives
 // name_template), for every OS/arch this project ships, and confirms it
 // stays selective enough not to also match a neighboring platform's asset
 // or an unrelated release file.
