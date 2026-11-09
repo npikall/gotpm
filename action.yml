@@ -1,0 +1,93 @@
+name: Setup gotpm
+description: Install gotpm, the Typst package manager, and add it to the PATH.
+author: npikall
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  version:
+    description: >-
+      The gotpm release to install, such as `v0.8.1`, or `latest`. Pin a
+      version for reproducible runs.
+    required: false
+    default: latest
+
+outputs:
+  version:
+    description: The gotpm release that was installed, such as `v0.8.1`.
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: The absolute path to the gotpm binary.
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install gotpm
+      id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        REPO: npikall/gotpm
+      run: |
+        set -euo pipefail
+
+        case "$RUNNER_OS" in
+          Linux)   os=linux ;;
+          macOS)   os=darwin ;;
+          Windows) os=windows ;;
+          *) echo "::error::unsupported runner OS: $RUNNER_OS"; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64)   arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "::error::unsupported runner architecture: $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        version="$INPUT_VERSION"
+        if [ "$version" = latest ]; then
+          # Follow the redirect of /releases/latest to its tag, which needs no
+          # API call and so no token or rate limit.
+          url=$(curl -sSfLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest")
+          version="${url##*/}"
+        fi
+        case "$version" in
+          v*) ;;
+          *) version="v$version" ;;
+        esac
+
+        exe=""
+        [ "$os" = windows ] && exe=".exe"
+        asset="gotpm_${version}_${os}_${arch}${exe}"
+        base="https://github.com/$REPO/releases/download/$version"
+
+        dir="$RUNNER_TOOL_CACHE/gotpm/${version#v}/$arch"
+        bin="$dir/gotpm$exe"
+        mkdir -p "$dir"
+
+        echo "Downloading gotpm $version for $os/$arch"
+        curl -sSfL --retry 3 "$base/$asset" -o "$bin"
+
+        expected=$(curl -sSfL --retry 3 "$base/checksums.txt" | awk -v a="$asset" '$2 == a { print $1 }')
+        if [ -z "$expected" ]; then
+          echo "::error::no checksum for $asset in the $version release"
+          exit 1
+        fi
+        if command -v sha256sum > /dev/null; then
+          actual=$(sha256sum "$bin" | cut -d' ' -f1)
+        else
+          actual=$(shasum -a 256 "$bin" | cut -d' ' -f1)
+        fi
+        if [ "$actual" != "$expected" ]; then
+          echo "::error::checksum mismatch for $asset: expected $expected, got $actual"
+          exit 1
+        fi
+
+        chmod +x "$bin"
+        echo "$dir" >> "$GITHUB_PATH"
+        {
+          echo "version=$version"
+          echo "path=$bin"
+        } >> "$GITHUB_OUTPUT"
+        "$bin" --version

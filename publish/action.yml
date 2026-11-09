@@ -1,0 +1,174 @@
+name: Publish with gotpm
+description: >-
+  Publish a Typst package to a fork of typst/packages with `gotpm publish`,
+  ready for a pull request to Typst Universe.
+author: npikall
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  token:
+    description: >-
+      A token that can push to the fork, such as a fine-grained personal access
+      token with "Contents: read and write" on it. The default GITHUB_TOKEN
+      cannot push to another repository. Not needed when `local` is true.
+    required: false
+    default: ""
+  fork:
+    description: >-
+      The fork of typst/packages to push to, as `owner/repo` or a full URL.
+    required: false
+    default: ${{ github.repository_owner }}/packages
+  message:
+    description: >-
+      The commit message in the fork. Defaults to the one gotpm picks.
+    required: false
+    default: ""
+  local:
+    description: >-
+      Commit to the fork clone but do not push. Always on when the workflow
+      runs under act.
+    required: false
+    default: "false"
+  no-hooks:
+    description: Skip the package's pre- and post-publish hooks.
+    required: false
+    default: "false"
+  working-directory:
+    description: The directory of the package's typst.toml.
+    required: false
+    default: .
+  git-user-name:
+    description: >-
+      The author of the commit in the fork. Defaults to the author of the
+      commit being built.
+    required: false
+    default: ""
+  git-user-email:
+    description: >-
+      The email of the commit's author. Defaults to that of the author of the
+      commit being built.
+    required: false
+    default: ""
+
+outputs:
+  name:
+    description: The package name, from typst.toml.
+    value: ${{ steps.publish.outputs.name }}
+  version:
+    description: The package version, from typst.toml.
+    value: ${{ steps.publish.outputs.version }}
+  branch:
+    description: The branch in the fork, `<name>-<version>`.
+    value: ${{ steps.publish.outputs.branch }}
+  pull-request-url:
+    description: >-
+      A link that opens the pull request to typst/packages. Empty when nothing
+      was pushed.
+    value: ${{ steps.publish.outputs.pull-request-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Publish with gotpm
+      id: publish
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GOTPM_PUBLISH_TOKEN: ${{ inputs.token }}
+        INPUT_FORK: ${{ inputs.fork }}
+        INPUT_MESSAGE: ${{ inputs.message }}
+        INPUT_LOCAL: ${{ inputs.local }}
+        INPUT_NO_HOOKS: ${{ inputs.no-hooks }}
+        INPUT_GIT_USER_NAME: ${{ inputs.git-user-name }}
+        INPUT_GIT_USER_EMAIL: ${{ inputs.git-user-email }}
+        REGISTRY_REPO: typst/packages
+      run: |
+        set -euo pipefail
+
+        if ! command -v gotpm > /dev/null; then
+          echo "::error::gotpm is not on the PATH; add a step with \`uses: npikall/gotpm@<version>\` before this one"
+          exit 1
+        fi
+        if [ ! -f typst.toml ]; then
+          echo "::error::no typst.toml in $(pwd); set working-directory to the package's directory"
+          exit 1
+        fi
+
+        # The [package] table's name and version.
+        field() {
+          awk -v key="$1" '
+            /^\[/ { in_pkg = ($0 ~ /^\[package\][[:space:]]*$/) }
+            in_pkg && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+              sub(/^[^=]*=[[:space:]]*"/, ""); sub(/".*$/, ""); print; exit
+            }' typst.toml
+        }
+        name=$(field name)
+        version=$(field version)
+        if [ -z "$name" ] || [ -z "$version" ]; then
+          echo "::error::typst.toml has no name or version in its [package] table"
+          exit 1
+        fi
+        branch="$name-$version"
+
+        fork="$INPUT_FORK"
+        case "$fork" in
+          http://* | https://* | git@*) fork_url="$fork" ;;
+          *) fork_url="https://github.com/$fork" ;;
+        esac
+        fork_slug=$(echo "$fork_url" | sed -E 's#^(https?://github\.com/|git@github\.com:)##; s#\.git$##; s#/$##')
+
+        local_only="$INPUT_LOCAL"
+        if [ -n "${ACT:-}" ] && [ "$local_only" != true ]; then
+          echo "::notice::running under act, so the package is committed but not pushed"
+          local_only=true
+        fi
+        if [ "$local_only" != true ] && [ -z "$GOTPM_PUBLISH_TOKEN" ]; then
+          echo "::error::the token input is empty; give a token that can push to $fork_slug, or set local: true"
+          exit 1
+        fi
+
+        # Identity and credentials live in this step's environment only, so
+        # nothing is left in the runner's global git config.
+        GIT_AUTHOR_NAME="${INPUT_GIT_USER_NAME:-$(git log -1 --pretty=format:%an 2> /dev/null || true)}"
+        GIT_AUTHOR_EMAIL="${INPUT_GIT_USER_EMAIL:-$(git log -1 --pretty=format:%ae 2> /dev/null || true)}"
+        export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-github-actions[bot]}"
+        export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
+        export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+        export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+        if [ -n "$GOTPM_PUBLISH_TOKEN" ]; then
+          # An empty helper first drops any helper the runner configured.
+          export GIT_CONFIG_COUNT=2
+          export GIT_CONFIG_KEY_0=credential.https://github.com.helper
+          export GIT_CONFIG_VALUE_0=""
+          export GIT_CONFIG_KEY_1=credential.https://github.com.helper
+          export GIT_CONFIG_VALUE_1='!f() { test "$1" = get || exit 0; echo username=x-access-token; echo "password=$GOTPM_PUBLISH_TOKEN"; }; f'
+        fi
+
+        gotpm config set fork.url "$fork_url"
+
+        args=()
+        [ -n "$INPUT_MESSAGE" ] && args+=(--message "$INPUT_MESSAGE")
+        [ "$INPUT_NO_HOOKS" = true ] && args+=(--no-hooks)
+        [ "$local_only" = true ] && args+=(--local)
+        gotpm publish "${args[@]}"
+
+        pr_url=""
+        if [ "$local_only" != true ]; then
+          title=$(printf '%s:%s' "$name" "$version" | sed 's/:/%3A/g')
+          pr_url="https://github.com/$REGISTRY_REPO/compare/main...${fork_slug%%/*}:${fork_slug##*/}:$branch?expand=1&title=$title"
+          {
+            echo "### $name:$version is ready for Typst Universe"
+            echo ""
+            echo "Pushed \`$branch\` to [$fork_slug](https://github.com/$fork_slug/tree/$branch)."
+            echo "[Open the pull request to $REGISTRY_REPO]($pr_url) and fill in its checklist."
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        {
+          echo "name=$name"
+          echo "version=$version"
+          echo "branch=$branch"
+          echo "pull-request-url=$pr_url"
+        } >> "$GITHUB_OUTPUT"
