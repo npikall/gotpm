@@ -3,6 +3,10 @@ title: GoTPM
 icon: lucide/rocket
 ---
 
+<p align="center">
+  <img src="assets/logo.svg" width="260" alt="GoTPM logo">
+</p>
+
 # A package manager for Typst
 
 Typst can compile a package and it can download one from the Typst Universe.

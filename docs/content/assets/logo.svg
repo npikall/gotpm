@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 520" width="560" height="520" role="img" aria-label="GoTPM logo: a Typst package box speeding along">
+  <title>gotpm</title>
+  <defs>
+    <path id="body" d="M-112 -78 Q0 -84 112 -78 Q138 -76 138 -50 L136 116 Q134 148 104 148 L-104 150 Q-136 150 -137 118 L-138 -50 Q-138 -76 -112 -78 Z"/>
+    <path id="lid" d="M-136 -132 Q0 -138 136 -132 Q158 -130 158 -110 L157 -86 Q156 -64 134 -64 L-134 -62 Q-158 -62 -158 -86 L-158 -110 Q-158 -130 -136 -132 Z"/>
+    <g id="t">
+      <path d="M-4 -48 L-4 52 Q-4 92 40 90"/>
+      <path d="M-46 -2 Q-4 -6 46 -2"/>
+    </g>
+    <g id="puff">
+      <circle cx="122" cy="454" r="22"/>
+      <circle cx="160" cy="434" r="30"/>
+      <circle cx="198" cy="458" r="20"/>
+    </g>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- speed lines -->
+    <g stroke="#13293D" stroke-width="16">
+      <path d="M62 232 Q106 230 150 232"/>
+      <path d="M104 300 Q132 299 160 300"/>
+      <path d="M44 368 Q90 366 134 368"/>
+    </g>
+    <circle cx="66" cy="300" r="9" fill="#13293D"/>
+
+    <!-- dust puff: outline pass, then fill pass to merge the circles -->
+    <use href="#puff" stroke="#13293D" stroke-width="28"/>
+    <use href="#puff" fill="#FFFFFF"/>
+
+    <!-- the box -->
+    <g transform="translate(322 288) rotate(-8)">
+      <use href="#body" stroke="#FFFFFF" stroke-width="40"/>
+      <use href="#lid" stroke="#FFFFFF" stroke-width="40"/>
+
+      <use href="#body" fill="#FFFFFF" stroke="#13293D" stroke-width="14"/>
+      <use href="#t" transform="translate(-8 18)" stroke="#13293D" stroke-width="64"/>
+      <use href="#t" transform="translate(-8 18)" stroke="#1FA4D4" stroke-width="36"/>
+
+      <use href="#lid" fill="#1FA4D4" stroke="#13293D" stroke-width="14"/>
+      <path d="M-130 -110 Q-98 -113 -66 -112" stroke="#FFFFFF" stroke-width="10"/>
+    </g>
+
+    <!-- sparkle and dots -->
+    <path transform="translate(474 84)" d="M0 -38 Q4 -4 34 0 Q4 4 0 38 Q-4 4 -34 0 Q-4 -4 0 -38 Z"
+          fill="#1FA4D4" stroke="#13293D" stroke-width="12"/>
+    <circle cx="414" cy="42" r="8" fill="#13293D"/>
+    <circle cx="522" cy="156" r="7" fill="#13293D"/>
+  </g>
+</svg>

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/content/assets/logo.svg" width="260" alt="GoTPM logo">
+</p>
+
 # GoTPM
 
 [![Go Test](https://github.com/npikall/gotpm/actions/workflows/test.yml/badge.svg)](https://github.com/npikall/gotpm/actions/workflows/test.yml)
