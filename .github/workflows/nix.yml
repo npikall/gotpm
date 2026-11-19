@@ -14,12 +14,8 @@ concurrency:
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    name: Build
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
