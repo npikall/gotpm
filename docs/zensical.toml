@@ -32,7 +32,8 @@ nav = [
 
 [project.theme]
 # variant = "classic"
-#favicon = "images/favicon.png"
+logo = "assets/logo.svg"
+favicon = "assets/logo.svg"
 language = "en"
 features = [
 	"announce.dismiss",
@@ -86,9 +87,6 @@ accent = "deep orange"
 primary = "deep orange"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
-
-[project.theme.icon]
-logo = "lucide/package"
 
 #[[project.extra.social]]
 #icon = "fontawesome/brands/github"
